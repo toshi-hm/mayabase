@@ -20,7 +20,7 @@ export const site = {
      * YouTube Studio → 設定 → チャンネル → 詳細設定 で確認できます。
      * ここだけ任意の文字列が代入される前提のため、意図的に string へ widening しています。
      */
-    channelId: "" as string,
+    channelId: "UC3ELUpDyBSGZfZJib67t4Sg" as string,
   },
 
   x: {
