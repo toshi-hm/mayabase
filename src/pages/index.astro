@@ -10,7 +10,13 @@ import videosJson from "../data/videos.json";
 import xPostsJson from "../data/x-posts.json";
 import Base from "../layouts/Base.astro";
 import { parseXPostsData } from "../lib/x";
-import { embedUrl, parseVideosData, thumbnailFallbackUrl, videoUrl } from "../lib/youtube";
+import {
+  embedUrl,
+  parseVideosData,
+  thumbnailFallbackUrl,
+  thumbnailUrl,
+  videoUrl,
+} from "../lib/youtube";
 
 const { maxItems } = site.carousel;
 const { videos } = parseVideosData(videosJson);
@@ -23,7 +29,10 @@ const { account, posts } = parseXPostsData(xPostsJson);
 const xPosts = posts.slice(0, maxItems);
 
 // JSON-LD 構造化データ(VideoObject は Google 必須の name / description / thumbnailUrl / uploadDate を含む)
-const siteUrl = Astro.site?.toString() ?? "";
+if (!Astro.site) {
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
+}
+const siteUrl = Astro.site.toString();
 const displayedVideos = [...regularVideos, ...shortVideos];
 const jsonLd = {
   "@context": "https://schema.org",
@@ -35,6 +44,7 @@ const jsonLd = {
       description: site.description,
       url: siteUrl,
       inLanguage: "ja",
+      publisher: { "@id": `${siteUrl}#owner` },
     },
     {
       "@type": "Person",
@@ -44,12 +54,14 @@ const jsonLd = {
       url: siteUrl,
       sameAs: [site.youtube.url, site.x.url],
     },
+    // 動画一覧の記述用(遷移先は youtube.com のためホストカルーセル要件の対象外)
     ...(displayedVideos.length > 0
       ? [
           {
             "@type": "ItemList",
             "@id": `${siteUrl}#videos`,
             name: `${site.name} の最新動画`,
+            isPartOf: { "@id": `${siteUrl}#website` },
             itemListElement: displayedVideos.map((video, index) => ({
               "@type": "ListItem",
               position: index + 1,
@@ -57,7 +69,7 @@ const jsonLd = {
                 "@type": "VideoObject",
                 name: video.title,
                 description: video.description || video.title,
-                thumbnailUrl: thumbnailFallbackUrl(video.id),
+                thumbnailUrl: [thumbnailUrl(video.id), thumbnailFallbackUrl(video.id)],
                 uploadDate: video.publishedAt,
                 embedUrl: embedUrl(video.id),
                 url: videoUrl(video),
@@ -68,10 +80,11 @@ const jsonLd = {
       : []),
   ],
 };
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 ---
 
 <Base>
-  <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} slot="head" />
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
   <header class="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-20 text-center">
     <p class="text-sm font-semibold tracking-widest text-brand uppercase">YouTube Channel Portal</p>
     <h1 class="text-4xl font-bold sm:text-6xl">{site.name}</h1>
