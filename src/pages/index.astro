@@ -10,7 +10,7 @@ import videosJson from "../data/videos.json";
 import xPostsJson from "../data/x-posts.json";
 import Base from "../layouts/Base.astro";
 import { parseXPostsData } from "../lib/x";
-import { parseVideosData } from "../lib/youtube";
+import { embedUrl, parseVideosData, thumbnailFallbackUrl, videoUrl } from "../lib/youtube";
 
 const { maxItems } = site.carousel;
 const { videos } = parseVideosData(videosJson);
@@ -21,9 +21,57 @@ const shortVideos = videos.filter((v) => v.isShort === true).slice(0, maxItems);
 
 const { account, posts } = parseXPostsData(xPostsJson);
 const xPosts = posts.slice(0, maxItems);
+
+// JSON-LD 構造化データ(VideoObject は Google 必須の name / description / thumbnailUrl / uploadDate を含む)
+const siteUrl = Astro.site?.toString() ?? "";
+const displayedVideos = [...regularVideos, ...shortVideos];
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}#website`,
+      name: site.name,
+      description: site.description,
+      url: siteUrl,
+      inLanguage: "ja",
+    },
+    {
+      "@type": "Person",
+      "@id": `${siteUrl}#owner`,
+      name: site.profile.name,
+      description: site.profile.bio,
+      url: siteUrl,
+      sameAs: [site.youtube.url, site.x.url],
+    },
+    ...(displayedVideos.length > 0
+      ? [
+          {
+            "@type": "ItemList",
+            "@id": `${siteUrl}#videos`,
+            name: `${site.name} の最新動画`,
+            itemListElement: displayedVideos.map((video, index) => ({
+              "@type": "ListItem",
+              position: index + 1,
+              item: {
+                "@type": "VideoObject",
+                name: video.title,
+                description: video.description || video.title,
+                thumbnailUrl: thumbnailFallbackUrl(video.id),
+                uploadDate: video.publishedAt,
+                embedUrl: embedUrl(video.id),
+                url: videoUrl(video),
+              },
+            })),
+          },
+        ]
+      : []),
+  ],
+};
 ---
 
 <Base>
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} slot="head" />
   <header class="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-20 text-center">
     <p class="text-sm font-semibold tracking-widest text-brand uppercase">YouTube Channel Portal</p>
     <h1 class="text-4xl font-bold sm:text-6xl">{site.name}</h1>
@@ -33,7 +81,7 @@ const xPosts = posts.slice(0, maxItems);
         href={site.youtube.url}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="YouTube チャンネルを見る(新しいタブで開きます)"
+        aria-label="YouTube を見る(新しいタブで開きます)"
         class="rounded-full bg-brand px-6 py-3 font-semibold text-surface transition hover:bg-brand-strong"
       >
         YouTube を見る
@@ -50,7 +98,7 @@ const xPosts = posts.slice(0, maxItems);
     </nav>
   </header>
 
-  <main class="mx-auto max-w-6xl px-4 pb-24">
+  <main id="main" class="mx-auto max-w-6xl px-4 pb-24">
     <Profile />
 
     <section aria-labelledby="videos-heading" class="py-16">
@@ -78,7 +126,7 @@ const xPosts = posts.slice(0, maxItems);
               href={site.youtube.url}
               target="_blank"
               rel="noopener noreferrer"
-              class="text-brand underline-offset-4 hover:underline"
+              class="text-brand underline underline-offset-4"
             >
               YouTube チャンネル
             </a>
@@ -108,7 +156,7 @@ const xPosts = posts.slice(0, maxItems);
               href={site.youtube.url}
               target="_blank"
               rel="noopener noreferrer"
-              class="text-brand underline-offset-4 hover:underline"
+              class="text-brand underline underline-offset-4"
             >
               YouTube チャンネル
             </a>
@@ -138,7 +186,7 @@ const xPosts = posts.slice(0, maxItems);
               href={site.x.url}
               target="_blank"
               rel="noopener noreferrer"
-              class="text-brand underline-offset-4 hover:underline"
+              class="text-brand underline underline-offset-4"
             >
               X(@{account})
             </a>
