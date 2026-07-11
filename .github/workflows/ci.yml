@@ -61,5 +61,13 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Lighthouse CI(SEO=100、Perf/A11y/BP>=95 をゲート)
+      - name: Lighthouse CI(SEO=100 ほかを lighthouserc.json の assertion でゲート)
         run: npx --yes @lhci/cli@0.15.1 autorun
+
+      - name: 失敗時に Lighthouse レポートをアップロード
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 7
