@@ -18,6 +18,7 @@ export const site = {
      * チャンネル ID(UC で始まる不変値)。
      * 設定しておくとビルド時のハンドル解決をスキップできます(推奨)。
      * YouTube Studio → 設定 → チャンネル → 詳細設定 で確認できます。
+     * ここだけ任意の文字列が代入される前提のため、意図的に string へ widening しています。
      */
     channelId: "" as string,
   },

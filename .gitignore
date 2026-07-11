@@ -12,6 +12,7 @@ node_modules/
 # environment variables
 .env
 .env.production
+.env*.local
 
 # OS
 .DS_Store

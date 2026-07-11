@@ -18,10 +18,7 @@
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "a11y": "on",
-      "correctness": {
-        "noUndeclaredVariables": "off"
-      }
+      "a11y": "on"
     }
   },
   "css": {
