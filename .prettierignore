@@ -1,0 +1,7 @@
+# Prettier は .astro ファイル専用(それ以外は Biome が担当)
+*
+!*/
+!*.astro
+dist/
+.astro/
+node_modules/

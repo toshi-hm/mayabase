@@ -1,0 +1,40 @@
+---
+import { site } from "../config/site";
+import Base from "../layouts/Base.astro";
+---
+
+<Base>
+  <header class="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 py-24 text-center">
+    <p class="text-sm font-semibold tracking-widest text-brand uppercase">YouTube Channel Portal</p>
+    <h1 class="text-4xl font-bold sm:text-6xl">{site.name}</h1>
+    <p class="max-w-2xl text-lg text-ink-muted">{site.description}</p>
+    <nav aria-label="SNS リンク" class="flex flex-wrap justify-center gap-4">
+      <a
+        href={site.youtube.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="YouTube チャンネルを見る(新しいタブで開きます)"
+        class="rounded-full bg-brand px-6 py-3 font-semibold text-surface transition hover:bg-brand-strong"
+      >
+        YouTube を見る
+      </a>
+      <a
+        href={site.x.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="X をフォロー(新しいタブで開きます)"
+        class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface-raised"
+      >
+        X をフォロー
+      </a>
+    </nav>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 pb-24">
+    <p class="text-center text-ink-muted">コンテンツは準備中です。</p>
+  </main>
+
+  <footer class="border-t border-surface-raised py-8 text-center text-sm text-ink-muted">
+    <p>&copy; {new Date().getFullYear()} {site.name}</p>
+  </footer>
+</Base>

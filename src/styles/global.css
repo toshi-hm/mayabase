@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+  /* ブランドカラー */
+  --color-brand: oklch(72% 0.19 25);
+  --color-brand-strong: oklch(62% 0.21 25);
+  --color-surface: oklch(18% 0.015 270);
+  --color-surface-raised: oklch(23% 0.02 270);
+  --color-ink: oklch(96% 0.005 270);
+  --color-ink-muted: oklch(72% 0.01 270);
+
+  /* フォント(システムフォントスタック、Web フォント不使用) */
+  --font-sans:
+    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", Meiryo, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
