@@ -52,7 +52,8 @@ export function parseVideosData(data: unknown): VideosData {
   }
   const parsed: Video[] = videos.map((raw, i) => {
     const v = raw as Partial<Record<keyof Video, unknown>>;
-    if (typeof v.id !== "string" || v.id === "") {
+    // 形式検証はインライン属性(onerror)への注入防止も兼ねる
+    if (typeof v.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(v.id)) {
       throw new Error(`videos.json: videos[${i}].id が不正です`);
     }
     if (typeof v.title !== "string" || typeof v.description !== "string") {

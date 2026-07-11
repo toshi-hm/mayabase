@@ -320,6 +320,16 @@ describe("parseVideosData / createEmptyVideosData", () => {
     ).toThrow("id");
   });
 
+  test("id に不正な文字(引用符等)が含まれる場合はエラー(インライン属性への注入防止)", () => {
+    expect(() =>
+      parseVideosData({
+        channelId: "",
+        fetchedAt: null,
+        videos: [{ ...validVideo, id: "abc'};alert(1" }],
+      }),
+    ).toThrow("id");
+  });
+
   test("createEmptyVideosData は毎回新しいオブジェクトを返す", () => {
     const a = createEmptyVideosData();
     const b = createEmptyVideosData();

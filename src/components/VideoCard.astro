@@ -27,9 +27,13 @@ const { video, position, total, eager = false } = Astro.props;
     rel="noopener noreferrer"
     class="group/card block overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
   >
+    {
+      /* 最優先(eager)の 1 枚は存在保証のある hqdefault を直接使い、
+      onerror フォールバックの直列リクエストによる LCP 遅延を避ける */
+    }
     <img
-      src={thumbnailUrl(video.id)}
-      onerror={`this.onerror=null;this.src='${thumbnailFallbackUrl(video.id)}'`}
+      src={eager ? thumbnailFallbackUrl(video.id) : thumbnailUrl(video.id)}
+      onerror={eager ? undefined : `this.onerror=null;this.src='${thumbnailFallbackUrl(video.id)}'`}
       alt=""
       width="1280"
       height="720"
