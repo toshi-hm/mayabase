@@ -4,14 +4,23 @@ import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib
 
 interface Props {
   video: Video;
+  /** スライド位置(1 始まり) */
+  position: number;
+  /** スライド総数 */
+  total: number;
   /** ファーストビューに入るカードは true(LCP 対策で eager 読み込み) */
   eager?: boolean;
 }
 
-const { video, eager = false } = Astro.props;
+const { video, position, total, eager = false } = Astro.props;
 ---
 
-<li class="w-[80%] flex-none sm:w-[47%] lg:w-[31.5%]">
+<li
+  class="w-[80%] flex-none sm:w-[47%] lg:w-[31.5%]"
+  role="group"
+  aria-roledescription="スライド"
+  aria-label={`${position} / ${total}`}
+>
   <a
     href={videoUrl(video)}
     target="_blank"

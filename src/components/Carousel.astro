@@ -29,7 +29,7 @@ const { label } = Astro.props;
       type="button"
       data-carousel-prev
       aria-label="前のスライドへ"
-      class="rounded-full border border-ink-muted p-2 transition hover:bg-surface-raised disabled:opacity-40"
+      class="rounded-full border border-ink-muted p-2 transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-40"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path
@@ -41,13 +41,12 @@ const { label } = Astro.props;
       </svg>
     </button>
 
-    {/* WCAG 2.2.2: 常時表示の自動切替 一時停止/再開ボタン */}
+    {/* WCAG 2.2.2: 常時表示の自動切替 一時停止/再開ボタン(状態はラベル文言で伝える) */}
     <button
       type="button"
       data-carousel-toggle
       aria-label="自動切替を一時停止"
-      aria-pressed="false"
-      class="rounded-full border border-ink-muted p-2 transition hover:bg-surface-raised"
+      class="rounded-full border border-ink-muted p-2 transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand"
     >
       <svg
         width="20"
@@ -80,7 +79,7 @@ const { label } = Astro.props;
       type="button"
       data-carousel-next
       aria-label="次のスライドへ"
-      class="rounded-full border border-ink-muted p-2 transition hover:bg-surface-raised disabled:opacity-40"
+      class="rounded-full border border-ink-muted p-2 transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-40"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path
@@ -121,48 +120,58 @@ const { label } = Astro.props;
     controls.classList.remove("hidden");
     controls.classList.add("flex");
 
+    // hover/focus での一時停止はプラグイン任せにせず自前で制御する。
+    // stopOnMouseEnter / stopOnFocusIn はユーザーの明示的な停止(userPaused)を
+    // 無視して mouseleave / focusout で再生を再開してしまうため使わない。
     const autoplay = Autoplay({
       delay,
       playOnInit: !prefersReducedMotion,
-      stopOnMouseEnter: true,
-      stopOnFocusIn: true,
+      stopOnMouseEnter: false,
+      stopOnFocusIn: false,
       stopOnInteraction: false,
     });
     const embla = EmblaCarousel(viewport, { align: "start", loop: true }, [autoplay]);
 
+    // ユーザーの意図(停止ボタンを押したか)。ホバー等の一時的な停止とは区別する
+    let userPaused = prefersReducedMotion;
+
     const updateToggle = (): void => {
-      const playing = autoplay.isPlaying();
-      toggleButton.setAttribute("aria-pressed", String(!playing));
-      toggleButton.setAttribute("aria-label", playing ? "自動切替を一時停止" : "自動切替を再開");
-      toggleButton.querySelector("[data-icon-pause]")?.classList.toggle("hidden", !playing);
-      toggleButton.querySelector("[data-icon-play]")?.classList.toggle("hidden", playing);
+      toggleButton.setAttribute("aria-label", userPaused ? "自動切替を再開" : "自動切替を一時停止");
+      toggleButton.querySelector("[data-icon-pause]")?.classList.toggle("hidden", userPaused);
+      toggleButton.querySelector("[data-icon-play]")?.classList.toggle("hidden", !userPaused);
     };
 
-    // ユーザーが明示的に停止した場合はホバー解除等で勝手に再開しない
-    let userPaused = prefersReducedMotion;
     toggleButton.addEventListener("click", () => {
-      if (autoplay.isPlaying()) {
-        userPaused = true;
+      userPaused = !userPaused;
+      if (userPaused) {
         autoplay.stop();
       } else {
-        userPaused = false;
         autoplay.play();
       }
       updateToggle();
     });
-    embla.on("autoplay:play", updateToggle).on("autoplay:stop", () => {
-      updateToggle();
-    });
-    embla.on("pointerUp", () => {
+
+    // ホバー / フォーカス中は一時停止し、離れたら「ユーザーが停止していない場合のみ」再開する
+    root.addEventListener("mouseenter", () => autoplay.stop());
+    root.addEventListener("mouseleave", () => {
       if (!userPaused) autoplay.play();
+    });
+    root.addEventListener("focusin", () => autoplay.stop());
+    root.addEventListener("focusout", (event) => {
+      const next = event.relatedTarget;
+      const leftCarousel = !(next instanceof Node && root.contains(next));
+      if (!userPaused && leftCarousel) autoplay.play();
     });
 
     const dots: HTMLButtonElement[] = embla.scrollSnapList().map((_, index) => {
       const dot = document.createElement("button");
       dot.type = "button";
-      dot.className =
-        "h-2.5 w-2.5 rounded-full bg-ink-muted/40 transition aria-[current=true]:bg-brand";
+      // ヒットエリアを 24px 以上にする(WCAG 2.5.8)。見た目のドットは内側の span
+      dot.className = "p-2 focus-visible:outline-2 focus-visible:outline-brand";
       dot.setAttribute("aria-label", `${index + 1} 番目のスライドへ`);
+      const visual = document.createElement("span");
+      visual.className = "block h-2.5 w-2.5 rounded-full bg-ink-muted/70 transition";
+      dot.appendChild(visual);
       dot.addEventListener("click", () => embla.scrollTo(index));
       dotsContainer.appendChild(dot);
       return dot;
@@ -171,7 +180,10 @@ const { label } = Astro.props;
     const updateSelection = (): void => {
       const selected = embla.selectedScrollSnap();
       dots.forEach((dot, index) => {
-        dot.setAttribute("aria-current", String(index === selected));
+        const isSelected = index === selected;
+        dot.setAttribute("aria-current", String(isSelected));
+        dot.firstElementChild?.classList.toggle("bg-brand", isSelected);
+        dot.firstElementChild?.classList.toggle("bg-ink-muted/70", !isSelected);
       });
       // 自動切替中の読み上げ連発を避け、停止中のみ現在位置を通知する
       if (status && !autoplay.isPlaying()) {

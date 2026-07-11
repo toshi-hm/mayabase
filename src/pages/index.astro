@@ -63,7 +63,12 @@ const xPosts = posts.slice(0, maxItems);
         regularVideos.length > 0 ? (
           <Carousel label="最新動画の一覧">
             {regularVideos.map((video, index) => (
-              <VideoCard video={video} eager={index === 0} />
+              <VideoCard
+                video={video}
+                position={index + 1}
+                total={regularVideos.length}
+                eager={index === 0}
+              />
             ))}
           </Carousel>
         ) : (
@@ -92,8 +97,8 @@ const xPosts = posts.slice(0, maxItems);
       {
         shortVideos.length > 0 ? (
           <Carousel label="Shorts の一覧">
-            {shortVideos.map((video) => (
-              <ShortCard video={video} />
+            {shortVideos.map((video, index) => (
+              <ShortCard video={video} position={index + 1} total={shortVideos.length} />
             ))}
           </Carousel>
         ) : (
@@ -122,8 +127,8 @@ const xPosts = posts.slice(0, maxItems);
       {
         xPosts.length > 0 ? (
           <Carousel label="X ポストの一覧">
-            {xPosts.map((post) => (
-              <PostCard post={post} account={account} />
+            {xPosts.map((post, index) => (
+              <PostCard post={post} account={account} position={index + 1} total={xPosts.length} />
             ))}
           </Carousel>
         ) : (

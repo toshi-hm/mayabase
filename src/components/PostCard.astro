@@ -5,12 +5,21 @@ import { postUrl, type XPost } from "../lib/x";
 interface Props {
   post: XPost;
   account: string;
+  /** スライド位置(1 始まり) */
+  position: number;
+  /** スライド総数 */
+  total: number;
 }
 
-const { post, account } = Astro.props;
+const { post, account, position, total } = Astro.props;
 ---
 
-<li class="w-[85%] flex-none sm:w-[47%] lg:w-[31.5%]">
+<li
+  class="w-[85%] flex-none sm:w-[47%] lg:w-[31.5%]"
+  role="group"
+  aria-roledescription="スライド"
+  aria-label={`${position} / ${total}`}
+>
   <a
     href={postUrl(account, post.id)}
     target="_blank"

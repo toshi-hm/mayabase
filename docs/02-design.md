@@ -108,7 +108,8 @@ interface Video {
 - **アクセシビリティ / UX**(WCAG 2.2.2 Pause, Stop, Hide 準拠):
   - **常時表示の再生 / 一時停止ボタン**(`aria-label` + `aria-pressed`)を必須とする(ホバー不能なタッチ・SR ユーザーへの停止手段)
   - 前へ / 次へボタン(`aria-label` 付き)とドットインジケータ
-  - カルーセル領域に `aria-roledescription="カルーセル"`、自動切替中は `aria-live="off"`、手動操作時のみ現在位置を通知
+  - カルーセル領域に `aria-roledescription="カルーセル"`、各スライドに `role="group"` + `aria-roledescription="スライド"` + `aria-label="n / m"`。`role="status"` 要素は自動切替中には更新せず、停止中の手動操作時のみ現在位置を通知(読み上げ連発の防止)
+  - hover / focus の一時停止はプラグイン任せにせず自前実装(ユーザーの明示停止を mouseleave / focusout が上書きしないようにするため)
   - ホバー・フォーカス中は自動切替を一時停止(`stopOnMouseEnter` / `stopOnFocusIn`)
   - `prefers-reduced-motion: reduce` の場合は自動切替を初期無効化
   - キーボード操作対応(Embla 標準 + Tab フォーカス)

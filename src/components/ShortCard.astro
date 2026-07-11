@@ -4,12 +4,21 @@ import { thumbnailFallbackUrl, type Video, videoUrl } from "../lib/youtube";
 
 interface Props {
   video: Video;
+  /** スライド位置(1 始まり) */
+  position: number;
+  /** スライド総数 */
+  total: number;
 }
 
-const { video } = Astro.props;
+const { video, position, total } = Astro.props;
 ---
 
-<li class="w-[40%] flex-none sm:w-[30%] lg:w-[15.2%]">
+<li
+  class="w-[40%] flex-none sm:w-[30%] lg:w-[15.2%]"
+  role="group"
+  aria-roledescription="スライド"
+  aria-label={`${position} / ${total}`}
+>
   <a
     href={videoUrl(video)}
     target="_blank"
