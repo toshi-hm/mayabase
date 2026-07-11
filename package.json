@@ -19,6 +19,8 @@
   "dependencies": {
     "@astrojs/sitemap": "3.7.3",
     "astro": "7.0.7",
+    "embla-carousel": "8.6.0",
+    "embla-carousel-autoplay": "8.6.0",
     "fast-xml-parser": "5.9.3"
   },
   "devDependencies": {

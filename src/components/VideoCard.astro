@@ -1,0 +1,41 @@
+---
+import { formatDateJa } from "../lib/format";
+import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
+
+interface Props {
+  video: Video;
+  /** ファーストビューに入るカードは true(LCP 対策で eager 読み込み) */
+  eager?: boolean;
+}
+
+const { video, eager = false } = Astro.props;
+---
+
+<li class="w-[80%] flex-none sm:w-[47%] lg:w-[31.5%]">
+  <a
+    href={videoUrl(video)}
+    target="_blank"
+    rel="noopener noreferrer"
+    class="group/card block overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
+  >
+    <img
+      src={thumbnailUrl(video.id)}
+      onerror={`this.onerror=null;this.src='${thumbnailFallbackUrl(video.id)}'`}
+      alt=""
+      width="1280"
+      height="720"
+      loading={eager ? "eager" : "lazy"}
+      fetchpriority={eager ? "high" : "auto"}
+      decoding="async"
+      class="aspect-video w-full object-cover"
+    />
+    <div class="p-4">
+      <h3 class="line-clamp-2 font-semibold leading-snug group-hover/card:text-brand">
+        {video.title}
+      </h3>
+      <p class="mt-2 text-sm text-ink-muted">
+        <time datetime={video.publishedAt}>{formatDateJa(video.publishedAt)}</time>
+      </p>
+    </div>
+  </a>
+</li>

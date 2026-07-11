@@ -1,0 +1,192 @@
+---
+import { site } from "../config/site";
+
+interface Props {
+  /** カルーセルの内容を表すラベル(スクリーンリーダー向け) */
+  label: string;
+}
+
+const { label } = Astro.props;
+---
+
+<div
+  class="carousel group relative"
+  data-carousel
+  data-autoplay-delay={site.carousel.autoplayDelayMs}
+  role="region"
+  aria-roledescription="カルーセル"
+  aria-label={label}
+>
+  {/* JS 無効時は横スクロールで全カードを閲覧できる(初期化時に overflow-hidden へ切替) */}
+  <div class="overflow-x-auto pb-2" data-carousel-viewport>
+    <ul class="flex gap-4" data-carousel-container>
+      <slot />
+    </ul>
+  </div>
+
+  <div class="mt-4 hidden items-center justify-center gap-3" data-carousel-controls>
+    <button
+      type="button"
+      data-carousel-prev
+      aria-label="前のスライドへ"
+      class="rounded-full border border-ink-muted p-2 transition hover:bg-surface-raised disabled:opacity-40"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          d="M15 6l-6 6 6 6"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"></path>
+      </svg>
+    </button>
+
+    {/* WCAG 2.2.2: 常時表示の自動切替 一時停止/再開ボタン */}
+    <button
+      type="button"
+      data-carousel-toggle
+      aria-label="自動切替を一時停止"
+      aria-pressed="false"
+      class="rounded-full border border-ink-muted p-2 transition hover:bg-surface-raised"
+    >
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+        data-icon-pause
+      >
+        <rect x="6" y="5" width="4" height="14" rx="1"></rect>
+        <rect x="14" y="5" width="4" height="14" rx="1"></rect>
+      </svg>
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+        data-icon-play
+        class="hidden"
+      >
+        <path d="M8 5.5v13a1 1 0 0 0 1.5.87l11-6.5a1 1 0 0 0 0-1.74l-11-6.5A1 1 0 0 0 8 5.5Z"
+        ></path>
+      </svg>
+    </button>
+
+    <div class="flex gap-2" data-carousel-dots></div>
+
+    <button
+      type="button"
+      data-carousel-next
+      aria-label="次のスライドへ"
+      class="rounded-full border border-ink-muted p-2 transition hover:bg-surface-raised disabled:opacity-40"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          d="M9 6l6 6-6 6"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"></path>
+      </svg>
+    </button>
+  </div>
+
+  <p class="sr-only" role="status" data-carousel-status></p>
+</div>
+
+<script>
+  import EmblaCarousel from "embla-carousel";
+  import Autoplay from "embla-carousel-autoplay";
+
+  function setupCarousel(root: HTMLElement): void {
+    const viewport = root.querySelector<HTMLElement>("[data-carousel-viewport]");
+    const controls = root.querySelector<HTMLElement>("[data-carousel-controls]");
+    const prevButton = root.querySelector<HTMLButtonElement>("[data-carousel-prev]");
+    const nextButton = root.querySelector<HTMLButtonElement>("[data-carousel-next]");
+    const toggleButton = root.querySelector<HTMLButtonElement>("[data-carousel-toggle]");
+    const dotsContainer = root.querySelector<HTMLElement>("[data-carousel-dots]");
+    const status = root.querySelector<HTMLElement>("[data-carousel-status]");
+    if (!viewport || !controls || !prevButton || !nextButton || !toggleButton || !dotsContainer) {
+      return;
+    }
+
+    const delay = Number(root.dataset.autoplayDelay) || 5000;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // JS が動いたので横スクロールから Embla 制御へ切り替える
+    viewport.classList.remove("overflow-x-auto", "pb-2");
+    viewport.classList.add("overflow-hidden");
+    controls.classList.remove("hidden");
+    controls.classList.add("flex");
+
+    const autoplay = Autoplay({
+      delay,
+      playOnInit: !prefersReducedMotion,
+      stopOnMouseEnter: true,
+      stopOnFocusIn: true,
+      stopOnInteraction: false,
+    });
+    const embla = EmblaCarousel(viewport, { align: "start", loop: true }, [autoplay]);
+
+    const updateToggle = (): void => {
+      const playing = autoplay.isPlaying();
+      toggleButton.setAttribute("aria-pressed", String(!playing));
+      toggleButton.setAttribute("aria-label", playing ? "自動切替を一時停止" : "自動切替を再開");
+      toggleButton.querySelector("[data-icon-pause]")?.classList.toggle("hidden", !playing);
+      toggleButton.querySelector("[data-icon-play]")?.classList.toggle("hidden", playing);
+    };
+
+    // ユーザーが明示的に停止した場合はホバー解除等で勝手に再開しない
+    let userPaused = prefersReducedMotion;
+    toggleButton.addEventListener("click", () => {
+      if (autoplay.isPlaying()) {
+        userPaused = true;
+        autoplay.stop();
+      } else {
+        userPaused = false;
+        autoplay.play();
+      }
+      updateToggle();
+    });
+    embla.on("autoplay:play", updateToggle).on("autoplay:stop", () => {
+      updateToggle();
+    });
+    embla.on("pointerUp", () => {
+      if (!userPaused) autoplay.play();
+    });
+
+    const dots: HTMLButtonElement[] = embla.scrollSnapList().map((_, index) => {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className =
+        "h-2.5 w-2.5 rounded-full bg-ink-muted/40 transition aria-[current=true]:bg-brand";
+      dot.setAttribute("aria-label", `${index + 1} 番目のスライドへ`);
+      dot.addEventListener("click", () => embla.scrollTo(index));
+      dotsContainer.appendChild(dot);
+      return dot;
+    });
+
+    const updateSelection = (): void => {
+      const selected = embla.selectedScrollSnap();
+      dots.forEach((dot, index) => {
+        dot.setAttribute("aria-current", String(index === selected));
+      });
+      // 自動切替中の読み上げ連発を避け、停止中のみ現在位置を通知する
+      if (status && !autoplay.isPlaying()) {
+        status.textContent = `${selected + 1} / ${dots.length}`;
+      }
+    };
+
+    prevButton.addEventListener("click", () => embla.scrollPrev());
+    nextButton.addEventListener("click", () => embla.scrollNext());
+    embla.on("select", updateSelection);
+    updateSelection();
+    updateToggle();
+  }
+
+  for (const root of document.querySelectorAll<HTMLElement>("[data-carousel]")) {
+    setupCarousel(root);
+  }
+</script>
