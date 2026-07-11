@@ -1,0 +1,35 @@
+---
+import { formatDateJa, truncate } from "../lib/format";
+import { postUrl, type XPost } from "../lib/x";
+
+interface Props {
+  post: XPost;
+  account: string;
+  /** スライド位置(1 始まり) */
+  position: number;
+  /** スライド総数 */
+  total: number;
+}
+
+const { post, account, position, total } = Astro.props;
+---
+
+<li
+  class="w-[85%] flex-none sm:w-[47%] lg:w-[31.5%]"
+  role="group"
+  aria-roledescription="スライド"
+  aria-label={`${position} / ${total}`}
+>
+  <a
+    href={postUrl(account, post.id)}
+    target="_blank"
+    rel="noopener noreferrer"
+    class="group/card flex h-full flex-col justify-between gap-4 rounded-xl bg-surface-raised p-5 transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
+  >
+    <p class="whitespace-pre-line leading-relaxed">{truncate(post.text, 140)}</p>
+    <footer class="flex items-center justify-between text-sm text-ink-muted">
+      <span>@{account}</span>
+      <time datetime={post.date}>{formatDateJa(post.date)}</time>
+    </footer>
+  </a>
+</li>

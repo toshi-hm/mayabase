@@ -1,0 +1,47 @@
+---
+import { formatDateJa } from "../lib/format";
+import { thumbnailFallbackUrl, type Video, videoUrl } from "../lib/youtube";
+
+interface Props {
+  video: Video;
+  /** スライド位置(1 始まり) */
+  position: number;
+  /** スライド総数 */
+  total: number;
+}
+
+const { video, position, total } = Astro.props;
+---
+
+<li
+  class="w-[40%] flex-none sm:w-[30%] lg:w-[15.2%]"
+  role="group"
+  aria-roledescription="スライド"
+  aria-label={`${position} / ${total}`}
+>
+  <a
+    href={videoUrl(video)}
+    target="_blank"
+    rel="noopener noreferrer"
+    class="group/card block overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
+  >
+    {/* Shorts は縦型のため 4:3 サムネイルを 9:16 枠で中央トリミングする */}
+    <img
+      src={thumbnailFallbackUrl(video.id)}
+      alt=""
+      width="480"
+      height="360"
+      loading="lazy"
+      decoding="async"
+      class="aspect-[9/16] w-full object-cover"
+    />
+    <div class="p-3">
+      <h3 class="line-clamp-2 text-sm font-semibold leading-snug group-hover/card:text-brand">
+        {video.title}
+      </h3>
+      <p class="mt-1.5 text-xs text-ink-muted">
+        <time datetime={video.publishedAt}>{formatDateJa(video.publishedAt)}</time>
+      </p>
+    </div>
+  </a>
+</li>

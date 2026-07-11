@@ -1,10 +1,30 @@
 ---
+import Carousel from "../components/Carousel.astro";
+import PostCard from "../components/PostCard.astro";
+import Profile from "../components/Profile.astro";
+import SectionHeading from "../components/SectionHeading.astro";
+import ShortCard from "../components/ShortCard.astro";
+import VideoCard from "../components/VideoCard.astro";
 import { site } from "../config/site";
+import videosJson from "../data/videos.json";
+import xPostsJson from "../data/x-posts.json";
 import Base from "../layouts/Base.astro";
+import { parseXPostsData } from "../lib/x";
+import { parseVideosData } from "../lib/youtube";
+
+const { maxItems } = site.carousel;
+const { videos } = parseVideosData(videosJson);
+
+// isShort: null(未判定)は横動画として表示する(docs/02-design.md)
+const regularVideos = videos.filter((v) => v.isShort !== true).slice(0, maxItems);
+const shortVideos = videos.filter((v) => v.isShort === true).slice(0, maxItems);
+
+const { account, posts } = parseXPostsData(xPostsJson);
+const xPosts = posts.slice(0, maxItems);
 ---
 
 <Base>
-  <header class="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 py-24 text-center">
+  <header class="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-20 text-center">
     <p class="text-sm font-semibold tracking-widest text-brand uppercase">YouTube Channel Portal</p>
     <h1 class="text-4xl font-bold sm:text-6xl">{site.name}</h1>
     <p class="max-w-2xl text-lg text-ink-muted">{site.description}</p>
@@ -30,8 +50,103 @@ import Base from "../layouts/Base.astro";
     </nav>
   </header>
 
-  <main class="mx-auto max-w-5xl px-4 pb-24">
-    <p class="text-center text-ink-muted">コンテンツは準備中です。</p>
+  <main class="mx-auto max-w-6xl px-4 pb-24">
+    <Profile />
+
+    <section aria-labelledby="videos-heading" class="py-16">
+      <SectionHeading
+        id="videos-heading"
+        title="最新動画"
+        subtitle="公開日時が新しい順に最大 6 件を表示しています"
+      />
+      {
+        regularVideos.length > 0 ? (
+          <Carousel label="最新動画の一覧">
+            {regularVideos.map((video, index) => (
+              <VideoCard
+                video={video}
+                position={index + 1}
+                total={regularVideos.length}
+                eager={index === 0}
+              />
+            ))}
+          </Carousel>
+        ) : (
+          <p class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
+            動画データを準備中です。
+            <a
+              href={site.youtube.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-brand underline-offset-4 hover:underline"
+            >
+              YouTube チャンネル
+            </a>
+            で最新の動画をご覧ください。
+          </p>
+        )
+      }
+    </section>
+
+    <section aria-labelledby="shorts-heading" class="py-16">
+      <SectionHeading
+        id="shorts-heading"
+        title="Shorts"
+        subtitle="サクッと見られるショート動画(新しい順・最大 6 件)"
+      />
+      {
+        shortVideos.length > 0 ? (
+          <Carousel label="Shorts の一覧">
+            {shortVideos.map((video, index) => (
+              <ShortCard video={video} position={index + 1} total={shortVideos.length} />
+            ))}
+          </Carousel>
+        ) : (
+          <p class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
+            Shorts データを準備中です。
+            <a
+              href={site.youtube.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-brand underline-offset-4 hover:underline"
+            >
+              YouTube チャンネル
+            </a>
+            でご覧ください。
+          </p>
+        )
+      }
+    </section>
+
+    <section aria-labelledby="x-heading" class="py-16">
+      <SectionHeading
+        id="x-heading"
+        title="X の最新ポスト"
+        subtitle={`@${account} の投稿から新しい順に最大 6 件`}
+      />
+      {
+        xPosts.length > 0 ? (
+          <Carousel label="X ポストの一覧">
+            {xPosts.map((post, index) => (
+              <PostCard post={post} account={account} position={index + 1} total={xPosts.length} />
+            ))}
+          </Carousel>
+        ) : (
+          <p class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
+            ポストデータを準備中です。
+            <a
+              href={site.x.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-brand underline-offset-4 hover:underline"
+            >
+              X(@{account})
+            </a>
+            で最新の投稿をご覧ください。
+          </p>
+        )
+      }
+    </section>
   </main>
 
   <footer class="border-t border-surface-raised py-8 text-center text-sm text-ink-muted">
