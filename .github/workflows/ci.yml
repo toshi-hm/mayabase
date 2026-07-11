@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: 依存関係のインストール
+        run: bun install --frozen-lockfile
+
+      - name: Lint(Biome)
+        run: bun run lint
+
+      - name: Format チェック(Prettier / Biome)
+        run: bun run format:check
+
+      - name: 型チェック(astro check)
+        run: bun run check
+
+      - name: テスト
+        run: bun test
+
+      - name: ビルド
+        run: bun run build
