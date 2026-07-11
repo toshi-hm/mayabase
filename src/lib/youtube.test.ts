@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
+  createEmptyVideosData,
   embedUrl,
   extractChannelId,
   type FetchLike,
   mapWithConcurrency,
   mergeVideos,
   parseFeed,
+  parseVideosData,
   probeIsShort,
   thumbnailFallbackUrl,
   thumbnailUrl,
@@ -69,6 +71,33 @@ describe("parseFeed", () => {
   test("不正な XML でも例外を投げない", () => {
     expect(parseFeed("これはXMLではない")).toEqual([]);
   });
+
+  test("数字のみのタイトル・説明も文字列として扱う(パーサの number 変換対策)", () => {
+    const xml = `<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/">
+      <entry>
+        <yt:videoId>num00000001</yt:videoId>
+        <title>2024</title>
+        <published>2026-07-01T12:00:00+00:00</published>
+        <media:group><media:description>42</media:description></media:group>
+      </entry>
+    </feed>`;
+    const entries = parseFeed(xml);
+    expect(entries[0]?.title).toBe("2024");
+    expect(entries[0]?.description).toBe("42");
+  });
+
+  test("media:group 自体が無いエントリでも動作する", () => {
+    const xml = `<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015">
+      <entry>
+        <yt:videoId>nogroup0001</yt:videoId>
+        <title>グループなし</title>
+        <published>2026-07-01T12:00:00+00:00</published>
+      </entry>
+    </feed>`;
+    const entries = parseFeed(xml);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.description).toBe("");
+  });
 });
 
 describe("mergeVideos", () => {
@@ -112,6 +141,20 @@ describe("mergeVideos", () => {
     const times = merged.map((v) => Date.parse(v.publishedAt));
     expect(times).toEqual([...times].sort((a, b) => b - a));
   });
+
+  test("publishedAt が不正な動画は末尾(最古扱い)に寄せられ例外も出ない", () => {
+    const broken: Video[] = [
+      {
+        id: "broken00001",
+        title: "日付が壊れた動画",
+        description: "",
+        publishedAt: "not-a-date",
+        isShort: false,
+      },
+    ];
+    const merged = mergeVideos(broken, parseFeed(FEED_XML));
+    expect(merged.at(-1)?.id).toBe("broken00001");
+  });
 });
 
 describe("URL ヘルパー", () => {
@@ -145,34 +188,65 @@ describe("extractChannelId", () => {
 });
 
 describe("probeIsShort", () => {
-  const mockFetch = (status: number) => (async () => new Response(null, { status })) as FetchLike;
+  const mockFetch = (status: number, location?: string): FetchLike => {
+    // Response コンストラクタはリダイレクト系ステータスを受け付けないため status を後付けする
+    return async () =>
+      Object.defineProperty(
+        new Response(null, { headers: location ? { location } : {} }),
+        "status",
+        { value: status },
+      );
+  };
+  const watchUrl = "https://www.youtube.com/watch?v=abc";
 
   test("200 なら Shorts", async () => {
     expect(await probeIsShort("abc", mockFetch(200))).toBe(true);
   });
 
-  test("303 リダイレクトなら横動画", async () => {
-    expect(await probeIsShort("abc", mockFetch(303))).toBe(false);
+  test("watch への 3xx リダイレクトなら横動画(境界値 300 / 303 / 399)", async () => {
+    expect(await probeIsShort("abc", mockFetch(300, watchUrl))).toBe(false);
+    expect(await probeIsShort("abc", mockFetch(303, watchUrl))).toBe(false);
+    expect(await probeIsShort("abc", mockFetch(399, watchUrl))).toBe(false);
+  });
+
+  test("watch 以外への 3xx(consent ページ等)は判定不能(null)", async () => {
+    expect(
+      await probeIsShort("abc", mockFetch(302, "https://consent.youtube.com/m?continue=x")),
+    ).toBeNull();
+  });
+
+  test("Location の無い 3xx は判定不能(null)", async () => {
+    expect(await probeIsShort("abc", mockFetch(303))).toBeNull();
   });
 
   test("404 は判定不能(null)", async () => {
     expect(await probeIsShort("abc", mockFetch(404))).toBeNull();
   });
 
-  test("HEAD が 405 なら GET にフォールバックする", async () => {
+  test.each([405, 501])("HEAD が %d なら GET にフォールバックする", async (status) => {
     const calls: string[] = [];
-    const fetchFn = (async (_url: unknown, init?: RequestInit) => {
+    const fetchFn: FetchLike = async (_url, init) => {
       calls.push(init?.method ?? "GET");
-      return new Response(null, { status: calls.length === 1 ? 405 : 200 });
-    }) as FetchLike;
+      return new Response(null, { status: calls.length === 1 ? status : 200 });
+    };
     expect(await probeIsShort("abc", fetchFn)).toBe(true);
     expect(calls).toEqual(["HEAD", "GET"]);
   });
 
+  test("HEAD が 500 のときは GET へフォールバックせず判定不能(null)", async () => {
+    const calls: string[] = [];
+    const fetchFn: FetchLike = async (_url, init) => {
+      calls.push(init?.method ?? "GET");
+      return new Response(null, { status: 500 });
+    };
+    expect(await probeIsShort("abc", fetchFn)).toBeNull();
+    expect(calls).toEqual(["HEAD"]);
+  });
+
   test("ネットワークエラーは判定不能(null)", async () => {
-    const fetchFn = (async () => {
+    const fetchFn: FetchLike = async () => {
       throw new Error("network error");
-    }) as FetchLike;
+    };
     expect(await probeIsShort("abc", fetchFn)).toBeNull();
   });
 });
@@ -193,5 +267,63 @@ describe("mapWithConcurrency", () => {
       active -= 1;
     });
     expect(maxActive).toBeLessThanOrEqual(2);
+  });
+
+  test("limit が 1 未満なら RangeError", () => {
+    expect(mapWithConcurrency([1], 0, async (n) => n)).rejects.toThrow(RangeError);
+    expect(mapWithConcurrency([1], -1, async (n) => n)).rejects.toThrow(RangeError);
+  });
+});
+
+describe("parseVideosData / createEmptyVideosData", () => {
+  const validVideo = {
+    id: "abc123DEF45",
+    title: "動画",
+    description: "",
+    publishedAt: "2026-07-01T12:00:00+00:00",
+    isShort: null,
+  };
+
+  test("正常なデータをパースできる", () => {
+    const data = parseVideosData({
+      channelId: "UCabcdefghij0123456789AB",
+      fetchedAt: "2026-07-01T12:00:00Z",
+      videos: [validVideo],
+    });
+    expect(data.videos).toHaveLength(1);
+    expect(data.videos[0]?.isShort).toBeNull();
+  });
+
+  test("fetchedAt は null を許容する", () => {
+    expect(parseVideosData({ channelId: "", fetchedAt: null, videos: [] }).fetchedAt).toBeNull();
+  });
+
+  test("videos が配列でなければエラー", () => {
+    expect(() => parseVideosData({ channelId: "", fetchedAt: null, videos: {} })).toThrow(
+      "videos は配列",
+    );
+  });
+
+  test("isShort が数値などの不正値ならエラー", () => {
+    expect(() =>
+      parseVideosData({
+        channelId: "",
+        fetchedAt: null,
+        videos: [{ ...validVideo, isShort: 1 }],
+      }),
+    ).toThrow("isShort");
+  });
+
+  test("id 欠落はエラー", () => {
+    expect(() =>
+      parseVideosData({ channelId: "", fetchedAt: null, videos: [{ ...validVideo, id: "" }] }),
+    ).toThrow("id");
+  });
+
+  test("createEmptyVideosData は毎回新しいオブジェクトを返す", () => {
+    const a = createEmptyVideosData();
+    const b = createEmptyVideosData();
+    expect(a).not.toBe(b);
+    expect(a.videos).not.toBe(b.videos);
   });
 });

@@ -76,7 +76,15 @@ interface Video {
 5. 公開日時の降順に整列し、`src/data/videos.json` に全件書き込み(整形して diff が読みやすい形で)。**最大 6 件への制限は表示側(ページ)で行う**。
 6. **失敗時**: 既存の `videos.json` を残して警告のみ出し、exit 0(ビルドを落とさない)。テストはライブ通信禁止(コミット済みフィクスチャで検証)。
 
-`package.json` の `build` は `bun run fetch && astro build`、fetch 失敗はビルドに影響しない。
+追加の堅牢化(実装レビュー反映):
+
+- **3xx リダイレクトは Location ヘッダを検証**: `/watch` を指す場合のみ横動画と確定。consent ページ等への 3xx は判定不能(null)として次回再判定(EU 圏の同意リダイレクトによる誤判定対策)。
+- **原子的書き込み**: `videos.json.tmp` へ書いてから rename(中断時に壊れた JSON を残さない)。
+- **読み込み時のスキーマ検証**: 壊れた/不正な `videos.json` は具体的な警告を出して空データから再構築。
+- **トレードオフ(意図的な仕様)**: 削除・非公開化された動画は RSS から消えても `videos.json` に残り続ける。表示から外したい場合は `videos.json` を手動編集する(将来的には oEmbed 等での生存確認を検討)。
+- Shorts 判定のリトライは固定 300ms・1 回のみで、429 の `Retry-After` は考慮しない(対象は新規動画のみで並列上限 4 のため実害は小さい)。
+
+`package.json` の `build` は `astro build` のみ(fetch はネットワーク非依存の CI のためスキップ)。本番デプロイでは `build:full`(`bun run fetch && astro build`)を使う。
 
 ### 3.3 X ポスト(`src/data/x-posts.json`)
 

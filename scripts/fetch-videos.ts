@@ -8,19 +8,22 @@
  * - Shorts 判定は未判定(isShort: null)の動画のみ行い、確定値は再判定しない
  * - 失敗しても既存の videos.json を残して exit 0(ビルドを決して落とさない)
  */
+import { rename } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
 import {
-  emptyVideosData,
+  createEmptyVideosData,
   extractChannelId,
   mapWithConcurrency,
   mergeVideos,
   parseFeed,
+  parseVideosData,
   probeIsShort,
   type Video,
   type VideosData,
 } from "../src/lib/youtube";
 
-const VIDEOS_JSON_PATH = new URL("../src/data/videos.json", import.meta.url).pathname;
+const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
 const PROBE_CONCURRENCY = 4;
 const FETCH_TIMEOUT_MS = 15_000;
 
@@ -35,11 +38,14 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
 async function loadExisting(): Promise<VideosData> {
   try {
     const file = Bun.file(VIDEOS_JSON_PATH);
-    if (!(await file.exists())) return emptyVideosData;
-    return (await file.json()) as VideosData;
+    if (!(await file.exists())) return createEmptyVideosData();
+    return parseVideosData(await file.json());
   } catch (error) {
-    console.warn("[fetch-videos] 既存 videos.json の読み込みに失敗しました:", error);
-    return emptyVideosData;
+    console.warn(
+      "[fetch-videos] 既存 videos.json の読み込みに失敗したため空データから再構築します:",
+      error,
+    );
+    return createEmptyVideosData();
   }
 }
 
@@ -113,7 +119,10 @@ async function main(): Promise<void> {
     videos: merged,
   };
 
-  await Bun.write(VIDEOS_JSON_PATH, `${JSON.stringify(data, null, 2)}\n`);
+  // 一時ファイル → rename の原子的書き込み(中断時に壊れた JSON を残さない)
+  const tmpPath = `${VIDEOS_JSON_PATH}.tmp`;
+  await Bun.write(tmpPath, `${JSON.stringify(data, null, 2)}\n`);
+  await rename(tmpPath, VIDEOS_JSON_PATH);
   const shorts = merged.filter((v) => v.isShort === true).length;
   console.log(
     `[fetch-videos] ${merged.length} 件を保存しました(Shorts: ${shorts} 件、未判定: ${merged.filter((v) => v.isShort === null).length} 件)`,

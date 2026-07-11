@@ -24,11 +24,56 @@ export interface VideosData {
   videos: Video[];
 }
 
-export const emptyVideosData: VideosData = {
-  channelId: "",
-  fetchedAt: null,
-  videos: [],
-};
+export function createEmptyVideosData(): VideosData {
+  return { channelId: "", fetchedAt: null, videos: [] };
+}
+
+/**
+ * videos.json の内容を検証しつつパースする。
+ * スキーマ不一致は具体的なメッセージ付きで throw する(呼び出し側でフォールバック)。
+ */
+export function parseVideosData(data: unknown): VideosData {
+  if (typeof data !== "object" || data === null) {
+    throw new Error("videos.json: オブジェクトではありません");
+  }
+  const { channelId, fetchedAt, videos } = data as {
+    channelId?: unknown;
+    fetchedAt?: unknown;
+    videos?: unknown;
+  };
+  if (typeof channelId !== "string") {
+    throw new Error("videos.json: channelId は文字列である必要があります");
+  }
+  if (fetchedAt !== null && typeof fetchedAt !== "string") {
+    throw new Error("videos.json: fetchedAt は文字列か null である必要があります");
+  }
+  if (!Array.isArray(videos)) {
+    throw new Error("videos.json: videos は配列である必要があります");
+  }
+  const parsed: Video[] = videos.map((raw, i) => {
+    const v = raw as Partial<Record<keyof Video, unknown>>;
+    if (typeof v.id !== "string" || v.id === "") {
+      throw new Error(`videos.json: videos[${i}].id が不正です`);
+    }
+    if (typeof v.title !== "string" || typeof v.description !== "string") {
+      throw new Error(`videos.json: videos[${i}] の title / description が不正です`);
+    }
+    if (typeof v.publishedAt !== "string") {
+      throw new Error(`videos.json: videos[${i}].publishedAt が不正です`);
+    }
+    if (typeof v.isShort !== "boolean" && v.isShort !== null) {
+      throw new Error(`videos.json: videos[${i}].isShort は boolean か null である必要があります`);
+    }
+    return {
+      id: v.id,
+      title: v.title,
+      description: v.description,
+      publishedAt: v.publishedAt,
+      isShort: v.isShort,
+    };
+  });
+  return { channelId, fetchedAt, videos: parsed };
+}
 
 /** 動画の視聴 URL(Shorts 判定済みなら shorts URL) */
 export function videoUrl(video: Pick<Video, "id" | "isShort">): string {
@@ -121,7 +166,13 @@ export function mergeVideos(existing: Video[], fetched: FeedEntry[]): Video[] {
       isShort: prev ? prev.isShort : null,
     });
   }
-  return [...byId.values()].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+  return [...byId.values()].sort((a, b) => sortTime(b) - sortTime(a));
+}
+
+/** ソート用の時刻値。不正な日付は最古扱いにして降順リストの末尾へ寄せる(NaN 比較を避ける) */
+function sortTime(video: Pick<Video, "publishedAt">): number {
+  const time = Date.parse(video.publishedAt);
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
 }
 
 /**
@@ -140,8 +191,9 @@ export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 /**
  * Shorts 判定: https://www.youtube.com/shorts/{id} が 200 なら Shorts、
- * 3xx(watch へのリダイレクト)なら横動画。判定不能なら null。
- * HEAD 不許可(405 等)の場合は GET にフォールバックする。
+ * watch への 3xx リダイレクトなら横動画。判定不能なら null。
+ * - consent ページ等、watch 以外への 3xx は判定不能として扱う(EU 圏の同意リダイレクト対策)
+ * - HEAD 不許可(405 / 501)の場合は GET にフォールバックする
  */
 export async function probeIsShort(
   videoId: string,
@@ -152,8 +204,11 @@ export async function probeIsShort(
     try {
       const res = await fetchFn(url, { method, redirect: "manual" });
       if (res.status === 200) return true;
-      if (res.status >= 300 && res.status < 400) return false;
-      // 405 等は GET でリトライ、それ以外の 4xx/5xx は判定不能
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location") ?? "";
+        return location.includes("/watch") ? false : null;
+      }
+      // 405 / 501 は GET でリトライ、それ以外の 4xx/5xx は判定不能
       if (method === "GET" || (res.status !== 405 && res.status !== 501)) return null;
     } catch {
       return null;
@@ -168,13 +223,16 @@ export async function mapWithConcurrency<T, R>(
   limit: number,
   fn: (item: T) => Promise<R>,
 ): Promise<R[]> {
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new RangeError(`limit は 1 以上の整数を指定してください: ${limit}`);
+  }
   const results: R[] = new Array(items.length);
   let next = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
     while (next < items.length) {
       const index = next;
       next += 1;
-      results[index] = await fn(items[index] as T);
+      results[index] = await fn(items[index]);
     }
   });
   await Promise.all(workers);
