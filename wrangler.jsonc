@@ -1,14 +1,13 @@
 {
-	"$schema": "./node_modules/wrangler/config-schema.json",
-	"compatibility_date": "2026-07-12",
-	"compatibility_flags": ["global_fetch_strictly_public"],
-	"name": "mayabase-portal",
-	"main": "@astrojs/cloudflare/entrypoints/server",
-	"assets": {
-		"directory": "./dist",
-		"binding": "ASSETS"
-	},
-	"observability": {
-		"enabled": true
-	}
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // 既存の Worker(https://portal.mayabase.workers.dev)を更新するため name は "portal"
+  "name": "portal",
+  "compatibility_date": "2026-07-12",
+  // 完全静的サイトのため Worker スクリプト(main)は持たず、静的アセット配信のみを使う
+  "assets": {
+    "directory": "./dist"
+  },
+  "observability": {
+    "enabled": true
+  }
 }

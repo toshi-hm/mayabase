@@ -8,18 +8,17 @@
     "fetch": "bun run scripts/fetch-videos.ts",
     "build": "astro build",
     "build:full": "bun run fetch && astro build",
-    "preview": "bun run build && wrangler dev",
+    "preview": "astro preview",
     "check": "astro check",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "prettier --write \"**/*.astro\" && biome format --write .",
     "format:check": "prettier --check \"**/*.astro\" && biome format .",
     "test": "bun test",
-    "generate-types": "wrangler types",
-    "deploy": "bun run build && wrangler deploy"
+    "deploy": "bun run build:full && wrangler deploy",
+    "preview:worker": "bun run build && wrangler dev"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^14.1.2",
     "@astrojs/sitemap": "3.7.3",
     "astro": "7.0.7",
     "embla-carousel": "8.6.0",
@@ -35,6 +34,6 @@
     "prettier-plugin-astro": "0.14.1",
     "tailwindcss": "4.3.2",
     "typescript": "6.0.3",
-    "wrangler": "^4.110.0"
+    "wrangler": "4.110.0"
   }
 }
