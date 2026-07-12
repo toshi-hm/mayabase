@@ -14,7 +14,9 @@
     "lint:fix": "biome check --write .",
     "format": "prettier --write \"**/*.astro\" && biome format --write .",
     "format:check": "prettier --check \"**/*.astro\" && biome format .",
-    "test": "bun test"
+    "test": "bun test",
+    "deploy": "bun run build:full && wrangler deploy",
+    "preview:worker": "bun run build && wrangler dev"
   },
   "dependencies": {
     "@astrojs/sitemap": "3.7.3",
@@ -31,6 +33,7 @@
     "prettier": "3.9.5",
     "prettier-plugin-astro": "0.14.1",
     "tailwindcss": "4.3.2",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "wrangler": "4.110.0"
   }
 }
