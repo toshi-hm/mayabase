@@ -1,4 +1,6 @@
 ---
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
 import { site } from "../config/site";
 import "../styles/global.css";
 
@@ -55,6 +57,8 @@ const ogImage = new URL("/ogp.png", Astro.site);
     >
       本文へスキップ
     </a>
+    <SiteHeader />
     <slot />
+    <SiteFooter />
   </body>
 </html>

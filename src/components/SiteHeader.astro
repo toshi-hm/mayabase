@@ -1,0 +1,48 @@
+---
+import { site } from "../config/site";
+
+const NAV_ITEMS = [
+  { href: "/videos/", label: "動画ライブラリ" },
+  { href: "/gear/", label: "愛用ガジェット" },
+  { href: "/faq/", label: "FAQ" },
+] as const;
+
+// 末尾スラッシュの有無に依存しないよう正規化して現在ページを判定する
+const currentPath = Astro.url.pathname.replace(/\/+$/, "") || "/";
+const isCurrent = (href: string): boolean => currentPath === href.replace(/\/+$/, "");
+---
+
+<header class="sticky top-0 z-40 border-b border-surface-raised bg-surface/90 backdrop-blur">
+  <nav
+    aria-label="サイト内ナビゲーション"
+    class="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3"
+  >
+    <a
+      href="/"
+      aria-current={currentPath === "/" ? "page" : undefined}
+      class="flex-none font-bold tracking-wide transition hover:text-brand"
+    >
+      {site.name}
+    </a>
+    <ul class="ml-auto flex gap-1 overflow-x-auto text-sm">
+      {
+        NAV_ITEMS.map((item) => (
+          <li class="flex-none">
+            <a
+              href={item.href}
+              aria-current={isCurrent(item.href) ? "page" : undefined}
+              class:list={[
+                "block rounded-full px-3 py-1.5 transition hover:bg-surface-raised hover:text-ink",
+                isCurrent(item.href)
+                  ? "bg-surface-raised font-semibold text-ink"
+                  : "text-ink-muted",
+              ]}
+            >
+              {item.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+</header>

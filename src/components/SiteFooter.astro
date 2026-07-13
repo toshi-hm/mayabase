@@ -1,0 +1,50 @@
+---
+import { site } from "../config/site";
+---
+
+<footer class="border-t border-surface-raised py-10">
+  <div
+    class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 text-center text-sm text-ink-muted"
+  >
+    <nav aria-label="フッターナビゲーション">
+      <ul class="flex flex-wrap justify-center gap-x-6 gap-y-2">
+        <li>
+          <a href="/videos/" class="underline-offset-4 transition hover:text-ink hover:underline">
+            動画ライブラリ
+          </a>
+        </li>
+        <li>
+          <a href="/gear/" class="underline-offset-4 transition hover:text-ink hover:underline">
+            愛用ガジェット
+          </a>
+        </li>
+        <li>
+          <a href="/faq/" class="underline-offset-4 transition hover:text-ink hover:underline">
+            よくある質問
+          </a>
+        </li>
+        <li>
+          <a
+            href={site.youtube.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="underline-offset-4 transition hover:text-ink hover:underline"
+          >
+            YouTube<span class="sr-only">(新しいタブで開きます)</span>
+          </a>
+        </li>
+        <li>
+          <a
+            href={site.x.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="underline-offset-4 transition hover:text-ink hover:underline"
+          >
+            X<span class="sr-only">(新しいタブで開きます)</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+    <p>&copy; {new Date().getFullYear()} {site.name}</p>
+  </div>
+</footer>
