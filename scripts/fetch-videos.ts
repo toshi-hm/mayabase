@@ -89,32 +89,60 @@ async function fetchAllViaApi(channelId: string, apiKey: string): Promise<FeedEn
 
   const entries: FeedEntry[] = [];
   let pageToken: string | null = null;
+  let remaining = false; // ループ終了時に true なら未取得ページが残っている(上限打ち切り)
   for (let page = 0; page < API_MAX_PAGES; page += 1) {
     const url = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
     url.searchParams.set("part", "snippet,contentDetails");
     url.searchParams.set("playlistId", playlistId);
     url.searchParams.set("maxResults", String(API_PAGE_SIZE));
-    url.searchParams.set("key", apiKey);
     if (pageToken) url.searchParams.set("pageToken", pageToken);
 
-    let res: Response;
+    let nextPageToken: string | null;
     try {
-      res = await fetchWithTimeout(url.toString());
+      // API キーは URL クエリではなく X-goog-api-key ヘッダで渡す。
+      // fetch の接続エラー時にエラーオブジェクトが URL(path)を保持しても
+      // キーが漏れないようにするため(GitHub Actions のマスキングが効かない
+      // ローカル実行やログ貼り付け経路での漏洩を防ぐ)。
+      const res = await fetchWithTimeout(url.toString(), {
+        headers: { "X-goog-api-key": apiKey },
+      });
+      if (!res.ok) {
+        console.warn(`[fetch-videos] Data API がエラーを返しました (HTTP ${res.status})`);
+        return null;
+      }
+      // res.json() の失敗(壊れた JSON 等)も含めて捕捉し、RSS へフォールバックさせる
+      const parsed = parsePlaylistItemsPage(await res.json());
+      entries.push(...parsed.entries);
+      nextPageToken = parsed.nextPageToken;
     } catch (error) {
-      console.warn("[fetch-videos] Data API リクエストに失敗しました:", error);
-      return null;
-    }
-    if (!res.ok) {
-      console.warn(`[fetch-videos] Data API がエラーを返しました (HTTP ${res.status})`);
+      // error はキーを含み得る URL / path を保持するため message のみをログする
+      console.warn(
+        "[fetch-videos] Data API リクエストに失敗しました:",
+        error instanceof Error ? error.message : String(error),
+      );
       return null;
     }
 
-    const { entries: pageEntries, nextPageToken } = parsePlaylistItemsPage(await res.json());
-    entries.push(...pageEntries);
-    if (!nextPageToken) break;
+    if (!nextPageToken) {
+      remaining = false;
+      break;
+    }
     pageToken = nextPageToken;
+    remaining = true;
   }
 
+  if (remaining) {
+    console.warn(
+      `[fetch-videos] ページ数上限(${API_MAX_PAGES})に達したため取得を打ち切りました。未取得の動画が残っている可能性があります。`,
+    );
+  }
+  if (entries.length === 0) {
+    // 0 件は「本当に動画が無い」より API 側の異常を疑い、RSS にフォールバックする
+    console.warn(
+      "[fetch-videos] Data API から動画を取得できませんでした。RSS にフォールバックします。",
+    );
+    return null;
+  }
   console.log(`[fetch-videos] Data API から ${entries.length} 件を取得しました`);
   return entries;
 }

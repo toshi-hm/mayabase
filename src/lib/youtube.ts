@@ -170,8 +170,11 @@ export interface PlaylistItemsPage {
  * YouTube Data API v3 `playlistItems.list`(part=snippet,contentDetails)の
  * レスポンス 1 ページ分をパースする。RSS と同じ FeedEntry 形へ正規化する。
  * - videoId は contentDetails.videoId を優先(snippet.resourceId.videoId をフォールバック)
- * - 公開日時は contentDetails.videoPublishedAt を優先(snippet.publishedAt はプレイリスト追加日時のため)
- * - 非公開/削除済みで videoId や公開日時を欠くアイテムはスキップする
+ * - 公開日時は contentDetails.videoPublishedAt のみ採用する。snippet.publishedAt は
+ *   「プレイリストへの追加日時」であり公開日時ではないため使わない。これを有効性シグナルとし、
+ *   非公開・削除済み動画(videoPublishedAt を欠くが resourceId/publishedAt は残る)は確実にスキップする
+ * - id 形式が不正なアイテムもスキップ(videos.json → parseVideosData の制約と一致させ、
+ *   後段のインライン属性への注入や astro build 時の検証失敗を未然に防ぐ)
  */
 export function parsePlaylistItemsPage(data: unknown): PlaylistItemsPage {
   if (typeof data !== "object" || data === null) return { entries: [], nextPageToken: null };
@@ -186,7 +189,6 @@ export function parsePlaylistItemsPage(data: unknown): PlaylistItemsPage {
       snippet?: {
         title?: unknown;
         description?: unknown;
-        publishedAt?: unknown;
         resourceId?: { videoId?: unknown };
       };
     };
@@ -199,12 +201,8 @@ export function parsePlaylistItemsPage(data: unknown): PlaylistItemsPage {
           ? snippet.resourceId.videoId
           : "";
     const publishedAt =
-      typeof content.videoPublishedAt === "string"
-        ? content.videoPublishedAt
-        : typeof snippet.publishedAt === "string"
-          ? snippet.publishedAt
-          : "";
-    if (!id || !publishedAt) continue;
+      typeof content.videoPublishedAt === "string" ? content.videoPublishedAt : "";
+    if (!id || !publishedAt || !/^[A-Za-z0-9_-]+$/.test(id)) continue;
     entries.push({
       id,
       title: toText(snippet.title),

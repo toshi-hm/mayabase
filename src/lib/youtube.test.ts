@@ -176,6 +176,45 @@ describe("parsePlaylistItemsPage", () => {
     expect(entries[0]?.id).toBe("vidOK000001");
   });
 
+  test("削除済み/非公開動画(resourceId と snippet.publishedAt は残るが videoPublishedAt を欠く)はスキップ", () => {
+    // 実際の API は死んだ動画でも resourceId.videoId と snippet.publishedAt(追加日時)を返すため、
+    // videoPublishedAt を有効性シグナルにしないと死んだ動画が混入してしまう
+    const deadVideos = {
+      items: [
+        {
+          contentDetails: {}, // videoPublishedAt を欠く = 死んだ動画
+          snippet: {
+            title: "Deleted video",
+            description: "",
+            publishedAt: "2020-01-01T00:00:00Z", // プレイリスト追加日時(公開日時ではない)
+            resourceId: { videoId: "deadVid0001" },
+          },
+        },
+        {
+          contentDetails: { videoId: "liveVid0001", videoPublishedAt: "2026-05-01T00:00:00Z" },
+          snippet: {
+            title: "生きてる動画",
+            description: "",
+            resourceId: { videoId: "liveVid0001" },
+          },
+        },
+      ],
+    };
+    expect(parsePlaylistItemsPage(deadVideos).entries.map((e) => e.id)).toEqual(["liveVid0001"]);
+  });
+
+  test("id 形式が不正なアイテムはスキップする(インライン属性への注入防止)", () => {
+    const bad = {
+      items: [
+        {
+          contentDetails: { videoId: "abc';alert(1)", videoPublishedAt: "2026-01-01T00:00:00Z" },
+          snippet: { title: "不正 ID", description: "" },
+        },
+      ],
+    };
+    expect(parsePlaylistItemsPage(bad).entries).toEqual([]);
+  });
+
   test("items が無い・不正でも例外を投げず空配列", () => {
     expect(parsePlaylistItemsPage({}).entries).toEqual([]);
     expect(parsePlaylistItemsPage(null).entries).toEqual([]);
