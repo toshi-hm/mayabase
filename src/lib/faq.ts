@@ -24,17 +24,25 @@ export interface FaqData {
   categories: FaqCategory[];
 }
 
+/**
+ * サイト内パスかどうか。プロトコル相対 URL(//host)は外部オリジンに解決されるため
+ * サイト内パスとして扱わない(表示側の内部/外部リンク分岐にも使う)。
+ */
+export function isInternalPath(url: string): boolean {
+  return url.startsWith("/") && !url.startsWith("//");
+}
+
 function parseLink(raw: unknown, path: string): FaqLink {
   const link = raw as Partial<Record<keyof FaqLink, unknown>>;
   if (typeof link.label !== "string" || link.label.length === 0) {
     throw new Error(`faq.json: ${path}.label が不正です`);
   }
-  // サイト内パスか https のみ許可(javascript: 等のスキーム混入を防ぐ)
+  // サイト内パスか https のみ許可(javascript: スキームやプロトコル相対 URL の混入を防ぐ)
   if (
     typeof link.url !== "string" ||
-    !(link.url.startsWith("/") || link.url.startsWith("https://"))
+    !(isInternalPath(link.url) || link.url.startsWith("https://"))
   ) {
-    throw new Error(`faq.json: ${path}.url は "/" か https:// で始まる必要があります`);
+    throw new Error(`faq.json: ${path}.url は "/"(// を除く)か https:// で始まる必要があります`);
   }
   return { label: link.label, url: link.url };
 }

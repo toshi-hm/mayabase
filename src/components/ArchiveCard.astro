@@ -42,6 +42,7 @@ const { video, category } = Astro.props;
     <div class="p-4">
       <h3 class="line-clamp-2 font-semibold leading-snug group-hover/card:text-brand">
         {video.title}
+        <span class="sr-only">(YouTube・新しいタブで開きます)</span>
       </h3>
       <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
         <time datetime={video.publishedAt}>{formatDateJa(video.publishedAt)}</time>

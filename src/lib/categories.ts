@@ -24,6 +24,8 @@ export const CATEGORY_ORDER: readonly VideoCategory[] = ["ai", "gadget", "vlog",
  * 「買ってよかった◯◯で作る夜ご飯 Vlog」は vlog に落としたい)。
  * 概要欄は全動画に共通ハッシュタグ(#エンジニア #vlog 等)が付いており
  * 誤分類の原因になるため、照合対象はタイトルのみとする。
+ * vlog の「1日」「休日」など一般語も含むため、分類が意図とズレた動画が出たら
+ * ここのキーワードを見直すこと(categories.test.ts の実データ回帰テストで検知できる)。
  */
 const CATEGORY_KEYWORDS: readonly (readonly [VideoCategory, readonly string[]])[] = [
   ["career", ["就活", "キャリア", "大学院", "学位", "修了", "卒業", "転職", "SIer", "勉強法"]],

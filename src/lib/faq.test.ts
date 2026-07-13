@@ -51,6 +51,8 @@ describe("parseFaqData", () => {
     expect(parseFaqData(withUrl("/videos/")).categories[0]?.items[0]?.link?.url).toBe("/videos/");
     expect(() => parseFaqData(withUrl("http://example.com"))).toThrow("https://");
     expect(() => parseFaqData(withUrl("javascript:alert(1)"))).toThrow("https://");
+    // プロトコル相対 URL は外部オリジンに解決されるため「サイト内パス」として通さない
+    expect(() => parseFaqData(withUrl("//evil.example.com"))).toThrow("https://");
   });
 
   test("実データ(faq.json)がスキーマを満たす(回帰テスト)", () => {

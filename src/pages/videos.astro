@@ -4,6 +4,7 @@ import { site } from "../config/site";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
 import { CATEGORY_LABELS, CATEGORY_ORDER, categorizeVideo } from "../lib/categories";
+import { truncate } from "../lib/format";
 import {
   embedUrl,
   parseVideosData,
@@ -47,7 +48,8 @@ const jsonLd = {
         item: {
           "@type": "VideoObject",
           name: video.title,
-          description: video.description || video.title,
+          // 概要欄全文はハッシュタグや定型文が長く JSON-LD を肥大化させるため要約する
+          description: truncate(video.description, 160) || video.title,
           thumbnailUrl: [thumbnailUrl(video.id), thumbnailFallbackUrl(video.id)],
           uploadDate: video.publishedAt,
           embedUrl: embedUrl(video.id),
@@ -75,7 +77,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           type="button"
           data-filter-category="all"
           aria-pressed="true"
-          class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-surface"
+          class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-surface"
         >
           すべて
         </button>
@@ -85,7 +87,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               type="button"
               data-filter-category={category}
               aria-pressed="false"
-              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-surface"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-surface"
             >
               {CATEGORY_LABELS[category]}
             </button>
@@ -106,6 +108,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </p>
     </section>
 
+    {/* 見出し階層(h1→h2→h3)を保つためのセクション見出し(視覚上はフィルタ UI が境界) */}
+    <h2 class="sr-only">動画一覧</h2>
     <ul id="videos-grid" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {categorized.map(({ video, category }) => <ArchiveCard video={video} category={category} />)}
     </ul>
