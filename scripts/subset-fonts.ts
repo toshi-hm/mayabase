@@ -10,7 +10,9 @@ const sourceFiles: string[] = [];
 const glob = new Bun.Glob("**/*");
 
 for await (const file of glob.scan({ cwd: "src", absolute: true, onlyFiles: true })) {
-  if (SOURCE_EXTENSIONS.has(path.extname(file))) sourceFiles.push(file);
+  if (SOURCE_EXTENSIONS.has(path.extname(file)) && !file.endsWith(".test.ts")) {
+    sourceFiles.push(file);
+  }
 }
 
 const sourceText = await Promise.all(

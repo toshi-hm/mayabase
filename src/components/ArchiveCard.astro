@@ -8,13 +8,15 @@ interface Props {
   category: VideoCategory;
   /** 一覧の先頭カードは LCP 対策で優先読み込みする */
   eager?: boolean;
+  /** 初期表示件数を超えるカードは、クライアント処理前からレイアウト対象外にする */
+  initiallyHidden?: boolean;
 }
 
-const { video, category, eager = false } = Astro.props;
+const { video, category, eager = false, initiallyHidden = false } = Astro.props;
 ---
 
 {/* data-* はクライアントサイドの絞り込み・検索で参照する(videos.astro) */}
-<li data-category={category} data-title={video.title.toLowerCase()}>
+<li data-category={category} data-title={video.title.toLowerCase()} hidden={initiallyHidden}>
   <a
     href={videoUrl(video)}
     target="_blank"

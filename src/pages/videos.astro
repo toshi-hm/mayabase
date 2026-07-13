@@ -15,6 +15,7 @@ import {
 
 const { videos } = parseVideosData(videosJson);
 const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
+const INITIAL_COUNT = 12;
 
 // 動画が 1 件以上あるカテゴリだけをフィルタ UI に出す
 const availableCategories = CATEGORY_ORDER.filter((category) =>
@@ -124,7 +125,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     <ul id="videos-grid" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {
         categorized.map(({ video, category }, index) => (
-          <ArchiveCard video={video} category={category} eager={index === 0} />
+          <ArchiveCard
+            video={video}
+            category={category}
+            eager={index === 0}
+            initiallyHidden={index >= INITIAL_COUNT}
+          />
         ))
       }
     </ul>
@@ -133,8 +139,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     </p>
     {
       /*
-      「もっと見る」ボタン。JS 無効時は全件が既に表示されているため hidden のまま
-      (プログレッシブエンハンスメント)。JS 有効時のみスクリプトが必要に応じて表示する。
+      「もっと見る」ボタン。JS 有効時のみスクリプトが必要に応じて表示する。
       一度押すと以降は全件表示のまま(このボタンは二度と表示されない)。
     */
     }
@@ -152,8 +157,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 </Base>
 
 <script>
-  // 絞り込み・検索 + 段階表示(JS 無効時は全件表示のままになるプログレッシブエンハンスメント)
-  const INITIAL_COUNT = 12; // 初期表示件数(超過分は「もっと見る」で展開)
+  // 絞り込み・検索 + 段階表示
+  const INITIAL_COUNT = 12; // サーバー側の初期表示件数と合わせる
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-filter-category]");
   const search = document.getElementById("video-search") as HTMLInputElement | null;
   const cards = document.querySelectorAll<HTMLLIElement>("#videos-grid > li");
