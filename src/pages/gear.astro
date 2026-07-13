@@ -93,7 +93,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                         loading={groupIndex === 0 && itemIndex === 0 ? "eager" : "lazy"}
                         fetchpriority={groupIndex === 0 && itemIndex === 0 ? "high" : "auto"}
                         decoding="async"
-                        class="h-full w-full object-contain transition duration-300 group-hover/card:scale-[1.03]"
+                        class="h-auto w-auto max-h-56 max-w-72 object-contain transition duration-300 group-hover/card:scale-[1.03]"
                       />
                     </div>
                   )}
