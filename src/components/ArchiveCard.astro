@@ -1,0 +1,52 @@
+---
+import { CATEGORY_LABELS, type VideoCategory } from "../lib/categories";
+import { formatDateJa } from "../lib/format";
+import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
+
+interface Props {
+  video: Video;
+  category: VideoCategory;
+}
+
+const { video, category } = Astro.props;
+---
+
+{/* data-* はクライアントサイドの絞り込み・検索で参照する(videos.astro) */}
+<li data-category={category} data-title={video.title.toLowerCase()}>
+  <a
+    href={videoUrl(video)}
+    target="_blank"
+    rel="noopener noreferrer"
+    class="group/card block h-full overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
+  >
+    <div class="relative">
+      {/* Shorts も 16:9 で統一表示する(縦型サムネイルは中央トリミングされる) */}
+      <img
+        src={thumbnailUrl(video.id)}
+        onerror={`this.onerror=null;this.src='${thumbnailFallbackUrl(video.id)}'`}
+        alt=""
+        width="1280"
+        height="720"
+        loading="lazy"
+        decoding="async"
+        class="aspect-video w-full object-cover"
+      />
+      {
+        video.isShort && (
+          <span class="absolute top-2 left-2 rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-surface">
+            Shorts
+          </span>
+        )
+      }
+    </div>
+    <div class="p-4">
+      <h3 class="line-clamp-2 font-semibold leading-snug group-hover/card:text-brand">
+        {video.title}
+      </h3>
+      <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+        <time datetime={video.publishedAt}>{formatDateJa(video.publishedAt)}</time>
+        <span class="rounded-full bg-surface px-2 py-0.5 text-xs">{CATEGORY_LABELS[category]}</span>
+      </p>
+    </div>
+  </a>
+</li>

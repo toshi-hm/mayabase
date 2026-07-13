@@ -85,7 +85,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
 <Base>
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
-  <header class="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-20 text-center">
+  {/* banner ランドマークは共通ヘッダー(SiteHeader)に譲るため、ヒーローは div にする */}
+  <div class="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-20 text-center">
     <p class="text-sm font-semibold tracking-widest text-brand uppercase">YouTube Channel Portal</p>
     <h1 class="text-4xl font-bold sm:text-6xl">{site.name}</h1>
     <p class="max-w-2xl text-lg text-ink-muted">{site.description}</p>
@@ -109,7 +110,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         X をフォロー
       </a>
     </nav>
-  </header>
+  </div>
 
   <main id="main" class="mx-auto max-w-6xl px-4 pb-24">
     <Profile />
@@ -209,8 +210,4 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       }
     </section>
   </main>
-
-  <footer class="border-t border-surface-raised py-8 text-center text-sm text-ink-muted">
-    <p>&copy; {new Date().getFullYear()} {site.name}</p>
-  </footer>
 </Base>
