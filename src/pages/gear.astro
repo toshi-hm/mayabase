@@ -34,6 +34,7 @@ const jsonLd = {
         position: index + 1,
         name: `${item.brand} ${item.name}`,
         url: item.url,
+        ...(item.image ? { image: item.image } : {}),
       })),
     },
   ],
@@ -43,11 +44,23 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
 <Base title={pageTitle} description={pageDescription}>
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <link rel="preconnect" href="https://m.media-amazon.com" crossorigin slot="head" />
   <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
     <h1 class="text-3xl font-bold sm:text-4xl">愛用ガジェット</h1>
-    <p class="mt-3 max-w-2xl text-ink-muted">
-      動画制作やデスク環境で実際に使っている機材・ガジェットの一覧です。「動画に出てきたあれは何?」の答えがここにあります。
-    </p>
+    <div class="mt-3 grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <p class="max-w-2xl text-ink-muted">
+        動画制作やデスク環境で実際に使っている機材・ガジェットの一覧です。「動画に出てきたあれは何?」の答えがここにあります。
+      </p>
+      <a
+        href="https://amzn.asia/d/07216xEl"
+        target="_blank"
+        rel="sponsored noopener noreferrer"
+        class="inline-flex w-fit items-center gap-2 rounded-md border border-ink bg-surface px-4 py-2 text-sm font-semibold transition hover:bg-ink hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        Amazon Storefrontを見る <span aria-hidden="true">↗</span>
+        <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+      </a>
+    </div>
 
     {/* ステマ規制(景品表示法)対応: アフィリエイト広告を含む旨をファーストビューに明示する */}
     <p
@@ -58,29 +71,43 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     </p>
 
     {
-      groups.map(([category, groupItems]) => (
+      groups.map(([category, groupItems], groupIndex) => (
         <section aria-labelledby={`gear-${category}-heading`} class="pt-14">
           <SectionHeading id={`gear-${category}-heading`} title={GEAR_CATEGORY_LABELS[category]} />
           <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {groupItems.map((item) => (
+            {groupItems.map((item, itemIndex) => (
               <li>
                 <a
                   href={item.url}
                   target="_blank"
                   rel="sponsored noopener noreferrer"
-                  class="group/card flex h-full flex-col rounded-xl bg-surface-raised p-5 transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
+                  class="group/card flex h-full flex-col overflow-hidden rounded-lg border border-line bg-surface transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
                 >
-                  <p class="text-xs font-semibold tracking-wider text-brand uppercase">
-                    {item.brand}
-                  </p>
-                  <h3 class="mt-1 font-semibold leading-snug group-hover/card:text-brand">
-                    {item.name}
-                  </h3>
-                  {item.note && <p class="mt-2 text-sm text-ink-muted">{item.note}</p>}
-                  <p class="mt-auto pt-3 text-sm text-brand">
-                    詳細を見る<span aria-hidden="true"> →</span>
-                    <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
-                  </p>
+                  {item.image && (
+                    <div class="grid aspect-[4/3] place-items-center bg-white p-6">
+                      <img
+                        src={item.image}
+                        alt=""
+                        width="800"
+                        height="800"
+                        loading={groupIndex === 0 && itemIndex === 0 ? "eager" : "lazy"}
+                        fetchpriority={groupIndex === 0 && itemIndex === 0 ? "high" : "auto"}
+                        decoding="async"
+                        class="h-full w-full object-contain transition duration-300 group-hover/card:scale-[1.03]"
+                      />
+                    </div>
+                  )}
+                  <div class="flex flex-1 flex-col border-t border-line p-5">
+                    <p class="text-xs font-semibold tracking-wider text-brand">{item.brand}</p>
+                    <h3 class="mt-1 font-semibold leading-snug group-hover/card:text-brand">
+                      {item.name}
+                    </h3>
+                    {item.note && <p class="mt-2 text-sm text-ink-muted">{item.note}</p>}
+                    <p class="mt-auto pt-3 text-sm font-semibold text-brand">
+                      詳細を見る<span aria-hidden="true"> →</span>
+                      <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+                    </p>
+                  </div>
                 </a>
               </li>
             ))}

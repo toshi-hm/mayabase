@@ -19,6 +19,8 @@ export interface GearItem {
   category: GearCategory;
   /** 外部リンク(https のみ。Amazon リンクはアフィリエイト) */
   url: string;
+  /** 商品画像 URL(任意。Amazon またはメーカー公式の商品ページ由来) */
+  image?: string;
   /** ひとことコメント(任意) */
   note?: string;
 }
@@ -61,6 +63,12 @@ export function parseGearData(data: unknown): GearData {
     if (typeof item.url !== "string" || !item.url.startsWith("https://")) {
       throw new Error(`gear.json: items[${i}].url は https:// で始まる必要があります`);
     }
+    if (
+      item.image !== undefined &&
+      (typeof item.image !== "string" || !item.image.startsWith("https://"))
+    ) {
+      throw new Error(`gear.json: items[${i}].image は https:// で始まる必要があります`);
+    }
     if (item.note !== undefined && typeof item.note !== "string") {
       throw new Error(`gear.json: items[${i}].note は文字列である必要があります`);
     }
@@ -69,6 +77,7 @@ export function parseGearData(data: unknown): GearData {
       brand: item.brand,
       category: item.category,
       url: item.url,
+      ...(item.image !== undefined ? { image: item.image } : {}),
       ...(item.note !== undefined ? { note: item.note } : {}),
     };
   });

@@ -12,6 +12,7 @@ const validItem = {
   brand: "PFU",
   category: "desk",
   url: "https://example.com/hhkb",
+  image: "https://example.com/hhkb.jpg",
   note: "メインキーボード",
 };
 
@@ -20,6 +21,7 @@ describe("parseGearData", () => {
     const { items } = parseGearData({ items: [validItem] });
     expect(items).toHaveLength(1);
     expect(items[0]?.name).toBe(validItem.name);
+    expect(items[0]?.image).toBe(validItem.image);
     expect(items[0]?.note).toBe(validItem.note);
   });
 
@@ -41,6 +43,13 @@ describe("parseGearData", () => {
       "category",
     );
     expect(() => parseGearData({ items: [{ ...validItem, note: 1 }] })).toThrow("note");
+    expect(() => parseGearData({ items: [{ ...validItem, image: 1 }] })).toThrow("image");
+  });
+
+  test("商品画像も https 以外の URL を拒否する", () => {
+    expect(() =>
+      parseGearData({ items: [{ ...validItem, image: "http://example.com/hhkb.jpg" }] }),
+    ).toThrow("image");
   });
 
   test("https 以外の URL は拒否する(スキーム混入防止)", () => {
