@@ -150,6 +150,70 @@ function toText(value: unknown): string {
 }
 
 /**
+ * チャンネルの「アップロード動画」プレイリスト ID を導出する。
+ * YouTube では channelId(UC...)の接頭辞を UU に置き換えたものが
+ * 全アップロードを含むプレイリスト ID になる(公式仕様)。
+ * RSS の 15 件上限を超えて全動画を取得するために使う。
+ */
+export function uploadsPlaylistId(channelId: string): string | null {
+  return /^UC[0-9A-Za-z_-]{22}$/.test(channelId) ? `UU${channelId.slice(2)}` : null;
+}
+
+/** playlistItems.list 1 ページ分のパース結果 */
+export interface PlaylistItemsPage {
+  entries: FeedEntry[];
+  /** 次ページのトークン。無ければ null(最終ページ) */
+  nextPageToken: string | null;
+}
+
+/**
+ * YouTube Data API v3 `playlistItems.list`(part=snippet,contentDetails)の
+ * レスポンス 1 ページ分をパースする。RSS と同じ FeedEntry 形へ正規化する。
+ * - videoId は contentDetails.videoId を優先(snippet.resourceId.videoId をフォールバック)
+ * - 公開日時は contentDetails.videoPublishedAt のみ採用する。snippet.publishedAt は
+ *   「プレイリストへの追加日時」であり公開日時ではないため使わない。これを有効性シグナルとし、
+ *   非公開・削除済み動画(videoPublishedAt を欠くが resourceId/publishedAt は残る)は確実にスキップする
+ * - id 形式が不正なアイテムもスキップ(videos.json → parseVideosData の制約と一致させ、
+ *   後段のインライン属性への注入や astro build 時の検証失敗を未然に防ぐ)
+ */
+export function parsePlaylistItemsPage(data: unknown): PlaylistItemsPage {
+  if (typeof data !== "object" || data === null) return { entries: [], nextPageToken: null };
+  const root = data as { items?: unknown; nextPageToken?: unknown };
+  const nextPageToken = typeof root.nextPageToken === "string" ? root.nextPageToken : null;
+  if (!Array.isArray(root.items)) return { entries: [], nextPageToken };
+
+  const entries: FeedEntry[] = [];
+  for (const raw of root.items) {
+    const item = raw as {
+      contentDetails?: { videoId?: unknown; videoPublishedAt?: unknown };
+      snippet?: {
+        title?: unknown;
+        description?: unknown;
+        resourceId?: { videoId?: unknown };
+      };
+    };
+    const content = item.contentDetails ?? {};
+    const snippet = item.snippet ?? {};
+    const id =
+      typeof content.videoId === "string"
+        ? content.videoId
+        : typeof snippet.resourceId?.videoId === "string"
+          ? snippet.resourceId.videoId
+          : "";
+    const publishedAt =
+      typeof content.videoPublishedAt === "string" ? content.videoPublishedAt : "";
+    if (!id || !publishedAt || !/^[A-Za-z0-9_-]+$/.test(id)) continue;
+    entries.push({
+      id,
+      title: toText(snippet.title),
+      description: toText(snippet.description),
+      publishedAt,
+    });
+  }
+  return { entries, nextPageToken };
+}
+
+/**
  * 既存データと RSS の取得結果をマージする。
  * - RSS に存在する動画: タイトル・説明・公開日時を更新(isShort の確定値は維持)
  * - RSS から溢れた過去動画: そのまま保持(RSS は最新 15 件のみのため)

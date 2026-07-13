@@ -104,7 +104,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         />
       </div>
       <p id="videos-count" aria-live="polite" class="text-sm text-ink-muted">
-        {videos.length} 件を表示中
+        {videos.length} 件
       </p>
     </section>
 
@@ -116,30 +116,72 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     <p id="videos-empty" hidden class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
       条件に一致する動画が見つかりませんでした。カテゴリやキーワードを変えてお試しください。
     </p>
+    {
+      /*
+      「もっと見る」ボタン。JS 無効時は全件が既に表示されているため hidden のまま
+      (プログレッシブエンハンスメント)。JS 有効時のみスクリプトが必要に応じて表示する。
+      一度押すと以降は全件表示のまま(このボタンは二度と表示されない)。
+    */
+    }
+    <div class="mt-10 text-center">
+      <button
+        id="videos-more"
+        type="button"
+        hidden
+        class="cursor-pointer rounded-full border border-ink-muted px-8 py-3 font-semibold transition hover:border-ink hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        もっと見る
+      </button>
+    </div>
   </main>
 </Base>
 
 <script>
-  // 絞り込み・検索(JS 無効時は全件表示のままになるプログレッシブエンハンスメント)
+  // 絞り込み・検索 + 段階表示(JS 無効時は全件表示のままになるプログレッシブエンハンスメント)
+  const INITIAL_COUNT = 12; // 初期表示件数(超過分は「もっと見る」で展開)
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-filter-category]");
   const search = document.getElementById("video-search") as HTMLInputElement | null;
   const cards = document.querySelectorAll<HTMLLIElement>("#videos-grid > li");
   const count = document.getElementById("videos-count");
   const empty = document.getElementById("videos-empty");
+  const moreButton = document.getElementById("videos-more") as HTMLButtonElement | null;
   let category = "all";
+  // 一度展開したら以降は全件表示のまま(ボタンは二度と出さない)
+  let expanded = false;
+
+  function cardMatches(card: HTMLLIElement, query: string): boolean {
+    return (
+      (category === "all" || card.dataset.category === category) &&
+      (query === "" || (card.dataset.title ?? "").includes(query))
+    );
+  }
 
   function applyFilter(): void {
     const query = (search?.value ?? "").trim().toLowerCase();
-    let visible = 0;
+    let matched = 0; // 条件に一致する総数
+    let shown = 0; // 実際に表示している数(未展開時は INITIAL_COUNT で頭打ち)
     for (const card of cards) {
-      const matches =
-        (category === "all" || card.dataset.category === category) &&
-        (query === "" || (card.dataset.title ?? "").includes(query));
-      card.hidden = !matches;
-      if (matches) visible += 1;
+      if (cardMatches(card, query)) {
+        matched += 1;
+        const withinLimit = expanded || matched <= INITIAL_COUNT;
+        card.hidden = !withinLimit;
+        if (withinLimit) shown += 1;
+      } else {
+        card.hidden = true;
+      }
     }
-    if (count) count.textContent = `${visible} 件を表示中`;
-    if (empty) empty.hidden = visible > 0;
+    if (count) count.textContent = `${matched} 件`;
+    if (empty) empty.hidden = matched > 0;
+
+    const remaining = matched - shown;
+    if (moreButton) {
+      if (!expanded && remaining > 0) {
+        moreButton.hidden = false;
+        moreButton.textContent = `もっと見る(残り ${remaining} 件)`;
+      } else {
+        moreButton.hidden = true;
+      }
+    }
   }
 
   for (const button of buttons) {
@@ -152,4 +194,16 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     });
   }
   search?.addEventListener("input", applyFilter);
+
+  moreButton?.addEventListener("click", () => {
+    // 展開直前に「これから現れる最初のカード」を控えておき、展開後にフォーカスを移す
+    const query = (search?.value ?? "").trim().toLowerCase();
+    const firstRevealed = [...cards].find((card) => card.hidden && cardMatches(card, query));
+    expanded = true;
+    applyFilter();
+    firstRevealed?.querySelector("a")?.focus();
+  });
+
+  // 初期表示:件数が INITIAL_COUNT を超えていれば頭打ち + ボタン表示
+  applyFilter();
 </script>

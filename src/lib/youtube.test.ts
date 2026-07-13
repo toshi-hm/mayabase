@@ -7,10 +7,12 @@ import {
   mapWithConcurrency,
   mergeVideos,
   parseFeed,
+  parsePlaylistItemsPage,
   parseVideosData,
   probeIsShort,
   thumbnailFallbackUrl,
   thumbnailUrl,
+  uploadsPlaylistId,
   type Video,
   videoUrl,
 } from "./youtube";
@@ -97,6 +99,132 @@ describe("parseFeed", () => {
     const entries = parseFeed(xml);
     expect(entries).toHaveLength(1);
     expect(entries[0]?.description).toBe("");
+  });
+});
+
+describe("uploadsPlaylistId", () => {
+  test("UC 始まりのチャンネル ID から UU プレイリスト ID を導出する", () => {
+    expect(uploadsPlaylistId("UC3ELUpDyBSGZfZJib67t4Sg")).toBe("UU3ELUpDyBSGZfZJib67t4Sg");
+  });
+
+  test("形式が不正なら null(短すぎる / UC 以外)", () => {
+    expect(uploadsPlaylistId("")).toBeNull();
+    expect(uploadsPlaylistId("UCshort")).toBeNull();
+    expect(uploadsPlaylistId("XX3ELUpDyBSGZfZJib67t4Sg")).toBeNull();
+  });
+});
+
+describe("parsePlaylistItemsPage", () => {
+  const page = {
+    nextPageToken: "CAUQAA",
+    items: [
+      {
+        contentDetails: { videoId: "vid00000001", videoPublishedAt: "2026-07-01T12:00:00Z" },
+        snippet: {
+          title: "API 動画1",
+          description: "説明1",
+          publishedAt: "2026-07-02T00:00:00Z", // プレイリスト追加日時(公開日時とは別)
+          resourceId: { videoId: "vid00000001" },
+        },
+      },
+      {
+        // contentDetails.videoId 欠落 → snippet.resourceId.videoId でフォールバック
+        contentDetails: { videoPublishedAt: "2026-06-15T09:30:00Z" },
+        snippet: {
+          title: "API 動画2",
+          description: "",
+          publishedAt: "2026-06-16T00:00:00Z",
+          resourceId: { videoId: "vid00000002" },
+        },
+      },
+    ],
+  };
+
+  test("items を FeedEntry に正規化する", () => {
+    const { entries } = parsePlaylistItemsPage(page);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toEqual({
+      id: "vid00000001",
+      title: "API 動画1",
+      description: "説明1",
+      publishedAt: "2026-07-01T12:00:00Z", // contentDetails.videoPublishedAt 優先
+    });
+  });
+
+  test("contentDetails.videoId が無ければ resourceId.videoId を使う", () => {
+    const { entries } = parsePlaylistItemsPage(page);
+    expect(entries[1]?.id).toBe("vid00000002");
+  });
+
+  test("nextPageToken を取り出す。無ければ null", () => {
+    expect(parsePlaylistItemsPage(page).nextPageToken).toBe("CAUQAA");
+    expect(parsePlaylistItemsPage({ items: [] }).nextPageToken).toBeNull();
+  });
+
+  test("videoId や公開日時を欠くアイテム(非公開・削除済み)はスキップする", () => {
+    const withDeleted = {
+      items: [
+        { contentDetails: {}, snippet: { title: "削除済み", description: "" } },
+        {
+          contentDetails: { videoId: "vidOK000001", videoPublishedAt: "2026-05-01T00:00:00Z" },
+          snippet: { title: "生きてる動画", description: "" },
+        },
+      ],
+    };
+    const { entries } = parsePlaylistItemsPage(withDeleted);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.id).toBe("vidOK000001");
+  });
+
+  test("削除済み/非公開動画(resourceId と snippet.publishedAt は残るが videoPublishedAt を欠く)はスキップ", () => {
+    // 実際の API は死んだ動画でも resourceId.videoId と snippet.publishedAt(追加日時)を返すため、
+    // videoPublishedAt を有効性シグナルにしないと死んだ動画が混入してしまう
+    const deadVideos = {
+      items: [
+        {
+          contentDetails: {}, // videoPublishedAt を欠く = 死んだ動画
+          snippet: {
+            title: "Deleted video",
+            description: "",
+            publishedAt: "2020-01-01T00:00:00Z", // プレイリスト追加日時(公開日時ではない)
+            resourceId: { videoId: "deadVid0001" },
+          },
+        },
+        {
+          contentDetails: { videoId: "liveVid0001", videoPublishedAt: "2026-05-01T00:00:00Z" },
+          snippet: {
+            title: "生きてる動画",
+            description: "",
+            resourceId: { videoId: "liveVid0001" },
+          },
+        },
+      ],
+    };
+    expect(parsePlaylistItemsPage(deadVideos).entries.map((e) => e.id)).toEqual(["liveVid0001"]);
+  });
+
+  test("id 形式が不正なアイテムはスキップする(インライン属性への注入防止)", () => {
+    const bad = {
+      items: [
+        {
+          contentDetails: { videoId: "abc';alert(1)", videoPublishedAt: "2026-01-01T00:00:00Z" },
+          snippet: { title: "不正 ID", description: "" },
+        },
+      ],
+    };
+    expect(parsePlaylistItemsPage(bad).entries).toEqual([]);
+  });
+
+  test("items が無い・不正でも例外を投げず空配列", () => {
+    expect(parsePlaylistItemsPage({}).entries).toEqual([]);
+    expect(parsePlaylistItemsPage(null).entries).toEqual([]);
+  });
+
+  test("mergeVideos と組み合わせて全動画を蓄積できる(RSS と同じ FeedEntry 形)", () => {
+    const { entries } = parsePlaylistItemsPage(page);
+    const merged = mergeVideos([], entries);
+    expect(merged.map((v) => v.id)).toEqual(["vid00000001", "vid00000002"]);
+    expect(merged.every((v) => v.isShort === null)).toBe(true);
   });
 });
 
