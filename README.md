@@ -43,8 +43,29 @@ bun run dev          # 開発サーバ(http://localhost:4321)
 
 ### 動画データの更新
 
+取得経路は 2 系統あり、`YOUTUBE_API_KEY` の有無で自動的に切り替わります。
+
+| 経路 | 条件 | 取得範囲 |
+| --- | --- | --- |
+| **YouTube Data API v3** | `YOUTUBE_API_KEY` を設定 | **全動画**(uploads プレイリストを全ページ取得) |
+| **RSS** | 未設定(デフォルト) | 最新 15 件のみ(過去動画は日々のマージで徐々に蓄積) |
+
+- **全動画をサイトに載せたい場合は API キーの設定を推奨します。** RSS は仕様上、最新 15 件しか返さないため、過去の動画をまとめて取得できません。
+- API 取得に失敗した場合は自動的に RSS へフォールバックし、全経路が失敗しても既存の `videos.json` を維持します(ビルドは決して落としません)。
+
+#### YouTube Data API キーの設定手順
+
+1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成し、「YouTube Data API v3」を有効化する。
+2. 認証情報から API キーを発行する(キーの制限で YouTube Data API v3 のみに絞ると安全)。
+3. ローカル実行: `YOUTUBE_API_KEY=xxxxx bun run fetch`
+4. GitHub Actions(定期更新): リポジトリの **Settings → Secrets and variables → Actions** に `YOUTUBE_API_KEY` を登録する(ワークフローは登録済みなら自動で使用します)。
+
+> クォータ目安: 全取得は概ね「(動画数 ÷ 50)units」程度で、無料枠(1 日 10,000 units)に対して十分小さい規模です。
+
+#### その他
+
 - ビルド時に `bun run build:full` を使うと自動で最新化されます。
-- GitHub Actions の「動画データの定期更新」ワークフローが毎日 6:00(JST)に RSS を取得し、変更があれば `videos.json` をコミットします(手動実行も可)。
+- GitHub Actions の「動画データの定期更新」ワークフローが毎日 6:00(JST)に取得し、変更があれば `videos.json` をコミットします(手動実行も可)。
   - この自動コミットは通常の CI / Lighthouse を経由しません(GITHUB_TOKEN によるプッシュは他のワークフローをトリガーしない GitHub の仕様)。fetch スクリプトは失敗時に既存データを維持するため、壊れたデータが混入するリスクは低い設計です。
   - main にブランチ保護(直接プッシュ禁止)を設定する場合は、bot を除外するか PR ベースのフローに変更してください。
 - 横動画 / Shorts の判定は自動で行われ、判定結果はキャッシュされます。

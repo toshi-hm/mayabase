@@ -3,8 +3,11 @@
  *
  * 実行: bun run fetch
  *
- * 設計方針(docs/02-design.md):
- * - RSS は最新 15 件のみのため、既存 videos.json とマージして過去動画も保持する
+ * 設計方針(docs/02-design.md、docs/03-content-expansion.md):
+ * - 取得経路は 2 系統:
+ *   1. YOUTUBE_API_KEY が設定されていれば YouTube Data API で全動画を取得(全ページ辿る)
+ *   2. 未設定なら RSS(最新 15 件のみ)。既存 videos.json とマージして過去動画も保持する
+ *   API 取得に失敗したときは RSS にフォールバックする(全経路失敗でも既存データを維持)
  * - Shorts 判定は未判定(isShort: null)の動画のみ行い、確定値は再判定しない
  * - 失敗しても既存の videos.json を残して exit 0(ビルドを決して落とさない)
  */
@@ -14,11 +17,14 @@ import { site } from "../src/config/site";
 import {
   createEmptyVideosData,
   extractChannelId,
+  type FeedEntry,
   mapWithConcurrency,
   mergeVideos,
   parseFeed,
+  parsePlaylistItemsPage,
   parseVideosData,
   probeIsShort,
+  uploadsPlaylistId,
   type Video,
   type VideosData,
 } from "../src/lib/youtube";
@@ -26,6 +32,8 @@ import {
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
 const PROBE_CONCURRENCY = 4;
 const FETCH_TIMEOUT_MS = 15_000;
+const API_PAGE_SIZE = 50; // playlistItems.list の最大値
+const API_MAX_PAGES = 40; // 暴走防止(最大 2000 件相当)
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
   return fetch(url, {
@@ -65,6 +73,52 @@ async function resolveChannelId(existing: VideosData): Promise<string | null> {
   return extractChannelId(await res.text());
 }
 
+/**
+ * YouTube Data API v3 でチャンネルの全アップロード動画を取得する。
+ * uploads プレイリストを nextPageToken が尽きるまで辿る。
+ * 失敗時は null を返して呼び出し側で RSS にフォールバックさせる。
+ */
+async function fetchAllViaApi(channelId: string, apiKey: string): Promise<FeedEntry[] | null> {
+  const playlistId = uploadsPlaylistId(channelId);
+  if (!playlistId) {
+    console.warn(
+      `[fetch-videos] channelId から uploads プレイリストを導出できません: ${channelId}`,
+    );
+    return null;
+  }
+
+  const entries: FeedEntry[] = [];
+  let pageToken: string | null = null;
+  for (let page = 0; page < API_MAX_PAGES; page += 1) {
+    const url = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
+    url.searchParams.set("part", "snippet,contentDetails");
+    url.searchParams.set("playlistId", playlistId);
+    url.searchParams.set("maxResults", String(API_PAGE_SIZE));
+    url.searchParams.set("key", apiKey);
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+    let res: Response;
+    try {
+      res = await fetchWithTimeout(url.toString());
+    } catch (error) {
+      console.warn("[fetch-videos] Data API リクエストに失敗しました:", error);
+      return null;
+    }
+    if (!res.ok) {
+      console.warn(`[fetch-videos] Data API がエラーを返しました (HTTP ${res.status})`);
+      return null;
+    }
+
+    const { entries: pageEntries, nextPageToken } = parsePlaylistItemsPage(await res.json());
+    entries.push(...pageEntries);
+    if (!nextPageToken) break;
+    pageToken = nextPageToken;
+  }
+
+  console.log(`[fetch-videos] Data API から ${entries.length} 件を取得しました`);
+  return entries;
+}
+
 async function probeShorts(videos: Video[]): Promise<Video[]> {
   const unknowns = videos.filter((v) => v.isShort === null);
   if (unknowns.length === 0) return videos;
@@ -97,18 +151,31 @@ async function main(): Promise<void> {
     return;
   }
 
-  const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
-  const res = await fetchWithTimeout(feedUrl);
-  if (!res.ok) {
-    console.warn(
-      `[fetch-videos] RSS の取得に失敗しました (HTTP ${res.status})。既存データを維持します。`,
+  // API キーがあれば全動画取得を試み、失敗時は RSS(最新 15 件)にフォールバックする
+  const apiKey = process.env.YOUTUBE_API_KEY?.trim();
+  let entries: FeedEntry[] | null = null;
+  if (apiKey) {
+    entries = await fetchAllViaApi(channelId, apiKey);
+  } else {
+    console.log(
+      "[fetch-videos] YOUTUBE_API_KEY 未設定のため RSS(最新 15 件)を使用します。全動画取得には API キーを設定してください。",
     );
-    return;
   }
 
-  const entries = parseFeed(await res.text());
+  if (entries === null) {
+    const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+    const res = await fetchWithTimeout(feedUrl);
+    if (!res.ok) {
+      console.warn(
+        `[fetch-videos] RSS の取得に失敗しました (HTTP ${res.status})。既存データを維持します。`,
+      );
+      return;
+    }
+    entries = parseFeed(await res.text());
+  }
+
   if (entries.length === 0) {
-    console.warn("[fetch-videos] RSS に動画がありませんでした。既存データを維持します。");
+    console.warn("[fetch-videos] 取得できた動画がありませんでした。既存データを維持します。");
     return;
   }
 
