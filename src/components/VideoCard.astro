@@ -10,14 +10,19 @@ interface Props {
   total: number;
   /** ファーストビューに入るカードは true(LCP 対策で eager 読み込み) */
   eager?: boolean;
+  /** TopPage のファーストビュー用に大きく表示する */
+  featured?: boolean;
 }
 
-const { video, position, total, eager = false } = Astro.props;
+const { video, position, total, eager = false, featured = false } = Astro.props;
 ---
 
 <li
-  class="w-[80%] flex-none sm:w-[47%] lg:w-[31.5%]"
-  role="group"
+  class:list={[
+    "flex-none",
+    featured ? "w-[88%] sm:w-[68%] lg:w-[56%]" : "w-[80%] sm:w-[47%] lg:w-[31.5%]",
+  ]}
+  role="listitem"
   aria-roledescription="スライド"
   aria-label={`${position} / ${total}`}
 >
@@ -25,7 +30,10 @@ const { video, position, total, eager = false } = Astro.props;
     href={videoUrl(video)}
     target="_blank"
     rel="noopener noreferrer"
-    class="group/card block overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
+    class:list={[
+      "group/card block h-full overflow-hidden border border-line bg-surface transition hover:-translate-y-1 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-brand",
+      featured ? "rounded-lg shadow-[0_14px_40px_rgba(28,43,55,0.10)]" : "rounded-lg",
+    ]}
   >
     {
       /* 最優先(eager)の 1 枚は存在保証のある hqdefault を直接使い、
@@ -42,8 +50,13 @@ const { video, position, total, eager = false } = Astro.props;
       decoding="async"
       class="aspect-video w-full object-cover"
     />
-    <div class="p-4">
-      <h3 class="line-clamp-2 font-semibold leading-snug group-hover/card:text-brand">
+    <div class:list={["p-4", featured && "sm:p-5"]}>
+      <h3
+        class:list={[
+          "line-clamp-2 font-semibold leading-snug group-hover/card:text-brand",
+          featured && "sm:text-lg",
+        ]}
+      >
         {video.title}
       </h3>
       <p class="mt-2 text-sm text-ink-muted">

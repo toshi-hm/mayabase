@@ -12,7 +12,7 @@ const currentPath = Astro.url.pathname.replace(/\/+$/, "") || "/";
 const isCurrent = (href: string): boolean => currentPath === href.replace(/\/+$/, "");
 ---
 
-<header class="sticky top-0 z-40 border-b border-surface-raised bg-surface/90 backdrop-blur">
+<header class="sticky top-0 z-40 border-b border-line bg-surface/92 backdrop-blur-lg">
   <nav
     aria-label="サイト内ナビゲーション"
     class="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3"
@@ -20,7 +20,7 @@ const isCurrent = (href: string): boolean => currentPath === href.replace(/\/+$/
     <a
       href="/"
       aria-current={currentPath === "/" ? "page" : undefined}
-      class="flex-none font-bold tracking-wide transition hover:text-brand"
+      class="flex-none text-lg font-black transition hover:text-brand"
     >
       {site.name}
     </a>
@@ -32,10 +32,8 @@ const isCurrent = (href: string): boolean => currentPath === href.replace(/\/+$/
               href={item.href}
               aria-current={isCurrent(item.href) ? "page" : undefined}
               class:list={[
-                "block rounded-full px-3 py-1.5 transition hover:bg-surface-raised hover:text-ink",
-                isCurrent(item.href)
-                  ? "bg-surface-raised font-semibold text-ink"
-                  : "text-ink-muted",
+                "block rounded-md px-3 py-1.5 transition hover:bg-surface-raised hover:text-ink",
+                isCurrent(item.href) ? "bg-ink font-semibold text-white" : "text-ink-muted",
               ]}
             >
               {item.label}

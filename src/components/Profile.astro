@@ -4,25 +4,38 @@ import SectionHeading from "./SectionHeading.astro";
 ---
 
 <section aria-labelledby="profile-heading" class="py-16">
-  <SectionHeading id="profile-heading" title="プロフィール" />
-  <div class="flex flex-col items-start gap-6 rounded-2xl bg-surface-raised p-8 sm:flex-row">
-    <div
-      class="grid h-20 w-20 flex-none place-items-center rounded-full bg-brand text-3xl font-bold text-surface"
-      aria-hidden="true"
-    >
-      {site.profile.name.charAt(0)}
+  <div class="grid gap-10 lg:grid-cols-[0.7fr_1.3fr] lg:items-center">
+    <div>
+      <p class="mb-3 text-sm font-bold text-brand">ABOUT</p>
+      <SectionHeading id="profile-heading" title="つくっている人" />
+      <div class="relative w-fit">
+        <div
+          class="absolute -right-3 -bottom-3 h-full w-full rounded-full bg-brand"
+          aria-hidden="true"
+        >
+        </div>
+        <img
+          src={site.profile.image}
+          alt={site.profile.name}
+          width="320"
+          height="320"
+          loading="lazy"
+          decoding="async"
+          class="relative aspect-square w-40 rounded-full border-4 border-surface-sun object-cover sm:w-52"
+        />
+      </div>
     </div>
     <div>
-      <h3 class="text-xl font-bold">{site.profile.name}</h3>
-      <p class="mt-1 text-sm text-ink-muted">{site.profile.role}</p>
-      <p class="mt-4 leading-relaxed">{site.profile.bio}</p>
-      <ul class="mt-5 flex flex-wrap gap-4 text-sm">
+      <h3 class="text-3xl font-black">{site.profile.name}</h3>
+      <p class="mt-2 font-semibold text-accent">{site.profile.role}</p>
+      <p class="mt-6 max-w-3xl leading-loose">{site.profile.bio}</p>
+      <ul class="mt-7 flex flex-wrap gap-3 text-sm font-semibold">
         <li>
           <a
             href={site.youtube.url}
             target="_blank"
             rel="noopener noreferrer"
-            class="text-brand underline-offset-4 hover:underline"
+            class="rounded-md bg-ink px-4 py-2 text-white transition hover:bg-brand"
           >
             YouTube: {site.youtube.handle}
           </a>
@@ -32,7 +45,7 @@ import SectionHeading from "./SectionHeading.astro";
             href={site.x.url}
             target="_blank"
             rel="noopener noreferrer"
-            class="text-brand underline-offset-4 hover:underline"
+            class="rounded-md border border-ink px-4 py-2 transition hover:bg-surface"
           >
             X: @{site.x.account}
           </a>
