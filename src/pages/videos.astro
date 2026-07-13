@@ -111,7 +111,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     {/* 見出し階層(h1→h2→h3)を保つためのセクション見出し(視覚上はフィルタ UI が境界) */}
     <h2 class="sr-only">動画一覧</h2>
     <ul id="videos-grid" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {categorized.map(({ video, category }) => <ArchiveCard video={video} category={category} />)}
+      {
+        categorized.map(({ video, category }, index) => (
+          <ArchiveCard video={video} category={category} eager={index === 0} />
+        ))
+      }
     </ul>
     <p id="videos-empty" hidden class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
       条件に一致する動画が見つかりませんでした。カテゴリやキーワードを変えてお試しください。

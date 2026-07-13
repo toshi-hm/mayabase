@@ -6,9 +6,11 @@ import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib
 interface Props {
   video: Video;
   category: VideoCategory;
+  /** 一覧の先頭カードは LCP 対策で優先読み込みする */
+  eager?: boolean;
 }
 
-const { video, category } = Astro.props;
+const { video, category, eager = false } = Astro.props;
 ---
 
 {/* data-* はクライアントサイドの絞り込み・検索で参照する(videos.astro) */}
@@ -22,12 +24,15 @@ const { video, category } = Astro.props;
     <div class="relative">
       {/* Shorts も 16:9 で統一表示する(縦型サムネイルは中央トリミングされる) */}
       <img
-        src={thumbnailUrl(video.id)}
-        onerror={`this.onerror=null;this.src='${thumbnailFallbackUrl(video.id)}'`}
+        src={eager ? thumbnailFallbackUrl(video.id) : thumbnailUrl(video.id)}
+        onerror={eager
+          ? undefined
+          : `this.onerror=null;this.src='${thumbnailFallbackUrl(video.id)}'`}
         alt=""
         width="1280"
         height="720"
-        loading="lazy"
+        loading={eager ? "eager" : "lazy"}
+        fetchpriority={eager ? "high" : "auto"}
         decoding="async"
         class="aspect-video w-full object-cover"
       />
