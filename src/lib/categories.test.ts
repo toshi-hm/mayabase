@@ -62,6 +62,12 @@ describe("categorizeVideo", () => {
     expect(categorizeVideo({ title: "vlog: とある休日" })).toBe("vlog");
   });
 
+  test("過去動画で使われる固有表現を分類できる", () => {
+    expect(categorizeVideo({ title: "新卒エンジニアの二足のわらじ" })).toBe("career");
+    expect(categorizeVideo({ title: "愛用コーヒーメーカーと体重計" })).toBe("gadget");
+    expect(categorizeVideo({ title: "Maya のライブ配信" })).toBe("vlog");
+  });
+
   test("どのキーワードにも該当しなければ other になる", () => {
     expect(categorizeVideo({ title: "タイトル未定" })).toBe("other");
     expect(categorizeVideo({ title: "" })).toBe("other");
