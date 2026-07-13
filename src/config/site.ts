@@ -30,6 +30,16 @@ export const site = {
     url: "https://x.com/MayaBaseJP",
   },
 
+  /** 質問箱(マシュマロ)。動画概要欄に掲載している URL と同一 */
+  marshmallow: {
+    url: "https://marshmallow-qa.com/5grb3tbhads2ey9",
+  },
+
+  /** お仕事依頼などの連絡先(スクレイピング対策で概要欄と同じ ☆ 表記) */
+  contact: {
+    emailObfuscated: "mayabaseofficial☆gmail.com(☆→@)",
+  },
+
   /** 運営者プロフィール(動画概要欄の公式プロフィールに基づく) */
   profile: {
     name: "Maya",
