@@ -47,28 +47,53 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   <link rel="preconnect" href="https://m.media-amazon.com" crossorigin slot="head" />
   <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
     <h1 class="text-3xl font-bold sm:text-4xl">愛用ガジェット</h1>
-    <div class="mt-3 grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-      <p class="max-w-2xl text-ink-muted">
+    <div class="mt-3 grid gap-x-8 gap-y-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <p class="max-w-2xl text-ink-muted lg:col-start-1 lg:row-start-1">
         動画制作やデスク環境で実際に使っている機材・ガジェットの一覧です。「動画に出てきたあれは何?」の答えがここにあります。
       </p>
-      <a
-        href="https://amzn.asia/d/07216xEl"
-        target="_blank"
-        rel="sponsored noopener noreferrer"
-        class="inline-flex w-fit items-center gap-2 rounded-md border border-ink bg-surface px-4 py-2 text-sm font-semibold transition hover:bg-ink hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+      <div
+        class="flex w-fit flex-col items-center lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:justify-self-end"
       >
-        Amazon Storefrontを見る <span aria-hidden="true">↗</span>
-        <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
-      </a>
-    </div>
+        <a
+          href="https://amzn.asia/d/07216xEl"
+          target="_blank"
+          rel="sponsored noopener noreferrer"
+          class="inline-flex w-fit items-center gap-2 rounded-md border border-ink bg-surface px-4 py-2 text-sm font-semibold transition hover:bg-ink hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+        >
+          Amazon Storefrontを見る <span aria-hidden="true">↗</span>
+          <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+        </a>
 
-    {/* ステマ規制(景品表示法)対応: アフィリエイト広告を含む旨をファーストビューに明示する */}
-    <p
-      class="mt-6 max-w-2xl rounded-xl border border-ink-muted/40 bg-surface-raised p-4 text-sm text-ink-muted"
-    >
-      <strong class="text-ink">【PR】</strong>
-      本ページのリンクにはアフィリエイト広告(Amazon アソシエイト等)を含みます。リンク経由でご購入いただくと売上の一部がチャンネル運営の支えになります。いつもありがとうございます!
-    </p>
+        <div class="storefront-mascot relative mt-1 w-72 max-w-[78vw]" aria-live="off">
+          <img
+            src="/images/storefront-bear.png"
+            alt=""
+            width="640"
+            height="640"
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
+            class="block h-auto w-full"
+            aria-hidden="true"
+          />
+          <p
+            class="absolute top-[44%] right-[17%] left-[17%] flex h-[28%] flex-col items-center justify-center text-center text-xs leading-snug font-semibold text-ink"
+          >
+            <span>Amazon Storefrontに</span>
+            <span>最新のおすすめアイテム</span>
+            <span>掲載中！</span>
+          </p>
+        </div>
+      </div>
+
+      {/* ステマ規制(景品表示法)対応: アフィリエイト広告を含む旨をファーストビューに明示する */}
+      <p
+        class="max-w-2xl self-start rounded-xl border border-ink-muted/40 bg-surface-raised p-4 text-sm text-ink-muted lg:col-start-1 lg:row-start-2"
+      >
+        <strong class="text-ink">【PR】</strong>
+        本ページのリンクにはアフィリエイト広告(Amazon アソシエイト等)を含みます。リンク経由でご購入いただくと売上の一部がチャンネル運営の支えになります。いつもありがとうございます!
+      </p>
+    </div>
 
     {
       groups.map(([category, groupItems], groupIndex) => (
@@ -141,4 +166,111 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </div>
     </section>
   </main>
+
+  <a
+    id="storefront-floating"
+    href="https://amzn.asia/d/07216xEl"
+    target="_blank"
+    rel="sponsored noopener noreferrer"
+    aria-hidden="true"
+    tabindex="-1"
+    class="storefront-floating fixed right-3 bottom-3 z-50 w-28 sm:right-5 sm:bottom-5 sm:w-36"
+  >
+    <span class="sr-only">Amazon Storefrontを見る(外部サイト・新しいタブで開きます)</span>
+    <span class="relative block drop-shadow-lg" aria-hidden="true">
+      <img
+        src="/images/storefront-bear.png"
+        alt=""
+        width="640"
+        height="640"
+        loading="lazy"
+        decoding="async"
+        class="block h-auto w-full"
+      />
+      <span
+        class="absolute top-[44%] right-[17%] left-[17%] flex h-[28%] items-center justify-center text-center text-[9px] leading-tight font-semibold text-ink sm:text-[11px]"
+      >
+        Storefrontへ
+      </span>
+    </span>
+  </a>
 </Base>
+
+<script>
+  const deskHeading = document.getElementById("gear-desk-heading");
+  const floatingStorefront = document.getElementById("storefront-floating");
+
+  if (deskHeading && floatingStorefront instanceof HTMLAnchorElement) {
+    let ticking = false;
+
+    const syncFloatingStorefront = () => {
+      const isVisible = deskHeading.getBoundingClientRect().top <= 72;
+      floatingStorefront.classList.toggle("is-visible", isVisible);
+      floatingStorefront.setAttribute("aria-hidden", String(!isVisible));
+      floatingStorefront.tabIndex = isVisible ? 0 : -1;
+      ticking = false;
+    };
+
+    const requestSync = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(syncFloatingStorefront);
+    };
+
+    syncFloatingStorefront();
+    window.addEventListener("scroll", requestSync, { passive: true });
+    window.addEventListener("resize", requestSync);
+  }
+</script>
+
+<style>
+  .storefront-mascot {
+    transform-origin: bottom center;
+    animation: storefront-pop 760ms cubic-bezier(0.2, 0.8, 0.2, 1.15) 160ms both;
+  }
+
+  @keyframes storefront-pop {
+    0% {
+      transform: translateY(3rem) scale(0.92);
+    }
+    58% {
+      transform: translateY(-0.45rem) scale(1.02);
+    }
+    78% {
+      transform: translateY(0.2rem) scale(0.99);
+    }
+    100% {
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .storefront-floating {
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(1.5rem) scale(0.82);
+    transform-origin: bottom right;
+    transition:
+      opacity 180ms ease,
+      transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1.2);
+  }
+
+  .storefront-floating.is-visible {
+    pointer-events: auto;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  .storefront-floating.is-visible:hover {
+    transform: translateY(-0.2rem) scale(1.04);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .storefront-mascot {
+      animation: none;
+    }
+
+    .storefront-floating {
+      transition: none;
+    }
+  }
+</style>
