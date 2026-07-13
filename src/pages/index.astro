@@ -85,129 +85,147 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
 <Base>
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
-  {/* banner ランドマークは共通ヘッダー(SiteHeader)に譲るため、ヒーローは div にする */}
-  <div class="mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-20 text-center">
-    <p class="text-sm font-semibold tracking-widest text-brand uppercase">YouTube Channel Portal</p>
-    <h1 class="text-4xl font-bold sm:text-6xl">{site.name}</h1>
-    <p class="max-w-2xl text-lg text-ink-muted">{site.description}</p>
-    <nav aria-label="SNS リンク" class="flex flex-wrap justify-center gap-4">
-      <a
-        href={site.youtube.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="YouTube を見る(新しいタブで開きます)"
-        class="rounded-full bg-brand px-6 py-3 font-semibold text-surface transition hover:bg-brand-strong"
-      >
-        YouTube を見る
-      </a>
-      <a
-        href={site.x.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="X をフォロー(新しいタブで開きます)"
-        class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface-raised"
-      >
-        X をフォロー
-      </a>
-    </nav>
-  </div>
-
-  <main id="main" class="mx-auto max-w-6xl px-4 pb-24">
-    <Profile />
-
-    <section aria-labelledby="videos-heading" class="py-16">
-      <SectionHeading
-        id="videos-heading"
-        title="最新動画"
-        subtitle="公開日時が新しい順に最大 6 件を表示しています"
-      />
-      {
-        regularVideos.length > 0 ? (
-          <Carousel label="最新動画の一覧">
-            {regularVideos.map((video, index) => (
-              <VideoCard
-                video={video}
-                position={index + 1}
-                total={regularVideos.length}
-                eager={index === 0}
-              />
-            ))}
-          </Carousel>
-        ) : (
-          <p class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
-            動画データを準備中です。
-            <a
-              href={site.youtube.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-brand underline underline-offset-4"
+  <main id="main">
+    <section aria-labelledby="videos-heading" class="overflow-hidden border-b border-line pb-14">
+      <div class="mx-auto max-w-6xl px-4 pt-8 sm:pt-10">
+        <div class="mb-8 grid gap-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+          <div>
+            <p class="mb-2 text-sm font-bold text-brand">ITで日常をより便利に</p>
+            <h1 class="text-4xl font-black sm:text-6xl">{site.name}</h1>
+          </div>
+          <div class="lg:pb-1">
+            <p class="leading-relaxed text-ink-muted">
+              AI、ガジェット、働く日々のリアル。暮らしと仕事を少し便利にする発見を動画で届けます。
+            </p>
+            <nav
+              aria-label="チャンネルリンク"
+              class="mt-4 flex flex-wrap gap-4 text-sm font-semibold"
             >
-              YouTube チャンネル
-            </a>
-            で最新の動画をご覧ください。
-          </p>
-        )
-      }
+              <a
+                href={site.youtube.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="rounded-md bg-brand px-4 py-2 text-white transition hover:bg-brand-strong"
+              >
+                YouTube で見る <span aria-hidden="true">↗</span>
+              </a>
+              <a
+                href="/videos/"
+                class="px-1 py-2 underline decoration-line underline-offset-4 hover:text-brand"
+              >
+                すべての動画
+              </a>
+            </nav>
+          </div>
+        </div>
+        <div class="mb-5 flex items-end justify-between gap-4 border-t border-line pt-5">
+          <h2 id="videos-heading" class="text-xl font-black sm:text-2xl">最新動画</h2>
+          <p class="hidden text-sm text-ink-muted sm:block">NEW RELEASES</p>
+        </div>
+        {
+          regularVideos.length > 0 ? (
+            <Carousel label="最新動画の一覧">
+              {regularVideos.map((video, index) => (
+                <VideoCard
+                  video={video}
+                  position={index + 1}
+                  total={regularVideos.length}
+                  eager={index === 0}
+                  featured
+                />
+              ))}
+            </Carousel>
+          ) : (
+            <p class="rounded-lg bg-surface-raised p-8 text-center text-ink-muted">
+              動画データを準備中です。
+              <a
+                href={site.youtube.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-brand underline underline-offset-4"
+              >
+                YouTube チャンネル
+              </a>
+              で最新の動画をご覧ください。
+            </p>
+          )
+        }
+      </div>
     </section>
 
-    <section aria-labelledby="shorts-heading" class="py-16">
-      <SectionHeading
-        id="shorts-heading"
-        title="Shorts"
-        subtitle="サクッと見られるショート動画(新しい順・最大 6 件)"
-      />
-      {
-        shortVideos.length > 0 ? (
-          <Carousel label="Shorts の一覧">
-            {shortVideos.map((video, index) => (
-              <ShortCard video={video} position={index + 1} total={shortVideos.length} />
-            ))}
-          </Carousel>
-        ) : (
-          <p class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
-            Shorts データを準備中です。
-            <a
-              href={site.youtube.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-brand underline underline-offset-4"
-            >
-              YouTube チャンネル
-            </a>
-            でご覧ください。
-          </p>
-        )
-      }
+    <section aria-labelledby="shorts-heading" class="bg-surface-mint py-16">
+      <div class="mx-auto max-w-6xl px-4">
+        <SectionHeading
+          id="shorts-heading"
+          title="Shortsで、さっと発見"
+          subtitle="移動中や休憩時間にも見やすい、短いアイデアと気づきをまとめました。"
+        />
+        {
+          shortVideos.length > 0 ? (
+            <Carousel label="Shorts の一覧">
+              {shortVideos.map((video, index) => (
+                <ShortCard video={video} position={index + 1} total={shortVideos.length} />
+              ))}
+            </Carousel>
+          ) : (
+            <p class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
+              Shorts データを準備中です。
+              <a
+                href={site.youtube.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-brand underline underline-offset-4"
+              >
+                YouTube チャンネル
+              </a>
+              でご覧ください。
+            </p>
+          )
+        }
+      </div>
     </section>
 
     <section aria-labelledby="x-heading" class="py-16">
-      <SectionHeading
-        id="x-heading"
-        title="X の最新ポスト"
-        subtitle={`@${account} の投稿から新しい順に最大 6 件`}
-      />
-      {
-        xPosts.length > 0 ? (
-          <Carousel label="X ポストの一覧">
-            {xPosts.map((post, index) => (
-              <PostCard post={post} account={account} position={index + 1} total={xPosts.length} />
-            ))}
-          </Carousel>
-        ) : (
-          <p class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
-            ポストデータを準備中です。
-            <a
-              href={site.x.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-brand underline underline-offset-4"
-            >
-              X(@{account})
-            </a>
-            で最新の投稿をご覧ください。
-          </p>
-        )
-      }
+      <div class="mx-auto max-w-6xl px-4">
+        <SectionHeading
+          id="x-heading"
+          title="いま考えていること"
+          subtitle={`@${account} から、動画になる前の気づきや日々の記録を。`}
+        />
+        {
+          xPosts.length > 0 ? (
+            <Carousel label="X ポストの一覧">
+              {xPosts.map((post, index) => (
+                <PostCard
+                  post={post}
+                  account={account}
+                  position={index + 1}
+                  total={xPosts.length}
+                />
+              ))}
+            </Carousel>
+          ) : (
+            <p class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
+              ポストデータを準備中です。
+              <a
+                href={site.x.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-brand underline underline-offset-4"
+              >
+                X(@{account})
+              </a>
+              で最新の投稿をご覧ください。
+            </p>
+          )
+        }
+      </div>
+    </section>
+
+    <section class="bg-surface-sun">
+      <div class="mx-auto max-w-6xl px-4">
+        <Profile />
+      </div>
     </section>
   </main>
 </Base>

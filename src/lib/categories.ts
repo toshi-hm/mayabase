@@ -28,7 +28,23 @@ export const CATEGORY_ORDER: readonly VideoCategory[] = ["ai", "gadget", "vlog",
  * ここのキーワードを見直すこと(categories.test.ts の実データ回帰テストで検知できる)。
  */
 const CATEGORY_KEYWORDS: readonly (readonly [VideoCategory, readonly string[]])[] = [
-  ["career", ["就活", "キャリア", "大学院", "学位", "修了", "卒業", "転職", "SIer", "勉強法"]],
+  [
+    "career",
+    [
+      "就活",
+      "キャリア",
+      "大学院",
+      "学位",
+      "修了",
+      "卒業",
+      "転職",
+      "SIer",
+      "勉強法",
+      "新卒",
+      "二足のわらじ",
+      "非情報系",
+    ],
+  ],
   [
     "gadget",
     [
@@ -41,10 +57,14 @@ const CATEGORY_KEYWORDS: readonly (readonly [VideoCategory, readonly string[]])[
       "キーボード",
       "イヤホン",
       "モニター",
+      "iPad",
+      "コーヒーメーカー",
+      "体重計",
+      "Amazon",
     ],
   ],
   ["ai", ["AI", "ChatGPT", "GPT", "OpenAI", "Claude", "Gemini", "Copilot", "LLM"]],
-  ["vlog", ["Vlog", "日常", "旅行", "ルーティン", "1日", "休日"]],
+  ["vlog", ["Vlog", "日常", "旅行", "ルーティン", "1日", "休日", "ライブ配信", "CDJ"]],
 ];
 
 /** 正規表現メタ文字をエスケープする */

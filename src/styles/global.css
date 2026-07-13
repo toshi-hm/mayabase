@@ -2,12 +2,16 @@
 
 @theme {
   /* ブランドカラー */
-  --color-brand: oklch(72% 0.19 25);
-  --color-brand-strong: oklch(62% 0.21 25);
-  --color-surface: oklch(18% 0.015 270);
-  --color-surface-raised: oklch(23% 0.02 270);
-  --color-ink: oklch(96% 0.005 270);
-  --color-ink-muted: oklch(72% 0.01 270);
+  --color-brand: oklch(54% 0.2 25);
+  --color-brand-strong: oklch(47% 0.18 25);
+  --color-surface: oklch(99% 0.004 95);
+  --color-surface-raised: oklch(96.5% 0.008 220);
+  --color-surface-mint: oklch(95% 0.035 178);
+  --color-surface-sun: oklch(96% 0.055 94);
+  --color-ink: oklch(24% 0.025 245);
+  --color-ink-muted: oklch(48% 0.025 245);
+  --color-line: oklch(88% 0.015 235);
+  --color-accent: oklch(47% 0.11 180);
 
   /* フォント(システムフォントスタック、Web フォント不使用) */
   --font-sans:
@@ -29,4 +33,8 @@ body {
   background-color: var(--color-surface);
   color: var(--color-ink);
   font-family: var(--font-sans);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-brand) 24%, white);
 }
