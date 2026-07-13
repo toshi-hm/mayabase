@@ -16,6 +16,12 @@ import {
 const { videos } = parseVideosData(videosJson);
 const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
 const INITIAL_COUNT = 12;
+const LOCAL_THUMBNAILS: Partial<Record<string, string>> = {
+  "2WX26Bekrfk": "/images/videos-first-thumbnail.webp",
+};
+const firstThumbnailSrc = videos[0]
+  ? (LOCAL_THUMBNAILS[videos[0].id] ?? thumbnailFallbackUrl(videos[0].id))
+  : undefined;
 
 // 動画が 1 件以上あるカテゴリだけをフィルタ UI に出す
 const availableCategories = CATEGORY_ORDER.filter((category) =>
@@ -65,14 +71,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
 <Base title={pageTitle} description={pageDescription}>
   {
-    videos[0] && (
-      <link
-        rel="preload"
-        as="image"
-        href={thumbnailFallbackUrl(videos[0].id)}
-        fetchpriority="high"
-        slot="head"
-      />
+    firstThumbnailSrc && (
+      <link rel="preload" as="image" href={firstThumbnailSrc} fetchpriority="high" slot="head" />
     )
   }
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
@@ -129,6 +129,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             video={video}
             category={category}
             eager={index === 0}
+            thumbnailSrc={index === 0 ? firstThumbnailSrc : undefined}
             initiallyHidden={index >= INITIAL_COUNT}
           />
         ))
