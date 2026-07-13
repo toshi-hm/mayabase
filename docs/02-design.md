@@ -123,7 +123,7 @@ interface Video {
   - ファーストビューの主要画像(ヒーロー・先頭サムネイル)は `loading="eager"` + `fetchpriority="high"`、それ以外は `loading="lazy"`(LCP 対策)
   - すべての画像に明示的な width/height(CLS 対策)
   - `<head>` に `<link rel="preconnect" href="https://i.ytimg.com">` を追加
-  - フォントはシステムフォントスタック(Web フォント不使用)で FOUT ゼロ
+  - フォントは LINE Seed JP Regular をサイト内テキストにサブセット化してセルフホストし、`font-display: swap`、合成ウェイト、システムフォントのフォールバックを使用
 - **a11y**: セマンティック HTML(section/h2)、コントラスト比 AA 以上、Biome の a11y ルール有効化。
 - 目標: Lighthouse Performance / Accessibility / Best Practices / SEO 全て 95 以上(SEO は 100)。
 

@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "LINE Seed JP";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("/fonts/line-seed-jp-400-subset.woff2") format("woff2");
+}
+
 @theme {
   /* ブランドカラー */
   --color-brand: oklch(54% 0.2 25);
@@ -13,10 +21,10 @@
   --color-line: oklch(88% 0.015 235);
   --color-accent: oklch(47% 0.11 180);
 
-  /* フォント(システムフォントスタック、Web フォント不使用) */
+  /* LINE Seed JP を優先し、読み込み前・未収録文字はシステムフォントへフォールバック */
   --font-sans:
-    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", Meiryo, system-ui, -apple-system,
-    "Segoe UI", sans-serif;
+    "LINE Seed JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", Meiryo,
+    system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 html {
@@ -33,6 +41,7 @@ body {
   background-color: var(--color-surface);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-synthesis: weight;
 }
 
 ::selection {
