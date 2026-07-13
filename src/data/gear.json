@@ -1,0 +1,137 @@
+{
+  "items": [
+    {
+      "name": "HHKB Professional HYBRID Type-S 雪 英語配列",
+      "brand": "PFU",
+      "category": "desk",
+      "url": "https://amzn.to/40bgFWc",
+      "note": "メインキーボード。静電容量無接点方式の英語配列モデル"
+    },
+    {
+      "name": "MX Master 3S",
+      "brand": "Logicool",
+      "category": "desk",
+      "url": "https://amzn.to/4kKeX6x",
+      "note": "メインマウス。静音クリックと高速スクロールが特徴"
+    },
+    {
+      "name": "Stream Deck +",
+      "brand": "Elgato",
+      "category": "desk",
+      "url": "https://amzn.to/4jWTKVK",
+      "note": "左手デバイス。配信・作業のショートカット操作に"
+    },
+    {
+      "name": "木製リストレスト",
+      "brand": "Faluber",
+      "category": "desk",
+      "url": "https://amzn.to/3I4xUCh",
+      "note": "キーボード用のリストレスト"
+    },
+    {
+      "name": "GigaCrysta 23.8インチ FHD モニター",
+      "brand": "アイ・オー・データ",
+      "category": "desk",
+      "url": "https://amzn.asia/d/8aTE2PF",
+      "note": "メインモニター"
+    },
+    {
+      "name": "LX モニターアーム",
+      "brand": "ergotron",
+      "category": "desk",
+      "url": "https://amzn.to/4k57iyD",
+      "note": "モニターの位置を自由に調整できる定番アーム"
+    },
+    {
+      "name": "ノートブックトレー",
+      "brand": "ergotron",
+      "category": "desk",
+      "url": "https://amzn.to/3T2Ipsm",
+      "note": "LX アームと組み合わせるノート PC スタンド"
+    },
+    {
+      "name": "Prime ドッキングステーション(14-in-1, Triple Display)",
+      "brand": "Anker",
+      "category": "desk",
+      "url": "https://amzn.to/4pqFhEH",
+      "note": "ケーブル 1 本で周辺機器をまとめて接続"
+    },
+    {
+      "name": "4-Port USB 3.0 Switch Box",
+      "brand": "UGREEN",
+      "category": "desk",
+      "url": "https://amzn.to/4k4s3KO",
+      "note": "複数 PC で周辺機器を切り替える USB スイッチャー"
+    },
+    {
+      "name": "MagGo 3-in-1 ワイヤレス充電器",
+      "brand": "Anker",
+      "category": "desk",
+      "url": "https://amzn.asia/d/d65VsDI",
+      "note": "スマホ・イヤホン・ウォッチをまとめて充電"
+    },
+    {
+      "name": "E7L 電動昇降デスク",
+      "brand": "FlexiSpot",
+      "category": "desk",
+      "url": "https://www.flexispot.jp/e7-l.html",
+      "note": "L 字型の電動昇降デスク"
+    },
+    {
+      "name": "AT4040",
+      "brand": "audio-technica",
+      "category": "studio",
+      "url": "https://amzn.to/44nhRZ4",
+      "note": "収録用コンデンサーマイク"
+    },
+    {
+      "name": "AG06MK2",
+      "brand": "YAMAHA",
+      "category": "studio",
+      "url": "https://amzn.to/3T15USE",
+      "note": "配信・収録用オーディオインターフェイス"
+    },
+    {
+      "name": "C922n PRO",
+      "brand": "Logicool",
+      "category": "studio",
+      "url": "https://amzn.to/45sh8XD",
+      "note": "Web カメラ"
+    },
+    {
+      "name": "吸音材",
+      "brand": "Teeran",
+      "category": "studio",
+      "url": "https://amzn.to/45RTrbb",
+      "note": "収録環境の反響対策に"
+    },
+    {
+      "name": "Osmo Pocket 3",
+      "brand": "DJI",
+      "category": "studio",
+      "url": "https://amzn.to/40r9Xep",
+      "note": "Vlog 撮影用のジンバルカメラ"
+    },
+    {
+      "name": "OpenRun Pro 2",
+      "brand": "Shokz",
+      "category": "audio-smart",
+      "url": "https://amzn.to/4eoQl0L",
+      "note": "骨伝導イヤホン。ランニングにも"
+    },
+    {
+      "name": "WILLEN",
+      "brand": "Marshall",
+      "category": "audio-smart",
+      "url": "https://www.marshall.com/jp/ja/",
+      "note": "コンパクトな Bluetooth スピーカー(リンクは公式サイト)"
+    },
+    {
+      "name": "Echo Show 8(第3世代)",
+      "brand": "Amazon",
+      "category": "audio-smart",
+      "url": "https://amzn.to/4e7elVW",
+      "note": "スマートディスプレイ。Alexa で家電操作"
+    }
+  ]
+}

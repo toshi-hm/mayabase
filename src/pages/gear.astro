@@ -1,0 +1,116 @@
+---
+import SectionHeading from "../components/SectionHeading.astro";
+import { site } from "../config/site";
+import gearJson from "../data/gear.json";
+import Base from "../layouts/Base.astro";
+import { GEAR_CATEGORY_LABELS, groupGearByCategory, parseGearData } from "../lib/gear";
+
+const { items } = parseGearData(gearJson);
+const groups = groupGearByCategory(items).filter(([, groupItems]) => groupItems.length > 0);
+
+const pageTitle = `愛用ガジェット | ${site.name}`;
+const pageDescription = `${site.name} の動画制作・デスク環境で実際に使っている機材とガジェットの一覧。キーボード・マイク・カメラからスマート家電まで、動画で気になったアイテムをまとめてチェックできます。`;
+
+if (!Astro.site) {
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
+}
+const siteUrl = Astro.site.toString();
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "ホーム", item: siteUrl },
+        { "@type": "ListItem", position: 2, name: "愛用ガジェット", item: `${siteUrl}gear/` },
+      ],
+    },
+    {
+      "@type": "ItemList",
+      "@id": `${siteUrl}gear/#gear`,
+      name: `${site.name} の愛用ガジェット一覧`,
+      itemListElement: items.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: `${item.brand} ${item.name}`,
+      })),
+    },
+  ],
+};
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+---
+
+<Base title={pageTitle} description={pageDescription}>
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
+    <h1 class="text-3xl font-bold sm:text-4xl">愛用ガジェット</h1>
+    <p class="mt-3 max-w-2xl text-ink-muted">
+      動画制作やデスク環境で実際に使っている機材・ガジェットの一覧です。「動画に出てきたあれは何?」の答えがここにあります。
+    </p>
+
+    {/* ステマ規制(景品表示法)対応: アフィリエイト広告を含む旨をファーストビューに明示する */}
+    <p
+      class="mt-6 max-w-2xl rounded-xl border border-ink-muted/40 bg-surface-raised p-4 text-sm text-ink-muted"
+    >
+      <strong class="text-ink">【PR】</strong>
+      本ページのリンクにはアフィリエイト広告(Amazon アソシエイト等)を含みます。リンク経由でご購入いただくと売上の一部がチャンネル運営の支えになります。いつもありがとうございます!
+    </p>
+
+    {
+      groups.map(([category, groupItems]) => (
+        <section aria-labelledby={`gear-${category}-heading`} class="pt-14">
+          <SectionHeading id={`gear-${category}-heading`} title={GEAR_CATEGORY_LABELS[category]} />
+          <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {groupItems.map((item) => (
+              <li>
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="sponsored noopener noreferrer"
+                  class="group/card flex h-full flex-col rounded-xl bg-surface-raised p-5 transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
+                >
+                  <p class="text-xs font-semibold tracking-wider text-brand uppercase">
+                    {item.brand}
+                  </p>
+                  <h3 class="mt-1 font-semibold leading-snug group-hover/card:text-brand">
+                    {item.name}
+                  </h3>
+                  {item.note && <p class="mt-2 text-sm text-ink-muted">{item.note}</p>}
+                  <p class="mt-auto pt-3 text-sm text-brand">
+                    詳細を見る<span aria-hidden="true"> →</span>
+                    <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+                  </p>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+
+    <section aria-labelledby="gear-cta-heading" class="pt-16">
+      <div class="rounded-2xl bg-surface-raised p-8 text-center">
+        <h2 id="gear-cta-heading" class="text-xl font-bold">機材の使用感は動画でチェック</h2>
+        <p class="mx-auto mt-2 max-w-xl text-ink-muted">
+          レビュー動画やデスクツアーは YouTube チャンネルで公開しています。
+        </p>
+        <div class="mt-5 flex flex-wrap justify-center gap-4">
+          <a
+            href="/videos/"
+            class="rounded-full bg-brand px-6 py-3 font-semibold text-surface transition hover:bg-brand-strong"
+          >
+            動画ライブラリを見る
+          </a>
+          <a
+            href={site.youtube.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface"
+          >
+            YouTube チャンネルへ
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+</Base>
