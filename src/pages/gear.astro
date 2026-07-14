@@ -52,7 +52,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         動画制作やデスク環境で実際に使っている機材・ガジェットの一覧です。「動画に出てきたあれは何?」の答えがここにあります。
       </p>
       <div
-        class="flex w-fit flex-col items-center lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:justify-self-end"
+        class="mx-auto flex w-fit flex-col items-center lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mx-0 lg:justify-self-end"
       >
         <a
           href="https://amzn.asia/d/07216xEl"
@@ -64,7 +64,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
         </a>
 
-        <div class="storefront-mascot relative mt-1 w-72 max-w-[78vw]" aria-live="off">
+        <div
+          id="storefront-mascot"
+          class="storefront-mascot relative mt-1 w-72 max-w-[78vw]"
+          aria-live="off"
+        >
           <img
             src="/images/storefront-bear.png"
             alt=""
@@ -197,14 +201,14 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 </Base>
 
 <script>
-  const deskHeading = document.getElementById("gear-desk-heading");
+  const storefrontMascot = document.getElementById("storefront-mascot");
   const floatingStorefront = document.getElementById("storefront-floating");
 
-  if (deskHeading && floatingStorefront instanceof HTMLAnchorElement) {
+  if (storefrontMascot && floatingStorefront instanceof HTMLAnchorElement) {
     let ticking = false;
 
     const syncFloatingStorefront = () => {
-      const isVisible = deskHeading.getBoundingClientRect().top <= 72;
+      const isVisible = storefrontMascot.getBoundingClientRect().bottom <= 0;
       floatingStorefront.classList.toggle("is-visible", isVisible);
       floatingStorefront.setAttribute("aria-hidden", String(!isVisible));
       floatingStorefront.tabIndex = isVisible ? 0 : -1;
