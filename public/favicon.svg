@@ -1,1 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><title>MayaBase</title><rect width="64" height="64" rx="14" fill="#1a1a24"/><path d="M20 44V20l12 14 12-14v24" fill="none" stroke="#ff5a4e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>MayaBase</title>
+  <defs>
+    <linearGradient id="tile" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#fbf9ff"/>
+      <stop offset="1" stop-color="#f3efff"/>
+    </linearGradient>
+    <linearGradient id="left" x1="14" y1="22" x2="31" y2="49" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff315f"/>
+      <stop offset="1" stop-color="#ff7659"/>
+    </linearGradient>
+    <linearGradient id="right" x1="34" y1="29" x2="50" y2="49" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5a35e8"/>
+      <stop offset="1" stop-color="#8d64ff"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="16" y1="20" x2="49" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff7659"/>
+      <stop offset="0.48" stop-color="#ff3b91"/>
+      <stop offset="1" stop-color="#d94de8"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#tile)"/>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="15.25" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+  <g>
+    <path d="M17.8 22.4 14.6 44.9a6 6 0 0 0 10.8 4l7.8-11.7 7.4 11.7a6 6 0 0 0 10.8-4l-3.2-22.5" fill="#6844dc" opacity="0.12"/>
+    <path d="M17 20.5 13.8 43a6 6 0 0 0 10.8 4l8.1-12.2Z" fill="url(#left)"/>
+    <path d="m47 20.5 3.2 22.5a6 6 0 0 1-10.8 4l-8.1-12.2Z" fill="url(#right)"/>
+    <path d="m17.5 21.5 14.5 14 14.5-14" fill="none" stroke="url(#ribbon)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m18.5 19.9 13.5 13 13.5-13" fill="none" stroke="#ffffff" stroke-opacity="0.32" stroke-width="1.2" stroke-linecap="round"/>
+  </g>
+</svg>
