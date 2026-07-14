@@ -95,7 +95,11 @@
 
 - ページ冒頭に PR 表記(アフィリエイト広告を含む旨)を目立つ位置に表示(ステマ規制対応)。
 - カテゴリ(デスク環境 / 撮影・配信機材 / オーディオ・スマート家電)ごとにセクション分割し、
-  各アイテムをカード(製品名・ブランド・ひとことコメント・外部リンク)で表示。
+  各アイテムをカード(商品画像・製品名・ブランド・ひとことコメント・外部リンク)で表示。
+- ページ冒頭に Amazon Storefront への導線を表示する。商品画像は Amazon またはメーカー公式の商品ページ由来の URL を利用する。
+- Storefront 導線の直下に看板を持つ動物キャラクターを配置し、ページ訪問時に下から弾むように登場させる。`prefers-reduced-motion` ではアニメーションを無効化する。
+- 冒頭の Storefront マスコットが画面上へ完全に外れた後は同じキャラクターを右下へフローティング表示し、Storefront へのリンクとして機能させる。上へ戻って冒頭のマスコットが再び見えたら非表示にする。
+- 商品画像は 4:3 の固定枠内にアスペクト比を保って表示し、画像本体の上限を幅 288px・高さ 224px とする。
 - 外部リンクは `target="_blank" rel="sponsored noopener noreferrer"`。
 
 ### 4.4 よくある質問(`/faq/`)
@@ -187,6 +191,7 @@ interface GearItem {
   brand: string;       // ブランド名
   category: "desk" | "studio" | "audio-smart";
   url: string;         // 外部リンク(https のみ許可)
+  image?: string;      // 商品画像URL(https のみ許可)
   note?: string;       // ひとことコメント
 }
 
@@ -202,7 +207,7 @@ interface FaqCategory {
 
 - パーサ(`parseGearData` / `parseFaqData`)は `parseVideosData` と同じ方針で、
   不正データは具体的なメッセージ付きで throw する(ビルドを落として混入を検知)。
-- `url` は `https:` で始まることを検証する(属性注入・javascript: スキーム防止)。
+- `url` と `image` は `https:` で始まることを検証する(属性注入・javascript: スキーム防止)。
 
 ## 7. 詳細設計(主な仕様)
 

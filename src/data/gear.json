@@ -5,6 +5,7 @@
       "brand": "PFU",
       "category": "desk",
       "url": "https://amzn.to/40bgFWc",
+      "image": "https://m.media-amazon.com/images/I/61PtZ+JJPOL._AC_SL800_.jpg",
       "note": "メインキーボード。静電容量無接点方式の英語配列モデル"
     },
     {
@@ -12,6 +13,7 @@
       "brand": "Logicool",
       "category": "desk",
       "url": "https://amzn.to/4kKeX6x",
+      "image": "https://m.media-amazon.com/images/I/61uDYXfqtxL._AC_SL800_.jpg",
       "note": "メインマウス。静音クリックと高速スクロールが特徴"
     },
     {
@@ -19,6 +21,7 @@
       "brand": "Elgato",
       "category": "desk",
       "url": "https://amzn.to/4jWTKVK",
+      "image": "https://m.media-amazon.com/images/I/51NYLkLG-sL._AC_SL800_.jpg",
       "note": "左手デバイス。配信・作業のショートカット操作に"
     },
     {
@@ -26,6 +29,7 @@
       "brand": "Faluber",
       "category": "desk",
       "url": "https://amzn.to/3I4xUCh",
+      "image": "https://m.media-amazon.com/images/I/71BMRyi-RBL._AC_SL800_.jpg",
       "note": "キーボード用のリストレスト"
     },
     {
@@ -33,6 +37,7 @@
       "brand": "アイ・オー・データ",
       "category": "desk",
       "url": "https://amzn.asia/d/8aTE2PF",
+      "image": "https://m.media-amazon.com/images/I/71cNb1OiZtL._AC_SL800_.jpg",
       "note": "メインモニター"
     },
     {
@@ -40,6 +45,7 @@
       "brand": "ergotron",
       "category": "desk",
       "url": "https://amzn.to/4k57iyD",
+      "image": "https://m.media-amazon.com/images/I/610HqQsInRL._AC_SL800_.jpg",
       "note": "モニターの位置を自由に調整できる定番アーム"
     },
     {
@@ -47,6 +53,7 @@
       "brand": "ergotron",
       "category": "desk",
       "url": "https://amzn.to/3T2Ipsm",
+      "image": "https://m.media-amazon.com/images/I/611xlBC1RIL._AC_SL800_.jpg",
       "note": "LX アームと組み合わせるノート PC スタンド"
     },
     {
@@ -54,6 +61,7 @@
       "brand": "Anker",
       "category": "desk",
       "url": "https://amzn.to/4pqFhEH",
+      "image": "https://m.media-amazon.com/images/I/71eVgJ9+MaL._AC_SL800_.jpg",
       "note": "ケーブル 1 本で周辺機器をまとめて接続"
     },
     {
@@ -61,6 +69,7 @@
       "brand": "UGREEN",
       "category": "desk",
       "url": "https://amzn.to/4k4s3KO",
+      "image": "https://m.media-amazon.com/images/I/71Pyik1oIWL._AC_SL800_.jpg",
       "note": "複数 PC で周辺機器を切り替える USB スイッチャー"
     },
     {
@@ -68,6 +77,7 @@
       "brand": "Anker",
       "category": "desk",
       "url": "https://amzn.asia/d/d65VsDI",
+      "image": "https://m.media-amazon.com/images/I/61nmjsODzsL._AC_SL800_.jpg",
       "note": "スマホ・イヤホン・ウォッチをまとめて充電"
     },
     {
@@ -75,6 +85,7 @@
       "brand": "FlexiSpot",
       "category": "desk",
       "url": "https://www.flexispot.jp/e7-l.html",
+      "image": "https://s3.springbeetle.asia/asia/trantor/attachments/JP/800-E7L-2024-g-3.jpg",
       "note": "L 字型の電動昇降デスク"
     },
     {
@@ -82,6 +93,7 @@
       "brand": "audio-technica",
       "category": "studio",
       "url": "https://amzn.to/44nhRZ4",
+      "image": "https://m.media-amazon.com/images/I/71d0x7JzXUS._AC_SL800_.jpg",
       "note": "収録用コンデンサーマイク"
     },
     {
@@ -89,6 +101,7 @@
       "brand": "YAMAHA",
       "category": "studio",
       "url": "https://amzn.to/3T15USE",
+      "image": "https://m.media-amazon.com/images/I/61sOVix9p2L._AC_SL800_.jpg",
       "note": "配信・収録用オーディオインターフェイス"
     },
     {
@@ -96,6 +109,7 @@
       "brand": "Logicool",
       "category": "studio",
       "url": "https://amzn.to/45sh8XD",
+      "image": "https://m.media-amazon.com/images/I/61FLOm0OiLL._AC_SL800_.jpg",
       "note": "Web カメラ"
     },
     {
@@ -103,6 +117,7 @@
       "brand": "Teeran",
       "category": "studio",
       "url": "https://amzn.to/45RTrbb",
+      "image": "https://m.media-amazon.com/images/I/81Z3z+vYrTL._AC_SL800_.jpg",
       "note": "収録環境の反響対策に"
     },
     {
@@ -110,6 +125,7 @@
       "brand": "DJI",
       "category": "studio",
       "url": "https://amzn.to/40r9Xep",
+      "image": "https://m.media-amazon.com/images/I/514LEUejXYL._AC_SL800_.jpg",
       "note": "Vlog 撮影用のジンバルカメラ"
     },
     {
@@ -117,13 +133,15 @@
       "brand": "Shokz",
       "category": "audio-smart",
       "url": "https://amzn.to/4eoQl0L",
+      "image": "https://m.media-amazon.com/images/I/419FweJCCnL._AC_SL800_.jpg",
       "note": "骨伝導イヤホン。ランニングにも"
     },
     {
       "name": "WILLEN",
       "brand": "Marshall",
       "category": "audio-smart",
-      "url": "https://www.marshall.com/jp/ja/",
+      "url": "https://www.marshall.com/jp/ja/product/willen?color=black%2Band%2Bbrass&pid=1006294",
+      "image": "https://images.ctfassets.net/javen7msabdh/23luvDZnXnOKehjAur8p7f/e7c3a8e9867eb15757e41f125ae48ab9/willen-front-mobile-1.jpeg",
       "note": "コンパクトな Bluetooth スピーカー(リンクは公式サイト)"
     },
     {
@@ -131,6 +149,7 @@
       "brand": "Amazon",
       "category": "audio-smart",
       "url": "https://amzn.to/4e7elVW",
+      "image": "https://m.media-amazon.com/images/I/613Eveb9o6L._AC_SL800_.jpg",
       "note": "スマートディスプレイ。Alexa で家電操作"
     }
   ]

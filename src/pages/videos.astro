@@ -15,6 +15,13 @@ import {
 
 const { videos } = parseVideosData(videosJson);
 const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
+const INITIAL_COUNT = 12;
+const LOCAL_THUMBNAILS: Partial<Record<string, string>> = {
+  "2WX26Bekrfk": "/images/videos-first-thumbnail.webp",
+};
+const firstThumbnailSrc = videos[0]
+  ? (LOCAL_THUMBNAILS[videos[0].id] ?? thumbnailFallbackUrl(videos[0].id))
+  : undefined;
 
 // 動画が 1 件以上あるカテゴリだけをフィルタ UI に出す
 const availableCategories = CATEGORY_ORDER.filter((category) =>
@@ -63,6 +70,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 ---
 
 <Base title={pageTitle} description={pageDescription}>
+  {
+    firstThumbnailSrc && (
+      <link rel="preload" as="image" href={firstThumbnailSrc} fetchpriority="high" slot="head" />
+    )
+  }
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
   <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
     <h1 class="text-3xl font-bold sm:text-4xl">動画ライブラリ</h1>
@@ -111,15 +123,24 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     {/* 見出し階層(h1→h2→h3)を保つためのセクション見出し(視覚上はフィルタ UI が境界) */}
     <h2 class="sr-only">動画一覧</h2>
     <ul id="videos-grid" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {categorized.map(({ video, category }) => <ArchiveCard video={video} category={category} />)}
+      {
+        categorized.map(({ video, category }, index) => (
+          <ArchiveCard
+            video={video}
+            category={category}
+            eager={index === 0}
+            thumbnailSrc={index === 0 ? firstThumbnailSrc : undefined}
+            initiallyHidden={index >= INITIAL_COUNT}
+          />
+        ))
+      }
     </ul>
     <p id="videos-empty" hidden class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
       条件に一致する動画が見つかりませんでした。カテゴリやキーワードを変えてお試しください。
     </p>
     {
       /*
-      「もっと見る」ボタン。JS 無効時は全件が既に表示されているため hidden のまま
-      (プログレッシブエンハンスメント)。JS 有効時のみスクリプトが必要に応じて表示する。
+      「もっと見る」ボタン。JS 有効時のみスクリプトが必要に応じて表示する。
       一度押すと以降は全件表示のまま(このボタンは二度と表示されない)。
     */
     }
@@ -137,8 +158,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 </Base>
 
 <script>
-  // 絞り込み・検索 + 段階表示(JS 無効時は全件表示のままになるプログレッシブエンハンスメント)
-  const INITIAL_COUNT = 12; // 初期表示件数(超過分は「もっと見る」で展開)
+  // 絞り込み・検索 + 段階表示
+  const INITIAL_COUNT = 12; // サーバー側の初期表示件数と合わせる
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-filter-category]");
   const search = document.getElementById("video-search") as HTMLInputElement | null;
   const cards = document.querySelectorAll<HTMLLIElement>("#videos-grid > li");

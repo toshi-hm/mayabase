@@ -14,6 +14,7 @@
     "lint:fix": "biome check --write .",
     "format": "prettier --write \"**/*.astro\" && biome format --write .",
     "format:check": "prettier --check \"**/*.astro\" && biome format .",
+    "font:subset": "bun run scripts/subset-fonts.ts",
     "test": "bun test",
     "deploy": "bun run build:full && wrangler deploy",
     "preview:worker": "bun run build && wrangler dev"
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@astrojs/check": "0.9.9",
     "@biomejs/biome": "2.5.3",
+    "@fontsource/line-seed-jp": "^5.2.2",
     "@tailwindcss/vite": "4.3.2",
     "@types/bun": "1.3.14",
     "prettier": "3.9.5",
