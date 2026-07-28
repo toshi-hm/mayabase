@@ -14,6 +14,7 @@
 import { rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
+import { type ChannelStats, parseChannelStatsApiResponse } from "../src/lib/channelStats";
 import {
   createEmptyVideosData,
   extractChannelId,
@@ -30,6 +31,9 @@ import {
 } from "../src/lib/youtube";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
+const CHANNEL_STATS_JSON_PATH = fileURLToPath(
+  new URL("../src/data/channel-stats.json", import.meta.url),
+);
 const PROBE_CONCURRENCY = 4;
 const FETCH_TIMEOUT_MS = 15_000;
 const API_PAGE_SIZE = 50; // playlistItems.list の最大値
@@ -147,6 +151,39 @@ async function fetchAllViaApi(channelId: string, apiKey: string): Promise<FeedEn
   return entries;
 }
 
+/**
+ * YouTube Data API v3 `channels.list`(part=statistics)でチャンネル登録者数を取得し、
+ * src/data/channel-stats.json を更新する。失敗しても例外を投げない(呼び出し側の
+ * 動画取得フローを止めない。既存ファイルは維持される)。
+ */
+async function updateChannelStats(channelId: string, apiKey: string): Promise<void> {
+  try {
+    const url = new URL("https://www.googleapis.com/youtube/v3/channels");
+    url.searchParams.set("part", "statistics");
+    url.searchParams.set("id", channelId);
+    const res = await fetchWithTimeout(url.toString(), {
+      headers: { "X-goog-api-key": apiKey },
+    });
+    if (!res.ok) {
+      console.warn(`[fetch-videos] チャンネル統計の取得に失敗しました (HTTP ${res.status})`);
+      return;
+    }
+    const subscriberCount = parseChannelStatsApiResponse(await res.json());
+    const data: ChannelStats = { subscriberCount, fetchedAt: new Date().toISOString() };
+    const tmpPath = `${CHANNEL_STATS_JSON_PATH}.tmp`;
+    await Bun.write(tmpPath, `${JSON.stringify(data, null, 2)}\n`);
+    await rename(tmpPath, CHANNEL_STATS_JSON_PATH);
+    console.log(
+      `[fetch-videos] チャンネル統計を保存しました(登録者数: ${subscriberCount ?? "非公開/取得不可"})`,
+    );
+  } catch (error) {
+    console.warn(
+      "[fetch-videos] チャンネル統計の取得でエラーが発生しました:",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
 async function probeShorts(videos: Video[]): Promise<Video[]> {
   const unknowns = videos.filter((v) => v.isShort === null);
   if (unknowns.length === 0) return videos;
@@ -184,6 +221,8 @@ async function main(): Promise<void> {
   let entries: FeedEntry[] | null = null;
   if (apiKey) {
     entries = await fetchAllViaApi(channelId, apiKey);
+    // 動画取得の成否に関わらず試みる(quota 消費は channels.list で 1 unit と小さい)
+    await updateChannelStats(channelId, apiKey);
   } else {
     console.log(
       "[fetch-videos] YOUTUBE_API_KEY 未設定のため RSS(最新 15 件)を使用します。全動画取得には API キーを設定してください。",
