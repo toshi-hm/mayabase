@@ -18,3 +18,15 @@ export function truncate(text: string, maxLength: number): string {
   if (chars.length <= maxLength) return text;
   return `${chars.slice(0, maxLength).join("")}…`;
 }
+
+/**
+ * 動画概要欄から検索対象にすべき本文相当部分を取り出す。
+ * 概要欄末尾は全動画共通の定型文(Profile・SNS・連絡先・使用ガジェット等)で、
+ * いずれも "【" から始まる見出しを持つため、最初の "【" 以降を除外してノイズを減らす。
+ * 該当箇所が無ければ全文をそのまま返す。
+ */
+export function extractSearchableText(description: string): string {
+  const boilerplateStart = description.indexOf("【");
+  const body = boilerplateStart === -1 ? description : description.slice(0, boilerplateStart);
+  return body.trim();
+}

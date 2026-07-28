@@ -173,7 +173,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   function cardMatches(card: HTMLLIElement, query: string): boolean {
     return (
       (category === "all" || card.dataset.category === category) &&
-      (query === "" || (card.dataset.title ?? "").includes(query))
+      (query === "" ||
+        (card.dataset.title ?? "").includes(query) ||
+        (card.dataset.description ?? "").includes(query))
     );
   }
 

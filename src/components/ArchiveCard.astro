@@ -1,6 +1,6 @@
 ---
 import { CATEGORY_LABELS, type VideoCategory } from "../lib/categories";
-import { formatDateJa } from "../lib/format";
+import { extractSearchableText, formatDateJa } from "../lib/format";
 import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
 
 interface Props {
@@ -18,7 +18,12 @@ const { video, category, eager = false, thumbnailSrc, initiallyHidden = false } 
 ---
 
 {/* data-* はクライアントサイドの絞り込み・検索で参照する(videos.astro) */}
-<li data-category={category} data-title={video.title.toLowerCase()} hidden={initiallyHidden}>
+<li
+  data-category={category}
+  data-title={video.title.toLowerCase()}
+  data-description={extractSearchableText(video.description).toLowerCase()}
+  hidden={initiallyHidden}
+>
   <a
     href={videoUrl(video)}
     target="_blank"
