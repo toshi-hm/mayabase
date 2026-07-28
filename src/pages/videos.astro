@@ -6,7 +6,7 @@ import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
 import { CATEGORY_LABELS, CATEGORY_ORDER, categorizeVideo } from "../lib/categories";
-import { truncate } from "../lib/format";
+import { extractSearchableText, truncate } from "../lib/format";
 import {
   embedUrl,
   parseVideosData,
@@ -70,6 +70,12 @@ const jsonLd = {
   ],
 };
 const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+// 概要欄検索用データはカード属性ではなく 1 つの JSON に集約し、カード DOM を軽く保つ。
+const searchableDescriptionsSafe = JSON.stringify(
+  Object.fromEntries(
+    videos.map((video) => [video.id, extractSearchableText(video.description).toLowerCase()]),
+  ),
+).replace(/</g, "\\u003c");
 ---
 
 <Base title={pageTitle} description={pageDescription}>
@@ -79,6 +85,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     )
   }
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <script
+    is:inline
+    id="video-search-descriptions"
+    type="application/json"
+    set:html={searchableDescriptionsSafe}
+  />
   <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
     <Breadcrumb items={breadcrumbItems} />
     <h1 class="text-3xl font-bold sm:text-4xl">動画ライブラリ</h1>
@@ -185,6 +197,10 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-filter-category]");
   const search = document.getElementById("video-search") as HTMLInputElement | null;
   const cards = document.querySelectorAll<HTMLLIElement>("#videos-grid > li");
+  const descriptionsElement = document.getElementById("video-search-descriptions");
+  const descriptions: Record<string, string> = descriptionsElement?.textContent
+    ? JSON.parse(descriptionsElement.textContent)
+    : {};
   const count = document.getElementById("videos-count");
   const empty = document.getElementById("videos-empty");
   const moreButton = document.getElementById("videos-more") as HTMLButtonElement | null;
@@ -202,7 +218,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   function cardMatches(card: HTMLLIElement, query: string): boolean {
     return (
       (category === "all" || card.dataset.category === category) &&
-      (query === "" || (card.dataset.title ?? "").includes(query))
+      (query === "" ||
+        (card.dataset.title ?? "").includes(query) ||
+        (descriptions[card.dataset.videoId ?? ""] ?? "").includes(query))
     );
   }
 

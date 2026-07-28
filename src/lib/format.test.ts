@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatDateJa, truncate } from "./format";
+import { extractSearchableText, formatDateJa, truncate } from "./format";
 
 describe("formatDateJa", () => {
   test("日本時間の年月日に整形する", () => {
@@ -27,5 +27,20 @@ describe("truncate", () => {
 
   test("サロゲートペア(絵文字)を壊さない", () => {
     expect(truncate("😀😀😀😀", 2)).toBe("😀😀…");
+  });
+});
+
+describe("extractSearchableText", () => {
+  test("最初の「【」より前の本文だけを取り出す", () => {
+    const description = "#ai #vlog\n\n本文の内容です。\n\n【Profile】\n定型文...";
+    expect(extractSearchableText(description)).toBe("#ai #vlog\n\n本文の内容です。");
+  });
+
+  test("「【」が無ければ全文を trim して返す", () => {
+    expect(extractSearchableText("  本文のみの概要欄です。  ")).toBe("本文のみの概要欄です。");
+  });
+
+  test("空文字は空文字のまま", () => {
+    expect(extractSearchableText("")).toBe("");
   });
 });

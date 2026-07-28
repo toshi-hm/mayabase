@@ -32,6 +32,7 @@ const { video, category, eager = false, thumbnailSrc, initiallyHidden = false } 
   class="relative"
   data-category={category}
   data-title={video.title.toLowerCase()}
+  data-video-id={video.id}
   data-initial-hidden={initiallyHidden ? "true" : undefined}
   style={initiallyHidden ? "display:none" : undefined}
 >
