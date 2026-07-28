@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import faqJson from "../data/faq.json";
-import { parseFaqData } from "./faq";
+import { deobfuscateEmail, parseFaqData } from "./faq";
 
 const validItem = {
   question: "どんなチャンネルですか?",
@@ -61,5 +61,31 @@ describe("parseFaqData", () => {
     for (const category of categories) {
       expect(category.items.length).toBeGreaterThan(0);
     }
+  });
+
+  test("email は「☆」でマスクされていれば許可する", () => {
+    const { categories } = parseFaqData({
+      categories: [{ title: "t", items: [{ ...validItem, email: "contact☆example.com" }] }],
+    });
+    expect(categories[0]?.items[0]?.email).toBe("contact☆example.com");
+  });
+
+  test("email は省略できる", () => {
+    const { categories } = parseFaqData(validData);
+    expect(categories[0]?.items[0]?.email).toBeUndefined();
+  });
+
+  test("email に「☆」が無い、または生の「@」を含む場合は throw する", () => {
+    const withEmail = (email: string) => ({
+      categories: [{ title: "t", items: [{ ...validItem, email }] }],
+    });
+    expect(() => parseFaqData(withEmail("contact@example.com"))).toThrow("☆");
+    expect(() => parseFaqData(withEmail("no-at-sign"))).toThrow("☆");
+  });
+});
+
+describe("deobfuscateEmail", () => {
+  test("「☆」を「@」に戻す", () => {
+    expect(deobfuscateEmail("mayabaseofficial☆gmail.com")).toBe("mayabaseofficial@gmail.com");
   });
 });

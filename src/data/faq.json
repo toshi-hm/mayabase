@@ -57,7 +57,8 @@
       "items": [
         {
           "question": "お仕事の依頼はどこに連絡すればよいですか?",
-          "answer": "メール(mayabaseofficial☆gmail.com ※☆を@に読み替えてください)までご連絡ください。"
+          "answer": "メール(mayabaseofficial☆gmail.com ※☆を@に読み替えてください)までご連絡ください。下のボタンからメールアドレスをワンクリックでコピーすることもできます。",
+          "email": "mayabaseofficial☆gmail.com"
         },
         {
           "question": "商品レビューやタイアップは依頼できますか?",

@@ -11,6 +11,11 @@ export interface FaqItem {
   /** プレーンテキストの回答(FAQPage JSON-LD の Answer.text にも使う) */
   answer: string;
   link?: FaqLink;
+  /**
+   * 問い合わせ用メールアドレス(スクレイピング対策として "@" を "☆" に置き換えた形式)。
+   * 静的 HTML には生アドレスを埋め込まず、クライアントサイドでコピーボタン用に復元する。
+   */
+  email?: string;
 }
 
 /** FAQ のカテゴリ(見出し + Q&A のまとまり) */
@@ -30,6 +35,11 @@ export interface FaqData {
  */
 export function isInternalPath(url: string): boolean {
   return url.startsWith("/") && !url.startsWith("//");
+}
+
+/** "☆" でマスクされたメールアドレスを実際のアドレスに復元する(スクレイピング対策) */
+export function deobfuscateEmail(obfuscated: string): string {
+  return obfuscated.replace("☆", "@");
 }
 
 function parseLink(raw: unknown, path: string): FaqLink {
@@ -76,10 +86,19 @@ export function parseFaqData(data: unknown): FaqData {
       if (typeof item.answer !== "string" || item.answer.length === 0) {
         throw new Error(`faq.json: ${path}.answer が不正です`);
       }
+      if (
+        item.email !== undefined &&
+        (typeof item.email !== "string" || !item.email.includes("☆") || item.email.includes("@"))
+      ) {
+        throw new Error(
+          `faq.json: ${path}.email は "☆" で "@" をマスクした形式(例: xxx☆example.com)である必要があります`,
+        );
+      }
       return {
         question: item.question,
         answer: item.answer,
         ...(item.link !== undefined ? { link: parseLink(item.link, `${path}.link`) } : {}),
+        ...(item.email !== undefined ? { email: item.email as string } : {}),
       };
     });
     return { title: category.title, items };
