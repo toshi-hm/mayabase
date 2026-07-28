@@ -2,6 +2,7 @@
 import { CATEGORY_LABELS, type VideoCategory } from "../lib/categories";
 import { formatDateJa } from "../lib/format";
 import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
+import ShareButton from "./ShareButton.astro";
 
 interface Props {
   video: Video;
@@ -28,11 +29,13 @@ const { video, category, eager = false, thumbnailSrc, initiallyHidden = false } 
   一元的に表示状態を制御する(videos.astro 参照)。 */
 }
 <li
+  class="relative"
   data-category={category}
   data-title={video.title.toLowerCase()}
   data-initial-hidden={initiallyHidden ? "true" : undefined}
   style={initiallyHidden ? "display:none" : undefined}
 >
+  <ShareButton title={video.title} url={videoUrl(video)} />
   <a
     href={videoUrl(video)}
     target="_blank"
