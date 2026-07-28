@@ -17,8 +17,22 @@ interface Props {
 const { video, category, eager = false, thumbnailSrc, initiallyHidden = false } = Astro.props;
 ---
 
-{/* data-* はクライアントサイドの絞り込み・検索で参照する(videos.astro) */}
-<li data-category={category} data-title={video.title.toLowerCase()} hidden={initiallyHidden}>
+{
+  /* data-* はクライアントサイドの絞り込み・検索で参照する(videos.astro)。
+  初期非表示は `hidden` 属性ではなく inline style + data-initial-hidden で表現する。
+  Tailwind の preflight が `[hidden]{display:none!important}` を @layer base 内(レイヤー付き)
+  で定義しており、レイヤー付き !important はレイヤーなしの !important より優先されるため、
+  `<noscript>` 側で `[hidden]` を !important で上書きしようとしても効かない(CSS Cascade Layers の
+  仕様上、非レイヤーの !important は最も優先度が低い)。`hidden` 属性を使わなければこの問題を回避できる。
+  クライアントスクリプトは初期化時に inline style を除去し、以降は `hidden` 属性(DOM の `.hidden`)で
+  一元的に表示状態を制御する(videos.astro 参照)。 */
+}
+<li
+  data-category={category}
+  data-title={video.title.toLowerCase()}
+  data-initial-hidden={initiallyHidden ? "true" : undefined}
+  style={initiallyHidden ? "display:none" : undefined}
+>
   <a
     href={videoUrl(video)}
     target="_blank"
