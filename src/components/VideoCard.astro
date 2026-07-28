@@ -1,6 +1,7 @@
 ---
 import { formatDateJa } from "../lib/format";
 import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
+import ShareButton from "./ShareButton.astro";
 
 interface Props {
   video: Video;
@@ -19,13 +20,14 @@ const { video, position, total, eager = false, featured = false } = Astro.props;
 
 <li
   class:list={[
-    "flex-none",
+    "relative flex-none",
     featured ? "w-[88%] sm:w-[68%] lg:w-[56%]" : "w-[80%] sm:w-[47%] lg:w-[31.5%]",
   ]}
   role="listitem"
   aria-roledescription="スライド"
   aria-label={`${position} / ${total}`}
 >
+  <ShareButton title={video.title} url={videoUrl(video)} />
   <a
     href={videoUrl(video)}
     target="_blank"

@@ -1,10 +1,27 @@
 import { describe, expect, test } from "bun:test";
 import xPostsJson from "../data/x-posts.json";
-import { parseXPostsData, postUrl } from "./x";
+import { parseXPostsData, postUrl, shareIntentUrl } from "./x";
 
 describe("postUrl", () => {
   test("status URL を生成する", () => {
     expect(postUrl("MayaBaseJP", "1234567890")).toBe("https://x.com/MayaBaseJP/status/1234567890");
+  });
+});
+
+describe("shareIntentUrl", () => {
+  test("text と url をクエリパラメータとして付与する", () => {
+    const result = shareIntentUrl("動画タイトル", "https://www.youtube.com/watch?v=abc123");
+    const parsed = new URL(result);
+    expect(parsed.origin + parsed.pathname).toBe("https://twitter.com/intent/tweet");
+    expect(parsed.searchParams.get("text")).toBe("動画タイトル");
+    expect(parsed.searchParams.get("url")).toBe("https://www.youtube.com/watch?v=abc123");
+  });
+
+  test("& や # を含む文字列も安全にエンコードする", () => {
+    const result = shareIntentUrl("A&B #tag", "https://example.com/?q=1&r=2");
+    const parsed = new URL(result);
+    expect(parsed.searchParams.get("text")).toBe("A&B #tag");
+    expect(parsed.searchParams.get("url")).toBe("https://example.com/?q=1&r=2");
   });
 });
 

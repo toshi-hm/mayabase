@@ -1,0 +1,27 @@
+---
+import { shareIntentUrl } from "../lib/x";
+
+interface Props {
+  /** シェア文言に使う動画タイトル */
+  title: string;
+  /** シェア対象の URL(YouTube 視聴 URL) */
+  url: string;
+}
+
+const { title, url } = Astro.props;
+---
+
+{/* 親要素(カード全体)は視聴リンクの <a> のため、入れ子を避けて兄弟要素として重ねて配置する */}
+<a
+  href={shareIntentUrl(title, url)}
+  target="_blank"
+  rel="noopener noreferrer"
+  aria-label={`「${title}」をXでシェア`}
+  class="absolute top-2 right-2 z-10 rounded-full bg-ink/60 p-2 text-white backdrop-blur transition hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+>
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+    <path
+      d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+    ></path>
+  </svg>
+</a>
