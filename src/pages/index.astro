@@ -6,9 +6,11 @@ import SectionHeading from "../components/SectionHeading.astro";
 import ShortCard from "../components/ShortCard.astro";
 import VideoCard from "../components/VideoCard.astro";
 import { site } from "../config/site";
+import channelStatsJson from "../data/channel-stats.json";
 import videosJson from "../data/videos.json";
 import xPostsJson from "../data/x-posts.json";
 import Base from "../layouts/Base.astro";
+import { formatSubscriberCount, parseChannelStats } from "../lib/channelStats";
 import { parseXPostsData } from "../lib/x";
 import {
   embedUrl,
@@ -27,6 +29,10 @@ const shortVideos = videos.filter((v) => v.isShort === true).slice(0, maxItems);
 
 const { account, posts } = parseXPostsData(xPostsJson);
 const xPosts = posts.slice(0, maxItems);
+
+// 未取得(API キー未設定・取得失敗・非公開設定)の場合は null のまま非表示にする
+const { subscriberCount } = parseChannelStats(channelStatsJson);
+const subscriberText = subscriberCount !== null ? formatSubscriberCount(subscriberCount) : null;
 
 // JSON-LD 構造化データ(VideoObject は Google 必須の name / description / thumbnailUrl / uploadDate を含む)
 if (!Astro.site) {
@@ -92,6 +98,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <div>
             <p class="mb-2 text-sm font-bold text-brand">ITで日常をより便利に</p>
             <h1 class="text-4xl font-black sm:text-6xl">{site.name}</h1>
+            {
+              subscriberText && (
+                <p class="mt-2 text-sm font-semibold text-ink-muted">
+                  チャンネル登録者数 <span class="text-ink">{subscriberText}</span>
+                </p>
+              )
+            }
           </div>
           <div class="lg:pb-1">
             <p class="leading-relaxed text-ink-muted">
