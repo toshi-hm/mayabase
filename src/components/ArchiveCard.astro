@@ -2,6 +2,7 @@
 import { CATEGORY_LABELS, type VideoCategory } from "../lib/categories";
 import { formatDateJa } from "../lib/format";
 import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
+import ShareButton from "./ShareButton.astro";
 
 interface Props {
   video: Video;
@@ -18,7 +19,13 @@ const { video, category, eager = false, thumbnailSrc, initiallyHidden = false } 
 ---
 
 {/* data-* はクライアントサイドの絞り込み・検索で参照する(videos.astro) */}
-<li data-category={category} data-title={video.title.toLowerCase()} hidden={initiallyHidden}>
+<li
+  class="relative"
+  data-category={category}
+  data-title={video.title.toLowerCase()}
+  hidden={initiallyHidden}
+>
+  <ShareButton title={video.title} url={videoUrl(video)} />
   <a
     href={videoUrl(video)}
     target="_blank"
