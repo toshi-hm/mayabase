@@ -1,0 +1,50 @@
+---
+interface Props {
+  /** "☆" で "@" をマスクした形式のメールアドレス。静的 HTML には生アドレスを埋め込まない */
+  obfuscated: string;
+}
+
+const { obfuscated } = Astro.props;
+---
+
+<span class="mt-2 inline-flex flex-wrap items-center gap-2">
+  <button
+    type="button"
+    data-email-copy
+    data-obfuscated-email={obfuscated}
+    class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink-muted px-3 py-1.5 text-sm font-semibold transition hover:border-ink hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand"
+  >
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      aria-hidden="true"
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+      <path d="m3 7 9 6 9-6"></path>
+    </svg>
+    メールアドレスをコピー
+  </button>
+  <span data-email-copy-status aria-live="polite" class="text-sm text-ink-muted"></span>
+</span>
+
+<script>
+  import { deobfuscateEmail } from "../lib/faq";
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-email-copy]")) {
+    const status = button.parentElement?.querySelector<HTMLElement>("[data-email-copy-status]");
+    button.addEventListener("click", async () => {
+      const email = deobfuscateEmail(button.dataset.obfuscatedEmail ?? "");
+      try {
+        await navigator.clipboard.writeText(email);
+        if (status) status.textContent = "コピーしました!";
+      } catch {
+        // クリップボード API が使えない場合は復元済みアドレスをそのまま表示する
+        if (status) status.textContent = email;
+      }
+    });
+  }
+</script>
