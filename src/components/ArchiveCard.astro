@@ -1,6 +1,6 @@
 ---
 import { CATEGORY_LABELS, type VideoCategory } from "../lib/categories";
-import { extractSearchableText, formatDateJa } from "../lib/format";
+import { formatDateJa } from "../lib/format";
 import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
 import ShareButton from "./ShareButton.astro";
 
@@ -32,7 +32,7 @@ const { video, category, eager = false, thumbnailSrc, initiallyHidden = false } 
   class="relative"
   data-category={category}
   data-title={video.title.toLowerCase()}
-  data-description={extractSearchableText(video.description).toLowerCase()}
+  data-video-id={video.id}
   data-initial-hidden={initiallyHidden ? "true" : undefined}
   style={initiallyHidden ? "display:none" : undefined}
 >
