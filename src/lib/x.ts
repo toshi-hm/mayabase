@@ -20,6 +20,12 @@ export function postUrl(account: string, postId: string): string {
   return `https://x.com/${account}/status/${postId}`;
 }
 
+/** X(Twitter)投稿インテントの URL を組み立てる(クエリは URLSearchParams で安全にエンコードする) */
+export function shareIntentUrl(text: string, url: string): string {
+  const params = new URLSearchParams({ text, url });
+  return `https://twitter.com/intent/tweet?${params.toString()}`;
+}
+
 /**
  * x-posts.json の内容を検証しつつ読み込む。
  * 手動管理ファイルのため、形式ミスはビルド時に早期検出する(throw)。
