@@ -1,0 +1,37 @@
+---
+import type { BreadcrumbItem } from "../lib/breadcrumb";
+
+interface Props {
+  /** ホームを先頭とするパンくず項目。BreadcrumbList JSON-LD と同じ配列を渡す */
+  items: readonly BreadcrumbItem[];
+}
+
+const { items } = Astro.props;
+---
+
+<nav aria-label="パンくずリスト" class="mb-4 text-sm text-ink-muted">
+  <ol class="flex flex-wrap items-center gap-1.5">
+    {
+      items.map((item, index) => {
+        const isLast = index === items.length - 1;
+        return (
+          <li class="flex items-center gap-1.5">
+            {index > 0 && <span aria-hidden="true">/</span>}
+            {isLast ? (
+              <span aria-current="page" class="font-semibold text-ink">
+                {item.name}
+              </span>
+            ) : (
+              <a
+                href={item.href}
+                class="underline-offset-4 transition hover:text-ink hover:underline"
+              >
+                {item.name}
+              </a>
+            )}
+          </li>
+        );
+      })
+    }
+  </ol>
+</nav>

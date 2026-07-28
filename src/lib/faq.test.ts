@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import faqJson from "../data/faq.json";
-import { deobfuscateEmail, parseFaqData } from "./faq";
+import { deobfuscateEmail, faqTextMatches, parseFaqData } from "./faq";
 
 const validItem = {
   question: "どんなチャンネルですか?",
@@ -87,5 +87,23 @@ describe("parseFaqData", () => {
 describe("deobfuscateEmail", () => {
   test("「☆」を「@」に戻す", () => {
     expect(deobfuscateEmail("mayabaseofficial☆gmail.com")).toBe("mayabaseofficial@gmail.com");
+  });
+});
+
+describe("faqTextMatches", () => {
+  test("空クエリは常に一致する", () => {
+    expect(faqTextMatches("質問", "回答", "")).toBe(true);
+  });
+
+  test("質問文に含まれれば一致する", () => {
+    expect(faqTextMatches("使用機材について", "キーボードです", "機材")).toBe(true);
+  });
+
+  test("回答文に含まれれば一致する", () => {
+    expect(faqTextMatches("よくある質問", "キーボードを使っています", "キーボード")).toBe(true);
+  });
+
+  test("どちらにも含まれなければ不一致", () => {
+    expect(faqTextMatches("よくある質問", "AIについて", "旅行")).toBe(false);
   });
 });

@@ -42,6 +42,14 @@ export function deobfuscateEmail(obfuscated: string): string {
   return obfuscated.replace("☆", "@");
 }
 
+/**
+ * FAQ のキーワード検索(faq.astro のクライアントスクリプトから使用)。
+ * question / answer / query はいずれも呼び出し側で小文字化済みの前提。
+ */
+export function faqTextMatches(question: string, answer: string, query: string): boolean {
+  return query === "" || question.includes(query) || answer.includes(query);
+}
+
 function parseLink(raw: unknown, path: string): FaqLink {
   const link = raw as Partial<Record<keyof FaqLink, unknown>>;
   if (typeof link.label !== "string" || link.label.length === 0) {
