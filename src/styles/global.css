@@ -12,6 +12,13 @@
   /* ブランドカラー */
   --color-brand: oklch(54% 0.2 25);
   --color-brand-strong: oklch(47% 0.18 25);
+  /*
+   * brand の文字色専用バリアント。bg-brand(ボタン背景 + 白文字)と
+   * text-brand(暗い/明るい背景の上の文字)は必要なコントラスト方向が逆になるため、
+   * 背景用の brand とは別に文字用トークンを分ける(ダークモードで顕在化する)。
+   * ライトモードでは brand と同値。
+   */
+  --color-brand-accent: oklch(54% 0.2 25);
   --color-surface: oklch(99% 0.004 95);
   --color-surface-raised: oklch(96.5% 0.008 220);
   --color-surface-mint: oklch(95% 0.035 178);
@@ -25,6 +32,26 @@
   --font-sans:
     "LINE Seed JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", Meiryo,
     system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/*
+ * ダークモード(システム設定に追従)。
+ * brand / brand-strong は bg-brand(白文字ボタン)のコントラストを保つため据え置き、
+ * brand-accent のみ暗い背景での可読性を確保するため明るくする。
+ * 各トークンの組み合わせは WCAG AA(通常文字 4.5:1)を満たすことを検証済み。
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-brand-accent: oklch(68% 0.19 25);
+    --color-surface: oklch(20% 0.015 250);
+    --color-surface-raised: oklch(27% 0.018 240);
+    --color-surface-mint: oklch(23% 0.035 178);
+    --color-surface-sun: oklch(24% 0.05 94);
+    --color-ink: oklch(93% 0.012 245);
+    --color-ink-muted: oklch(72% 0.02 245);
+    --color-line: oklch(36% 0.02 235);
+    --color-accent: oklch(68% 0.1 180);
+  }
 }
 
 html {
