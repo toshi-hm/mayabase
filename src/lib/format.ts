@@ -30,3 +30,23 @@ export function extractSearchableText(description: string): string {
   const body = boilerplateStart === -1 ? description : description.slice(0, boilerplateStart);
   return body.trim();
 }
+
+/** 正規表現メタ文字をエスケープする */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * テキストにキーワードが含まれるか判定する(大文字小文字を区別しない)。
+ * 英数字のみのキーワードは単語境界で照合する(例: "AI" が "iPad Air" の "Air" に
+ * 誤マッチしないように)。日本語には単語境界の概念が適用できないため、
+ * 日本語を含むキーワードは部分一致で照合する。
+ * `categories.ts` の動画自動分類・`videos.astro` のキーワード検索で共通して使う。
+ */
+export function textMatchesKeyword(text: string, keyword: string): boolean {
+  if (keyword === "") return true;
+  if (/^[\x21-\x7e]+$/.test(keyword)) {
+    return new RegExp(`\\b${escapeRegExp(keyword)}\\b`, "i").test(text);
+  }
+  return text.toLowerCase().includes(keyword.toLowerCase());
+}

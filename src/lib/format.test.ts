@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { extractSearchableText, formatDateJa, truncate } from "./format";
+import { extractSearchableText, formatDateJa, textMatchesKeyword, truncate } from "./format";
 
 describe("formatDateJa", () => {
   test("日本時間の年月日に整形する", () => {
@@ -42,5 +42,30 @@ describe("extractSearchableText", () => {
 
   test("空文字は空文字のまま", () => {
     expect(extractSearchableText("")).toBe("");
+  });
+});
+
+describe("textMatchesKeyword", () => {
+  test("空のキーワードは常に一致する", () => {
+    expect(textMatchesKeyword("何でもいい本文", "")).toBe(true);
+  });
+
+  test("英数字キーワードは単語境界で照合する(iPad Air の Air に AI が誤マッチしない)", () => {
+    expect(textMatchesKeyword("m4 ipad air ブルー開封", "ai")).toBe(false);
+    expect(textMatchesKeyword("openai最新音声ai「gpt-live」", "ai")).toBe(true);
+  });
+
+  test("英数字キーワードは大文字小文字を区別しない", () => {
+    expect(textMatchesKeyword("ChatGPTを使ってみた", "chatgpt")).toBe(true);
+    expect(textMatchesKeyword("chatgptを使ってみた", "CHATGPT")).toBe(true);
+  });
+
+  test("日本語を含むキーワードは部分一致で照合する", () => {
+    expect(textMatchesKeyword("愛用ガジェットの紹介です", "ガジェット")).toBe(true);
+    expect(textMatchesKeyword("旅行の記録です", "ガジェット")).toBe(false);
+  });
+
+  test("一致しない場合は false", () => {
+    expect(textMatchesKeyword("関係のない本文です", "ai")).toBe(false);
   });
 });
