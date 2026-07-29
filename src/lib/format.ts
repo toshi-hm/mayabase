@@ -20,6 +20,20 @@ export function truncate(text: string, maxLength: number): string {
 }
 
 /**
+ * 表示用に再生回数を整形する(日本語表記)。
+ * 1万以上は「○万回」(小数第1位、.0 は省略)、それ未満は3桁区切りの「○回」。
+ * 例: 12345 → "1.2万回"、150000 → "15万回"、900 → "900回"(#35)
+ */
+export function formatViewCount(count: number): string {
+  if (count >= 10_000) {
+    const man = Math.round((count / 10_000) * 10) / 10;
+    const label = Number.isInteger(man) ? man.toFixed(0) : man.toFixed(1);
+    return `${label}万回`;
+  }
+  return `${count.toLocaleString("ja-JP")}回`;
+}
+
+/**
  * 動画概要欄から検索対象にすべき本文相当部分を取り出す。
  * 概要欄末尾は全動画共通の定型文(Profile・SNS・連絡先・使用ガジェット等)で、
  * いずれも "【" から始まる見出しを持つため、最初の "【" 以降を除外してノイズを減らす。

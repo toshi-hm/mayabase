@@ -11,12 +11,14 @@ import videosJson from "../data/videos.json";
 import xPostsJson from "../data/x-posts.json";
 import Base from "../layouts/Base.astro";
 import { formatSubscriberCount, parseChannelStats } from "../lib/channelStats";
+import { formatViewCount } from "../lib/format";
 import { parseXPostsData } from "../lib/x";
 import {
   embedUrl,
   parseVideosData,
   thumbnailFallbackUrl,
   thumbnailUrl,
+  type Video,
   videoUrl,
 } from "../lib/youtube";
 
@@ -26,6 +28,14 @@ const { videos } = parseVideosData(videosJson);
 // isShort: null(未判定)は横動画として表示する(docs/02-design.md)
 const regularVideos = videos.filter((v) => v.isShort !== true).slice(0, maxItems);
 const shortVideos = videos.filter((v) => v.isShort === true).slice(0, maxItems);
+
+// 再生回数上位の動画(#35)。RSSのみ(YOUTUBE_API_KEY未設定)の環境では再生回数が
+// 取得できないため、1件も取得できていなければセクション自体を非表示にする
+// (subscriberCount と同様のフォールバック方針)。
+const popularVideos = videos
+  .filter((v): v is Video & { viewCount: number } => v.viewCount !== null)
+  .sort((a, b) => b.viewCount - a.viewCount)
+  .slice(0, maxItems);
 
 const { account, posts } = parseXPostsData(xPostsJson);
 const xPosts = posts.slice(0, maxItems);
@@ -165,6 +175,30 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         }
       </div>
     </section>
+
+    {
+      popularVideos.length > 0 && (
+        <section aria-labelledby="popular-heading" class="bg-surface-raised py-16">
+          <div class="mx-auto max-w-6xl px-4">
+            <SectionHeading
+              id="popular-heading"
+              title="人気動画"
+              subtitle="視聴回数の多い動画から、チャンネルの世界観をチェック。"
+            />
+            <Carousel label="人気動画の一覧">
+              {popularVideos.map((video, index) => (
+                <VideoCard
+                  video={video}
+                  position={index + 1}
+                  total={popularVideos.length}
+                  viewCountLabel={formatViewCount(video.viewCount)}
+                />
+              ))}
+            </Carousel>
+          </div>
+        </section>
+      )
+    }
 
     <section aria-labelledby="shorts-heading" class="bg-surface-mint py-16">
       <div class="mx-auto max-w-6xl px-4">

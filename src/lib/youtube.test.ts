@@ -8,6 +8,7 @@ import {
   mergeVideos,
   parseFeed,
   parsePlaylistItemsPage,
+  parseVideoStatisticsResponse,
   parseVideosData,
   probeIsShort,
   thumbnailFallbackUrl,
@@ -228,6 +229,39 @@ describe("parsePlaylistItemsPage", () => {
   });
 });
 
+describe("parseVideoStatisticsResponse", () => {
+  test("videos.list(part=statistics) のレスポンスから id→再生回数のマップを取り出す(#35)", () => {
+    const data = {
+      items: [
+        { id: "vid00000001", statistics: { viewCount: "12345" } },
+        { id: "vid00000002", statistics: { viewCount: "0" } },
+      ],
+    };
+    const result = parseVideoStatisticsResponse(data);
+    expect(result.get("vid00000001")).toBe(12345);
+    expect(result.get("vid00000002")).toBe(0);
+    expect(result.size).toBe(2);
+  });
+
+  test("statistics や viewCount が欠けているアイテムはマップに含めない", () => {
+    const data = {
+      items: [{ id: "vid00000001" }, { id: "vid00000002", statistics: {} }],
+    };
+    expect(parseVideoStatisticsResponse(data).size).toBe(0);
+  });
+
+  test("viewCount が数値文字列でなければ無視する", () => {
+    const data = { items: [{ id: "vid00000001", statistics: { viewCount: "not-a-number" } }] };
+    expect(parseVideoStatisticsResponse(data).size).toBe(0);
+  });
+
+  test("items が無い・不正・null でも例外を投げず空マップ", () => {
+    expect(parseVideoStatisticsResponse({}).size).toBe(0);
+    expect(parseVideoStatisticsResponse(null).size).toBe(0);
+    expect(parseVideoStatisticsResponse({ items: "not-an-array" }).size).toBe(0);
+  });
+});
+
 describe("mergeVideos", () => {
   const existing: Video[] = [
     {
@@ -236,6 +270,7 @@ describe("mergeVideos", () => {
       description: "",
       publishedAt: "2025-01-01T00:00:00+00:00",
       isShort: false,
+      viewCount: 100,
     },
     {
       id: "abc123DEF45",
@@ -243,6 +278,7 @@ describe("mergeVideos", () => {
       description: "古い説明",
       publishedAt: "2026-07-01T12:00:00+00:00",
       isShort: true,
+      viewCount: 200,
     },
   ];
 
@@ -259,9 +295,16 @@ describe("mergeVideos", () => {
     expect(updated?.isShort).toBe(true);
   });
 
-  test("新規動画は isShort: null(未判定)で追加される", () => {
+  test("既存動画の viewCount は維持する(#35: viewCount は videos.list 経由の別ステップで更新するため)", () => {
     const merged = mergeVideos(existing, parseFeed(FEED_XML));
-    expect(merged.find((v) => v.id === "xyz789GHI01")?.isShort).toBeNull();
+    expect(merged.find((v) => v.id === "abc123DEF45")?.viewCount).toBe(200);
+  });
+
+  test("新規動画は isShort: null(未判定)・viewCount: null で追加される", () => {
+    const merged = mergeVideos(existing, parseFeed(FEED_XML));
+    const created = merged.find((v) => v.id === "xyz789GHI01");
+    expect(created?.isShort).toBeNull();
+    expect(created?.viewCount).toBeNull();
   });
 
   test("公開日時の降順に整列される", () => {
@@ -278,6 +321,7 @@ describe("mergeVideos", () => {
         description: "",
         publishedAt: "not-a-date",
         isShort: false,
+        viewCount: null,
       },
     ];
     const merged = mergeVideos(broken, parseFeed(FEED_XML));

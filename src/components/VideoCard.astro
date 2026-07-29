@@ -13,9 +13,11 @@ interface Props {
   eager?: boolean;
   /** TopPage のファーストビュー用に大きく表示する */
   featured?: boolean;
+  /** 指定時、公開日の前に再生回数(整形済み文字列)を表示する(#35) */
+  viewCountLabel?: string;
 }
 
-const { video, position, total, eager = false, featured = false } = Astro.props;
+const { video, position, total, eager = false, featured = false, viewCountLabel } = Astro.props;
 ---
 
 <li
@@ -62,6 +64,7 @@ const { video, position, total, eager = false, featured = false } = Astro.props;
         {video.title}
       </h3>
       <p class="mt-2 text-sm text-ink-muted">
+        {viewCountLabel && <span>{viewCountLabel}視聴 ・ </span>}
         <time datetime={video.publishedAt}>{formatDateJa(video.publishedAt)}</time>
       </p>
     </div>

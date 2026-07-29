@@ -14,6 +14,11 @@ export interface Video {
    * 判定は非公式挙動に依存するため、一度確定した値は再判定しない。
    */
   isShort: boolean | null;
+  /**
+   * 再生回数。YOUTUBE_API_KEY 未設定時(RSSのみ)・取得失敗時は null(#35)。
+   * RSS フィードには再生回数が含まれないため、Data API 経路でのみ取得できる。
+   */
+  viewCount: number | null;
 }
 
 /** videos.json 全体の構造 */
@@ -65,12 +70,18 @@ export function parseVideosData(data: unknown): VideosData {
     if (typeof v.isShort !== "boolean" && v.isShort !== null) {
       throw new Error(`videos.json: videos[${i}].isShort は boolean か null である必要があります`);
     }
+    // 既存データ(#35 導入前)には viewCount フィールド自体が存在しないため、
+    // undefined も null と同様に許容する。
+    if (v.viewCount !== undefined && v.viewCount !== null && typeof v.viewCount !== "number") {
+      throw new Error(`videos.json: videos[${i}].viewCount は数値か null である必要があります`);
+    }
     return {
       id: v.id,
       title: v.title,
       description: v.description,
       publishedAt: v.publishedAt,
       isShort: v.isShort,
+      viewCount: typeof v.viewCount === "number" ? v.viewCount : null,
     };
   });
   return { channelId, fetchedAt, videos: parsed };
@@ -214,6 +225,27 @@ export function parsePlaylistItemsPage(data: unknown): PlaylistItemsPage {
 }
 
 /**
+ * YouTube Data API v3 `videos.list`(part=statistics)のレスポンスから
+ * 動画ID→再生回数のマップを取り出す(#35)。統計が非公開・欠損の動画はマップに含めない
+ * (呼び出し側で既存値へフォールバックする)。
+ */
+export function parseVideoStatisticsResponse(data: unknown): Map<string, number> {
+  const result = new Map<string, number>();
+  if (typeof data !== "object" || data === null) return result;
+  const items = (data as { items?: unknown }).items;
+  if (!Array.isArray(items)) return result;
+  for (const raw of items) {
+    const item = raw as { id?: unknown; statistics?: { viewCount?: unknown } };
+    if (typeof item.id !== "string") continue;
+    const viewCount = item.statistics?.viewCount;
+    if (typeof viewCount === "string" && /^\d+$/.test(viewCount)) {
+      result.set(item.id, Number(viewCount));
+    }
+  }
+  return result;
+}
+
+/**
  * 既存データと RSS の取得結果をマージする。
  * - RSS に存在する動画: タイトル・説明・公開日時を更新(isShort の確定値は維持)
  * - RSS から溢れた過去動画: そのまま保持(RSS は最新 15 件のみのため)
@@ -229,6 +261,7 @@ export function mergeVideos(existing: Video[], fetched: FeedEntry[]): Video[] {
       description: entry.description,
       publishedAt: entry.publishedAt,
       isShort: prev ? prev.isShort : null,
+      viewCount: prev ? prev.viewCount : null,
     });
   }
   return [...byId.values()].sort((a, b) => sortTime(b) - sortTime(a));
