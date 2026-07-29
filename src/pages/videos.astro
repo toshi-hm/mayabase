@@ -191,6 +191,8 @@ const searchableDescriptionsSafe = JSON.stringify(
 
 <script>
   // 絞り込み・検索 + 段階表示
+  import { matchesKeyword } from "../lib/categories";
+
   const grid = document.getElementById("videos-grid");
   // サーバー側(videos.astro のフロントマター)の値を data 属性経由で受け取り、二重定義を避ける
   const INITIAL_COUNT = Number(grid?.dataset.initialCount) || 12;
@@ -219,8 +221,8 @@ const searchableDescriptionsSafe = JSON.stringify(
     return (
       (category === "all" || card.dataset.category === category) &&
       (query === "" ||
-        (card.dataset.title ?? "").includes(query) ||
-        (descriptions[card.dataset.videoId ?? ""] ?? "").includes(query))
+        matchesKeyword(card.dataset.title ?? "", query) ||
+        matchesKeyword(descriptions[card.dataset.videoId ?? ""] ?? "", query))
     );
   }
 

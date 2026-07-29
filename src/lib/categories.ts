@@ -73,11 +73,13 @@ function escapeRegExp(text: string): string {
 }
 
 /**
- * タイトルにキーワードが含まれるか(大文字小文字を区別しない)。
- * 英数字キーワードは単語境界で照合する(例: "AI" が "AirPods" に誤マッチしないように)。
+ * テキストにキーワードが含まれるか(大文字小文字を区別しない)。
+ * 英数字キーワードは単語境界で照合する(例: "AI" が "AirPods"/"iPad Air" に誤マッチしないように)。
  * 日本語には単語境界の概念が適用できないため部分一致で照合する。
+ * カテゴリ自動分類(`categorizeVideo`)だけでなく、`/videos/` のキーワード検索
+ * (`cardMatches`)からも同じ誤マッチ対策として利用される(#33)。
  */
-function matchesKeyword(title: string, keyword: string): boolean {
+export function matchesKeyword(title: string, keyword: string): boolean {
   if (/^[\x21-\x7e]+$/.test(keyword)) {
     return new RegExp(`\\b${escapeRegExp(keyword)}\\b`, "i").test(title);
   }

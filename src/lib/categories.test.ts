@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import videosJson from "../data/videos.json";
-import { CATEGORY_LABELS, CATEGORY_ORDER, categorizeVideo } from "./categories";
+import { CATEGORY_LABELS, CATEGORY_ORDER, categorizeVideo, matchesKeyword } from "./categories";
 import { parseVideosData } from "./youtube";
 
 describe("categorizeVideo", () => {
@@ -79,6 +79,25 @@ describe("categorizeVideo", () => {
     for (const video of videos) {
       expect(categorizeVideo(video)).not.toBe("other");
     }
+  });
+});
+
+describe("matchesKeyword", () => {
+  test("英数字キーワードは単語境界で照合し、他の単語の部分文字列には誤マッチしない(#33)", () => {
+    // "iPad Air" の "Air" に "AI" が部分一致してしまう既知の誤マッチパターン
+    expect(matchesKeyword("m4 ipad air レビュー", "ai")).toBe(false);
+    expect(matchesKeyword("airpods を試してみた", "ai")).toBe(false);
+    expect(matchesKeyword("最新のai活用術", "ai")).toBe(true);
+    expect(matchesKeyword("an ai video", "ai")).toBe(true);
+  });
+
+  test("日本語キーワードは部分一致で照合する(単語境界の概念がないため)", () => {
+    expect(matchesKeyword("最新家電を徹底検証", "家電")).toBe(true);
+    expect(matchesKeyword("料理レシピ紹介", "家電")).toBe(false);
+  });
+
+  test("大文字小文字を区別しない", () => {
+    expect(matchesKeyword("ChatGPTの新機能", "chatgpt")).toBe(true);
   });
 });
 
