@@ -78,7 +78,12 @@ const searchableDescriptionsSafe = JSON.stringify(
 ).replace(/</g, "\\u003c");
 ---
 
-<Base title={pageTitle} description={pageDescription}>
+<Base
+  title={pageTitle}
+  description={pageDescription}
+  ogImagePath="/ogp-videos.png"
+  ogImageAlt={`${site.name} 動画ライブラリ`}
+>
   {
     firstThumbnailSrc && (
       <link rel="preload" as="image" href={firstThumbnailSrc} fetchpriority="high" slot="head" />
