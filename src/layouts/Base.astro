@@ -26,7 +26,8 @@ const ogImage = new URL("/ogp.png", Astro.site);
     <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#fdfcf9" />
+    <meta name="theme-color" content="#fdfcf9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#11171d" media="(prefers-color-scheme: dark)" />
     <meta name="generator" content={Astro.generator} />
 
     {/* OGP */}

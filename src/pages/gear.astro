@@ -62,7 +62,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           href="https://amzn.asia/d/07216xEl"
           target="_blank"
           rel="sponsored noopener noreferrer"
-          class="inline-flex w-fit items-center gap-2 rounded-md border border-ink bg-surface px-4 py-2 text-sm font-semibold transition hover:bg-ink hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+          class="inline-flex w-fit items-center gap-2 rounded-md border border-ink bg-surface px-4 py-2 text-sm font-semibold transition hover:bg-brand hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
         >
           Amazon Storefrontを見る <span aria-hidden="true">↗</span>
           <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
@@ -131,12 +131,14 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                     </div>
                   )}
                   <div class="flex flex-1 flex-col border-t border-line p-5">
-                    <p class="text-xs font-semibold tracking-wider text-brand">{item.brand}</p>
-                    <h3 class="mt-1 font-semibold leading-snug group-hover/card:text-brand">
+                    <p class="text-xs font-semibold tracking-wider text-brand-accent">
+                      {item.brand}
+                    </p>
+                    <h3 class="mt-1 font-semibold leading-snug group-hover/card:text-brand-accent">
                       {item.name}
                     </h3>
                     {item.note && <p class="mt-2 text-sm text-ink-muted">{item.note}</p>}
-                    <p class="mt-auto pt-3 text-sm font-semibold text-brand">
+                    <p class="mt-auto pt-3 text-sm font-semibold text-brand-accent">
                       詳細を見る<span aria-hidden="true"> →</span>
                       <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
                     </p>
@@ -158,7 +160,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         <div class="mt-5 flex flex-wrap justify-center gap-4">
           <a
             href="/videos/"
-            class="rounded-full bg-brand px-6 py-3 font-semibold text-surface transition hover:bg-brand-strong"
+            class="rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-strong"
           >
             動画ライブラリを見る
           </a>

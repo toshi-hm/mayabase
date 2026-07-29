@@ -6,7 +6,7 @@ import SectionHeading from "./SectionHeading.astro";
 <section aria-labelledby="profile-heading" class="py-16">
   <div class="grid gap-10 lg:grid-cols-[0.7fr_1.3fr] lg:items-center">
     <div>
-      <p class="mb-3 text-sm font-bold text-brand">ABOUT</p>
+      <p class="mb-3 text-sm font-bold text-brand-accent">ABOUT</p>
       <SectionHeading id="profile-heading" title="つくっている人" />
       <div class="relative w-fit">
         <div
@@ -35,7 +35,7 @@ import SectionHeading from "./SectionHeading.astro";
             href={site.youtube.url}
             target="_blank"
             rel="noopener noreferrer"
-            class="rounded-md bg-ink px-4 py-2 text-white transition hover:bg-brand"
+            class="rounded-md bg-brand px-4 py-2 text-white transition hover:bg-brand-strong"
           >
             YouTube: {site.youtube.handle}
           </a>
