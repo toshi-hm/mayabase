@@ -23,6 +23,7 @@ import {
   mergeVideos,
   parseFeed,
   parsePlaylistItemsPage,
+  parseVideoStatisticsResponse,
   parseVideosData,
   probeIsShort,
   uploadsPlaylistId,
@@ -38,6 +39,8 @@ const PROBE_CONCURRENCY = 4;
 const FETCH_TIMEOUT_MS = 15_000;
 const API_PAGE_SIZE = 50; // playlistItems.list の最大値
 const API_MAX_PAGES = 40; // 暴走防止(最大 2000 件相当)
+const VIEW_COUNT_BATCH_SIZE = 50; // videos.list の id パラメータに指定できる最大件数
+const VIEW_COUNT_CONCURRENCY = 4;
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
   return fetch(url, {
@@ -205,6 +208,47 @@ async function probeShorts(videos: Video[]): Promise<Video[]> {
   );
 }
 
+/**
+ * YouTube Data API v3 `videos.list`(part=statistics)で全動画の再生回数を取得する(#35)。
+ * `id` パラメータは1リクエストあたり最大50件のため、動画IDを50件ずつのバッチに分けて取得する。
+ * 個別バッチの失敗は無視し(取得できた分だけ反映)、既存の viewCount は失敗時にも維持される
+ * (mergeVideos/main 側で prev の値にフォールバックするため)。
+ */
+async function fetchViewCounts(videoIds: string[], apiKey: string): Promise<Map<string, number>> {
+  const batches: string[][] = [];
+  for (let i = 0; i < videoIds.length; i += VIEW_COUNT_BATCH_SIZE) {
+    batches.push(videoIds.slice(i, i + VIEW_COUNT_BATCH_SIZE));
+  }
+
+  const results = await mapWithConcurrency(batches, VIEW_COUNT_CONCURRENCY, async (batch) => {
+    try {
+      const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+      url.searchParams.set("part", "statistics");
+      url.searchParams.set("id", batch.join(","));
+      const res = await fetchWithTimeout(url.toString(), {
+        headers: { "X-goog-api-key": apiKey },
+      });
+      if (!res.ok) {
+        console.warn(`[fetch-videos] 再生回数の取得に失敗しました (HTTP ${res.status})`);
+        return new Map<string, number>();
+      }
+      return parseVideoStatisticsResponse(await res.json());
+    } catch (error) {
+      console.warn(
+        "[fetch-videos] 再生回数の取得でエラーが発生しました:",
+        error instanceof Error ? error.message : String(error),
+      );
+      return new Map<string, number>();
+    }
+  });
+
+  const merged = new Map<string, number>();
+  for (const batchResult of results) {
+    for (const [id, viewCount] of batchResult) merged.set(id, viewCount);
+  }
+  return merged;
+}
+
 async function main(): Promise<void> {
   const existing = await loadExisting();
 
@@ -246,7 +290,26 @@ async function main(): Promise<void> {
     return;
   }
 
-  const merged = await probeShorts(mergeVideos(existing.videos, entries));
+  let merged = await probeShorts(mergeVideos(existing.videos, entries));
+
+  if (apiKey) {
+    const viewCounts = await fetchViewCounts(
+      merged.map((v) => v.id),
+      apiKey,
+    );
+    if (viewCounts.size > 0) {
+      merged = merged.map((video) => ({
+        id: video.id,
+        title: video.title,
+        description: video.description,
+        publishedAt: video.publishedAt,
+        isShort: video.isShort,
+        viewCount: viewCounts.get(video.id) ?? video.viewCount,
+      }));
+      console.log(`[fetch-videos] 再生回数を ${viewCounts.size} 件取得しました`);
+    }
+  }
+
   const data: VideosData = {
     channelId,
     fetchedAt: new Date().toISOString(),

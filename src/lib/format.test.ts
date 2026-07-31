@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { extractSearchableText, formatDateJa, textMatchesKeyword, truncate } from "./format";
+import {
+  extractSearchableText,
+  formatDateJa,
+  formatViewCount,
+  textMatchesKeyword,
+  truncate,
+} from "./format";
 
 describe("formatDateJa", () => {
   test("日本時間の年月日に整形する", () => {
@@ -27,6 +33,19 @@ describe("truncate", () => {
 
   test("サロゲートペア(絵文字)を壊さない", () => {
     expect(truncate("😀😀😀😀", 2)).toBe("😀😀…");
+  });
+});
+
+describe("formatViewCount", () => {
+  test("1万未満は3桁区切りの回数(#35)", () => {
+    expect(formatViewCount(900)).toBe("900回");
+    expect(formatViewCount(9999)).toBe("9,999回");
+  });
+
+  test("1万以上は「万回」表記(小数第1位、.0 は省略)", () => {
+    expect(formatViewCount(10_000)).toBe("1万回");
+    expect(formatViewCount(12_345)).toBe("1.2万回");
+    expect(formatViewCount(150_000)).toBe("15万回");
   });
 });
 
