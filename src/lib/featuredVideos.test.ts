@@ -9,6 +9,7 @@ const video = (id: string): Video => ({
   description: "",
   publishedAt: "2026-01-01T00:00:00+09:00",
   isShort: false,
+  viewCount: null,
 });
 
 describe("parseFeaturedVideosData", () => {
