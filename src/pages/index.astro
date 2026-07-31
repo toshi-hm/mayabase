@@ -7,10 +7,12 @@ import ShortCard from "../components/ShortCard.astro";
 import VideoCard from "../components/VideoCard.astro";
 import { site } from "../config/site";
 import channelStatsJson from "../data/channel-stats.json";
+import featuredVideosJson from "../data/featured-videos.json";
 import videosJson from "../data/videos.json";
 import xPostsJson from "../data/x-posts.json";
 import Base from "../layouts/Base.astro";
 import { formatSubscriberCount, parseChannelStats } from "../lib/channelStats";
+import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredVideos";
 import { formatViewCount } from "../lib/format";
 import { parseXPostsData } from "../lib/x";
 import {
@@ -28,6 +30,10 @@ const { videos } = parseVideosData(videosJson);
 // isShort: null(未判定)は横動画として表示する(docs/02-design.md)
 const regularVideos = videos.filter((v) => v.isShort !== true).slice(0, maxItems);
 const shortVideos = videos.filter((v) => v.isShort === true).slice(0, maxItems);
+
+// 運営者が手動でキュレーションする代表動画。未設定(空配列)ならセクションごと非表示にする
+const { featuredVideoIds } = parseFeaturedVideosData(featuredVideosJson);
+const featuredVideos = resolveFeaturedVideos(featuredVideoIds, videos);
 
 // 再生回数上位の動画(#35)。RSSのみ(YOUTUBE_API_KEY未設定)の環境では再生回数が
 // 取得できないため、1件も取得できていなければセクション自体を非表示にする
@@ -175,6 +181,30 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         }
       </div>
     </section>
+
+    {
+      featuredVideos.length > 0 && (
+        <section aria-labelledby="featured-heading" class="bg-surface-sun py-16">
+          <div class="mx-auto max-w-6xl px-4">
+            <SectionHeading
+              id="featured-heading"
+              title="はじめての方へ"
+              subtitle="まずはこの動画から。チャンネルの雰囲気をチェックしてみてください。"
+            />
+            <Carousel label="はじめての方へのおすすめ動画">
+              {featuredVideos.map((video, index) => (
+                <VideoCard
+                  video={video}
+                  position={index + 1}
+                  total={featuredVideos.length}
+                  eager={index === 0}
+                />
+              ))}
+            </Carousel>
+          </div>
+        </section>
+      )
+    }
 
     {
       popularVideos.length > 0 && (
