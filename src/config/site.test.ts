@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { site } from "./site";
+import { site, subscribeUrl } from "./site";
 
 describe("site config", () => {
   test("YouTube ハンドルは @ で始まる", () => {
@@ -23,5 +23,15 @@ describe("site config", () => {
     expect(site.carousel.autoplayDelayMs).toBeGreaterThanOrEqual(1000);
     expect(site.carousel.maxItems).toBeGreaterThan(0);
     expect(site.carousel.maxItems).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("subscribeUrl", () => {
+  test("チャンネルURLに sub_confirmation=1 を付与する", () => {
+    expect(subscribeUrl()).toBe(`${site.youtube.url}?sub_confirmation=1`);
+  });
+
+  test("常にチャンネルURLを起点にする", () => {
+    expect(subscribeUrl().startsWith(site.youtube.url)).toBe(true);
   });
 });

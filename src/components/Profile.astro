@@ -1,5 +1,5 @@
 ---
-import { site } from "../config/site";
+import { site, subscribeUrl } from "../config/site";
 import SectionHeading from "./SectionHeading.astro";
 ---
 
@@ -32,10 +32,20 @@ import SectionHeading from "./SectionHeading.astro";
       <ul class="mt-7 flex flex-wrap gap-3 text-sm font-semibold">
         <li>
           <a
-            href={site.youtube.url}
+            href={subscribeUrl()}
             target="_blank"
             rel="noopener noreferrer"
             class="rounded-md bg-brand px-4 py-2 text-white transition hover:bg-brand-strong"
+          >
+            チャンネル登録する
+          </a>
+        </li>
+        <li>
+          <a
+            href={site.youtube.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-md border border-ink px-4 py-2 transition hover:bg-surface"
           >
             YouTube: {site.youtube.handle}
           </a>
