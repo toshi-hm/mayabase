@@ -45,7 +45,12 @@ const jsonLd = {
 const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 ---
 
-<Base title={pageTitle} description={pageDescription}>
+<Base
+  title={pageTitle}
+  description={pageDescription}
+  ogImagePath="/ogp-gear.png"
+  ogImageAlt={`${site.name} 愛用ガジェット`}
+>
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
   <link rel="preconnect" href="https://m.media-amazon.com" crossorigin slot="head" />
   <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
