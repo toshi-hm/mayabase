@@ -1,3 +1,4 @@
+import { textMatchesKeyword } from "./format";
 import type { Video } from "./youtube";
 
 /**
@@ -67,27 +68,10 @@ const CATEGORY_KEYWORDS: readonly (readonly [VideoCategory, readonly string[]])[
   ["vlog", ["Vlog", "日常", "旅行", "ルーティン", "1日", "休日", "ライブ配信", "CDJ"]],
 ];
 
-/** 正規表現メタ文字をエスケープする */
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * タイトルにキーワードが含まれるか(大文字小文字を区別しない)。
- * 英数字キーワードは単語境界で照合する(例: "AI" が "AirPods" に誤マッチしないように)。
- * 日本語には単語境界の概念が適用できないため部分一致で照合する。
- */
-function matchesKeyword(title: string, keyword: string): boolean {
-  if (/^[\x21-\x7e]+$/.test(keyword)) {
-    return new RegExp(`\\b${escapeRegExp(keyword)}\\b`, "i").test(title);
-  }
-  return title.includes(keyword);
-}
-
 /** タイトルから動画の主カテゴリを判定する。どれにも該当しなければ "other" */
 export function categorizeVideo(video: Pick<Video, "title">): VideoCategory {
   for (const [category, keywords] of CATEGORY_KEYWORDS) {
-    if (keywords.some((keyword) => matchesKeyword(video.title, keyword))) {
+    if (keywords.some((keyword) => textMatchesKeyword(video.title, keyword))) {
       return category;
     }
   }
