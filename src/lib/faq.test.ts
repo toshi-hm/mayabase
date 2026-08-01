@@ -106,4 +106,18 @@ describe("faqTextMatches", () => {
   test("どちらにも含まれなければ不一致", () => {
     expect(faqTextMatches("よくある質問", "AIについて", "旅行")).toBe(false);
   });
+
+  test("英数字キーワードは単語境界で照合し、無関係な語への部分一致(gmail 内の ai 等)を避ける", () => {
+    expect(
+      faqTextMatches(
+        "お仕事の依頼はどこに連絡すればよいですか?",
+        "mayabaseofficial☆gmail.comまでご連絡ください".toLowerCase(),
+        "ai",
+      ),
+    ).toBe(false);
+  });
+
+  test("英数字キーワードは単語境界を満たせば一致する", () => {
+    expect(faqTextMatches("aiについて教えてください", "ai技術を活用しています", "ai")).toBe(true);
+  });
 });
