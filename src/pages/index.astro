@@ -194,12 +194,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             />
             <Carousel label="はじめての方へのおすすめ動画">
               {featuredVideos.map((video, index) => (
-                <VideoCard
-                  video={video}
-                  position={index + 1}
-                  total={featuredVideos.length}
-                  eager={index === 0}
-                />
+                <VideoCard video={video} position={index + 1} total={featuredVideos.length} />
               ))}
             </Carousel>
           </div>
