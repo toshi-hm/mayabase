@@ -1,3 +1,5 @@
+import { textMatchesKeyword } from "./format";
+
 /** FAQ の補足リンク(回答の下に表示する) */
 export interface FaqLink {
   label: string;
@@ -45,9 +47,11 @@ export function deobfuscateEmail(obfuscated: string): string {
 /**
  * FAQ のキーワード検索(faq.astro のクライアントスクリプトから使用)。
  * question / answer / query はいずれも呼び出し側で小文字化済みの前提。
+ * `textMatchesKeyword`(format.ts、動画ライブラリの検索と共通)を使い、英数字のみの
+ * キーワードは単語境界で照合する(例: "AI" が "gmail" 等に誤マッチしないように)。
  */
 export function faqTextMatches(question: string, answer: string, query: string): boolean {
-  return query === "" || question.includes(query) || answer.includes(query);
+  return textMatchesKeyword(question, query) || textMatchesKeyword(answer, query);
 }
 
 function parseLink(raw: unknown, path: string): FaqLink {
