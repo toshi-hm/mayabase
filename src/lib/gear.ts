@@ -34,6 +34,22 @@ function isGearCategory(value: unknown): value is GearCategory {
   return typeof value === "string" && (GEAR_CATEGORY_ORDER as readonly string[]).includes(value);
 }
 
+/** Amazon アソシエイトの短縮リンクとして使われるホスト名(gear.json 運用上、アフィリエイトリンクはこれらのみ) */
+const AFFILIATE_HOSTNAMES = new Set(["amzn.to", "amzn.asia"]);
+
+/**
+ * URL が Amazon アフィリエイトリンクかどうかを判定する。
+ * `rel="sponsored"` は対価を伴うリンクにのみ付与すべきという Google のガイドラインに沿うため、
+ * gear.json 内の非 Amazon(メーカー公式サイト等)リンクと区別するのに使う。
+ */
+export function isAffiliateUrl(url: string): boolean {
+  try {
+    return AFFILIATE_HOSTNAMES.has(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * gear.json の内容を検証しつつパースする。
  * 不正データは具体的なメッセージ付きで throw する(ビルドを落として混入を検知する)。

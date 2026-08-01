@@ -5,7 +5,12 @@ import { site } from "../config/site";
 import gearJson from "../data/gear.json";
 import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
-import { GEAR_CATEGORY_LABELS, groupGearByCategory, parseGearData } from "../lib/gear";
+import {
+  GEAR_CATEGORY_LABELS,
+  groupGearByCategory,
+  isAffiliateUrl,
+  parseGearData,
+} from "../lib/gear";
 
 const { items } = parseGearData(gearJson);
 const groups = groupGearByCategory(items).filter(([, groupItems]) => groupItems.length > 0);
@@ -73,11 +78,14 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
         </a>
 
-        <div
+        <a
+          href="https://amzn.asia/d/07216xEl"
+          target="_blank"
+          rel="sponsored noopener noreferrer"
           id="storefront-mascot"
-          class="storefront-mascot relative mt-1 w-72 max-w-[78vw]"
-          aria-live="off"
+          class="storefront-mascot relative mt-1 block w-72 max-w-[78vw] focus-visible:outline-2 focus-visible:outline-brand"
         >
+          <span class="sr-only">Amazon Storefrontを見る(外部サイト・新しいタブで開きます)</span>
           <img
             src="/images/storefront-bear.png"
             alt=""
@@ -91,12 +99,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           />
           <p
             class="absolute top-[44%] right-[17%] left-[17%] flex h-[28%] flex-col items-center justify-center text-center text-xs leading-snug font-semibold text-ink"
+            aria-hidden="true"
           >
             <span>Amazon Storefrontに</span>
             <span>最新のおすすめアイテム</span>
             <span>掲載中！</span>
           </p>
-        </div>
+        </a>
       </div>
 
       {/* ステマ規制(景品表示法)対応: アフィリエイト広告を含む旨をファーストビューに明示する */}
@@ -118,7 +127,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                 <a
                   href={item.url}
                   target="_blank"
-                  rel="sponsored noopener noreferrer"
+                  rel={
+                    isAffiliateUrl(item.url)
+                      ? "sponsored noopener noreferrer"
+                      : "noopener noreferrer"
+                  }
                   class="group/card flex h-full flex-col overflow-hidden rounded-lg border border-line bg-surface transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
                 >
                   {item.image && (
