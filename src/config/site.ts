@@ -53,3 +53,12 @@ export const site = {
 } as const;
 
 export type SiteConfig = typeof site;
+
+/**
+ * チャンネル登録導線用の URL。
+ * `sub_confirmation=1` を付与すると、遷移後に YouTube が登録確認ダイアログを自動表示する
+ * (外部スクリプト埋め込み不要の公式仕様)。
+ */
+export function subscribeUrl(): string {
+  return `${site.youtube.url}?sub_confirmation=1`;
+}
