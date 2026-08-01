@@ -11,7 +11,7 @@ import featuredVideosJson from "../data/featured-videos.json";
 import videosJson from "../data/videos.json";
 import xPostsJson from "../data/x-posts.json";
 import Base from "../layouts/Base.astro";
-import { formatSubscriberCount, parseChannelStats } from "../lib/channelStats";
+import { formatFetchedAt, formatSubscriberCount, parseChannelStats } from "../lib/channelStats";
 import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredVideos";
 import { formatViewCount, truncate } from "../lib/format";
 import { parseXPostsData } from "../lib/x";
@@ -47,8 +47,10 @@ const { account, posts } = parseXPostsData(xPostsJson);
 const xPosts = posts.slice(0, maxItems);
 
 // 未取得(API キー未設定・取得失敗・非公開設定)の場合は null のまま非表示にする
-const { subscriberCount } = parseChannelStats(channelStatsJson);
+const { subscriberCount, fetchedAt } = parseChannelStats(channelStatsJson);
 const subscriberText = subscriberCount !== null ? formatSubscriberCount(subscriberCount) : null;
+// リアルタイム取得ではないため、取得日時を併記する
+const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt) : null;
 
 // JSON-LD 構造化データ(VideoObject は Google 必須の name / description / thumbnailUrl / uploadDate を含む)
 if (!Astro.site) {
@@ -119,6 +121,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               subscriberText && (
                 <p class="mt-2 text-sm font-semibold text-ink-muted">
                   チャンネル登録者数 <span class="text-ink">{subscriberText}</span>
+                  {fetchedAtText && ` (${fetchedAtText})`}
                 </p>
               )
             }

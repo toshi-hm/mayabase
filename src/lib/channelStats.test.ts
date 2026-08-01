@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   createEmptyChannelStats,
+  formatFetchedAt,
   formatSubscriberCount,
   parseChannelStats,
   parseChannelStatsApiResponse,
@@ -74,5 +75,15 @@ describe("formatSubscriberCount", () => {
     expect(formatSubscriberCount(10_000)).toBe("1万人");
     expect(formatSubscriberCount(12_345)).toBe("1.2万人");
     expect(formatSubscriberCount(150_000)).toBe("15万人");
+  });
+});
+
+describe("formatFetchedAt", () => {
+  test("JST の「M/D H:mm時点」形式に整形する", () => {
+    expect(formatFetchedAt("2026-08-01T09:00:00Z")).toBe("8/1 18:00時点");
+  });
+
+  test("日付が変わる境界も JST 換算される", () => {
+    expect(formatFetchedAt("2026-08-01T15:00:00Z")).toBe("8/2 00:00時点");
   });
 });
