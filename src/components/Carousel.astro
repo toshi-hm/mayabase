@@ -191,10 +191,20 @@ const { label } = Astro.props;
       }
     };
 
+    // loop: true のため通常は端が無く常に false だが、
+    // スライド数がビューポート内に収まる(スクロール不要な)場合は
+    // canScrollPrev/Next が false になるため、その際にボタンを無効化する
+    const updateButtonState = (): void => {
+      prevButton.disabled = !embla.canScrollPrev();
+      nextButton.disabled = !embla.canScrollNext();
+    };
+
     prevButton.addEventListener("click", () => embla.scrollPrev());
     nextButton.addEventListener("click", () => embla.scrollNext());
     embla.on("select", updateSelection);
+    embla.on("reInit", updateButtonState);
     updateSelection();
+    updateButtonState();
     updateToggle();
   }
 
