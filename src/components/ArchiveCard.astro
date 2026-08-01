@@ -36,7 +36,6 @@ const { video, category, eager = false, thumbnailSrc, initiallyHidden = false } 
   data-initial-hidden={initiallyHidden ? "true" : undefined}
   style={initiallyHidden ? "display:none" : undefined}
 >
-  <ShareButton title={video.title} url={videoUrl(video)} />
   <a
     href={videoUrl(video)}
     target="_blank"
@@ -77,4 +76,5 @@ const { video, category, eager = false, thumbnailSrc, initiallyHidden = false } 
       </p>
     </div>
   </a>
+  <ShareButton title={video.title} url={videoUrl(video)} />
 </li>

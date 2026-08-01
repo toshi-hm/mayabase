@@ -20,7 +20,6 @@ const { video, position, total } = Astro.props;
   aria-roledescription="スライド"
   aria-label={`${position} / ${total}`}
 >
-  <ShareButton title={video.title} url={videoUrl(video)} />
   <a
     href={videoUrl(video)}
     target="_blank"
@@ -48,4 +47,5 @@ const { video, position, total } = Astro.props;
       </p>
     </div>
   </a>
+  <ShareButton title={video.title} url={videoUrl(video)} />
 </li>
