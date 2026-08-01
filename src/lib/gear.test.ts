@@ -4,6 +4,7 @@ import {
   GEAR_CATEGORY_LABELS,
   GEAR_CATEGORY_ORDER,
   groupGearByCategory,
+  isAffiliateUrl,
   parseGearData,
 } from "./gear";
 
@@ -81,6 +82,30 @@ describe("カテゴリ定義", () => {
   test("すべてのカテゴリにラベルがある", () => {
     for (const category of GEAR_CATEGORY_ORDER) {
       expect(GEAR_CATEGORY_LABELS[category].length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("isAffiliateUrl", () => {
+  test("amzn.to / amzn.asia はアフィリエイトリンクと判定する", () => {
+    expect(isAffiliateUrl("https://amzn.to/40bgFWc")).toBe(true);
+    expect(isAffiliateUrl("https://amzn.asia/d/8aTE2PF")).toBe(true);
+  });
+
+  test("メーカー公式サイト等はアフィリエイトリンクと判定しない", () => {
+    expect(isAffiliateUrl("https://www.flexispot.jp/e7-l.html")).toBe(false);
+    expect(isAffiliateUrl("https://www.marshall.com/jp/ja/product/willen")).toBe(false);
+  });
+
+  test("不正なURLはアフィリエイトリンクと判定しない", () => {
+    expect(isAffiliateUrl("not a url")).toBe(false);
+  });
+
+  test("gear.json の全リンクが期待どおり判定される(回帰テスト)", () => {
+    const { items } = parseGearData(gearJson);
+    for (const item of items) {
+      const isAmazon = /^amzn\.(to|asia)$/.test(new URL(item.url).hostname);
+      expect(isAffiliateUrl(item.url)).toBe(isAmazon);
     }
   });
 });
