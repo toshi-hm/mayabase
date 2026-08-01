@@ -19,7 +19,7 @@ const { label } = Astro.props;
 >
   {/* JS 無効時は横スクロールで全カードを閲覧できる(初期化時に overflow-hidden へ切替) */}
   <div class="overflow-x-auto pb-2" data-carousel-viewport>
-    <ul class="flex gap-4" data-carousel-container>
+    <ul class="flex gap-4" role="list" data-carousel-container>
       <slot />
     </ul>
   </div>
