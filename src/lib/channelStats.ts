@@ -77,8 +77,11 @@ const fetchedAtFormatter = new Intl.DateTimeFormat("ja-JP", {
 /**
  * 登録者数の取得日時を表示用に整形する(JST)。
  * リアルタイム取得ではないため、いつ時点の数値かを併記する目的で使う。
+ * 不正な日時文字列の場合は空文字を返す(`formatDateJa` と同じ方針。#80)。
  * 例: "2026-08-01T09:00:00Z" → "8/1 18:00時点"
  */
 export function formatFetchedAt(fetchedAt: string): string {
-  return `${fetchedAtFormatter.format(new Date(fetchedAt))}時点`;
+  const time = Date.parse(fetchedAt);
+  if (Number.isNaN(time)) return "";
+  return `${fetchedAtFormatter.format(new Date(time))}時点`;
 }

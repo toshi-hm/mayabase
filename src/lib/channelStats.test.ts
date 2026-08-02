@@ -86,4 +86,9 @@ describe("formatFetchedAt", () => {
   test("日付が変わる境界も JST 換算される", () => {
     expect(formatFetchedAt("2026-08-01T15:00:00Z")).toBe("8/2 00:00時点");
   });
+
+  test("不正な日時文字列は例外を投げず空文字を返す(#80)", () => {
+    expect(formatFetchedAt("not-a-date")).toBe("");
+    expect(formatFetchedAt("")).toBe("");
+  });
 });
