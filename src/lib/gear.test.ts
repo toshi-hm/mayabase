@@ -1,12 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import gearJson from "../data/gear.json";
+import videosJson from "../data/videos.json";
 import {
+  buildVideoGearMap,
   GEAR_CATEGORY_LABELS,
   GEAR_CATEGORY_ORDER,
   groupGearByCategory,
   isAffiliateUrl,
   parseGearData,
+  resolveGearVideos,
 } from "./gear";
+import { parseVideosData, type Video } from "./youtube";
 
 const validItem = {
   name: "HHKB Professional HYBRID Type-S",
@@ -30,6 +34,26 @@ describe("parseGearData", () => {
     const { note, ...withoutNote } = validItem;
     const { items } = parseGearData({ items: [withoutNote] });
     expect(items[0]?.note).toBeUndefined();
+  });
+
+  test("videoIds は省略できる", () => {
+    const { items } = parseGearData({ items: [validItem] });
+    expect(items[0]?.videoIds).toBeUndefined();
+  });
+
+  test("videoIds を指定するとパースできる(#70)", () => {
+    const { items } = parseGearData({
+      items: [{ ...validItem, videoIds: ["abc123", "def456"] }],
+    });
+    expect(items[0]?.videoIds).toEqual(["abc123", "def456"]);
+  });
+
+  test("videoIds が配列でない・空文字を含む場合は throw する(#70)", () => {
+    expect(() => parseGearData({ items: [{ ...validItem, videoIds: "abc123" }] })).toThrow(
+      "videoIds",
+    );
+    expect(() => parseGearData({ items: [{ ...validItem, videoIds: [""] }] })).toThrow("videoIds");
+    expect(() => parseGearData({ items: [{ ...validItem, videoIds: [1] }] })).toThrow("videoIds");
   });
 
   test("オブジェクトでなければ throw する", () => {
@@ -107,5 +131,68 @@ describe("isAffiliateUrl", () => {
       const isAmazon = /^amzn\.(to|asia)$/.test(new URL(item.url).hostname);
       expect(isAffiliateUrl(item.url)).toBe(isAmazon);
     }
+  });
+});
+
+const video1: Video = {
+  id: "video1",
+  title: "動画1",
+  description: "",
+  publishedAt: "2024-01-01T00:00:00Z",
+  isShort: false,
+  viewCount: null,
+};
+const video2: Video = {
+  id: "video2",
+  title: "動画2",
+  description: "",
+  publishedAt: "2024-01-02T00:00:00Z",
+  isShort: true,
+  viewCount: null,
+};
+
+describe("resolveGearVideos", () => {
+  test("videoIds に対応する動画を記載順で返す(#70)", () => {
+    const item = { videoIds: ["video2", "video1"] };
+    expect(resolveGearVideos(item, [video1, video2])).toEqual([video2, video1]);
+  });
+
+  test("videos.json に存在しない ID は無視する(#70)", () => {
+    const item = { videoIds: ["video1", "missing"] };
+    expect(resolveGearVideos(item, [video1, video2])).toEqual([video1]);
+  });
+
+  test("videoIds が未指定・空配列なら空配列を返す(#70)", () => {
+    expect(resolveGearVideos({ videoIds: undefined }, [video1])).toEqual([]);
+    expect(resolveGearVideos({ videoIds: [] }, [video1])).toEqual([]);
+  });
+
+  test("gear.json の videoIds はすべて videos.json 内の実在 ID を指す(回帰テスト・#70)", () => {
+    const { items: gearItems } = parseGearData(gearJson);
+    const { videos } = parseVideosData(videosJson);
+    for (const item of gearItems) {
+      if (!item.videoIds) continue;
+      expect(resolveGearVideos(item, videos)).toHaveLength(item.videoIds.length);
+    }
+  });
+});
+
+describe("buildVideoGearMap", () => {
+  test("動画 ID → 紹介ガジェット一覧の逆引きマップを構築する(#70)", () => {
+    const itemA = { ...validItem, name: "A", videoIds: ["video1"] };
+    const itemB = { ...validItem, name: "B", videoIds: ["video1", "video2"] };
+    const itemC = { ...validItem, name: "C" };
+    const { items } = parseGearData({ items: [itemA, itemB, itemC] });
+
+    const map = buildVideoGearMap(items);
+    expect(map.get("video1")?.map((item) => item.name)).toEqual(["A", "B"]);
+    expect(map.get("video2")?.map((item) => item.name)).toEqual(["B"]);
+    expect(map.has("video3")).toBe(false);
+  });
+
+  test("videoIds を持つガジェットが無ければ空のマップを返す(#70)", () => {
+    const { items } = parseGearData(gearJson);
+    const withoutVideoIds = items.filter((item) => !item.videoIds);
+    expect(buildVideoGearMap(withoutVideoIds).size).toBe(0);
   });
 });
