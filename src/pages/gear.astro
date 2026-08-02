@@ -14,6 +14,9 @@ import {
 
 const { items } = parseGearData(gearJson);
 const groups = groupGearByCategory(items).filter(([, groupItems]) => groupItems.length > 0);
+// JSON-LD の position は実際の表示順(カテゴリでグルーピングした groups)から採番する。
+// gear.json の記載順そのままだと、記載順とカテゴリ表示順がずれた場合に画面と JSON-LD の順序が食い違う(#82)。
+const displayOrderedItems = groups.flatMap(([, groupItems]) => groupItems);
 
 const pageTitle = `愛用ガジェット | ${site.name}`;
 const pageDescription = `${site.name} の動画制作・デスク環境で実際に使っている機材とガジェットの一覧。キーボード・マイク・カメラからスマート家電まで、動画で気になったアイテムをまとめてチェックできます。`;
@@ -37,7 +40,7 @@ const jsonLd = {
       "@type": "ItemList",
       "@id": `${siteUrl}gear/#gear`,
       name: `${site.name} の愛用ガジェット一覧`,
-      itemListElement: items.map((item, index) => ({
+      itemListElement: displayOrderedItems.map((item, index) => ({
         "@type": "ListItem",
         position: index + 1,
         name: `${item.brand} ${item.name}`,
