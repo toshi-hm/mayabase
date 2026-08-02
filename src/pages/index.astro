@@ -47,8 +47,10 @@ const { account, posts } = parseXPostsData(xPostsJson);
 const xPosts = posts.slice(0, maxItems);
 
 // 未取得(API キー未設定・取得失敗・非公開設定)の場合は null のまま非表示にする
-const { subscriberCount, fetchedAt } = parseChannelStats(channelStatsJson);
+const { subscriberCount, viewCount, fetchedAt } = parseChannelStats(channelStatsJson);
 const subscriberText = subscriberCount !== null ? formatSubscriberCount(subscriberCount) : null;
+// チャンネル総再生回数(#60)。登録者数と同じフォールバック方針で、未取得時は非表示にする
+const totalViewCountText = viewCount !== null ? formatViewCount(viewCount) : null;
 // リアルタイム取得ではないため、取得日時を併記する
 const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt) : null;
 
@@ -121,6 +123,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               subscriberText && (
                 <p class="mt-2 text-sm font-semibold text-ink-muted">
                   チャンネル登録者数 <span class="text-ink">{subscriberText}</span>
+                  {totalViewCountText && (
+                    <>
+                      {" "}
+                      / 総再生回数 <span class="text-ink">{totalViewCountText}</span>
+                    </>
+                  )}
                   {fetchedAtText && ` (${fetchedAtText})`}
                 </p>
               )
