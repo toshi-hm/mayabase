@@ -5,6 +5,10 @@ const FONT_PACKAGE = path.resolve("node_modules/@fontsource/line-seed-jp");
 const OUTPUT_DIR = path.resolve("public/fonts");
 const WEIGHTS = [400] as const;
 const SOURCE_EXTENSIONS = new Set([".astro", ".css", ".json", ".ts"]);
+// fonttools はバージョンを固定する。未固定だと `uvx` が実行時点の最新版を解決するため、
+// 同じ文字集合でも生成環境・実行時期によって出力バイナリが変わり得る
+// (CIの最新性チェック(#58)が誤って差分ありと判定してしまう)。
+const FONTTOOLS_SPEC = "fonttools[woff]==4.63.0";
 
 const sourceFiles: string[] = [];
 const glob = new Bun.Glob("**/*");
@@ -29,7 +33,7 @@ for (const weight of WEIGHTS) {
     [
       "uvx",
       "--from",
-      "fonttools[woff]",
+      FONTTOOLS_SPEC,
       "pyftsubset",
       input,
       `--output-file=${output}`,
