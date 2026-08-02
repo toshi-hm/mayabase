@@ -171,13 +171,13 @@ async function updateChannelStats(channelId: string, apiKey: string): Promise<vo
       console.warn(`[fetch-videos] チャンネル統計の取得に失敗しました (HTTP ${res.status})`);
       return;
     }
-    const subscriberCount = parseChannelStatsApiResponse(await res.json());
-    const data: ChannelStats = { subscriberCount, fetchedAt: new Date().toISOString() };
+    const { subscriberCount, viewCount } = parseChannelStatsApiResponse(await res.json());
+    const data: ChannelStats = { subscriberCount, viewCount, fetchedAt: new Date().toISOString() };
     const tmpPath = `${CHANNEL_STATS_JSON_PATH}.tmp`;
     await Bun.write(tmpPath, `${JSON.stringify(data, null, 2)}\n`);
     await rename(tmpPath, CHANNEL_STATS_JSON_PATH);
     console.log(
-      `[fetch-videos] チャンネル統計を保存しました(登録者数: ${subscriberCount ?? "非公開/取得不可"})`,
+      `[fetch-videos] チャンネル統計を保存しました(登録者数: ${subscriberCount ?? "非公開/取得不可"}、総再生回数: ${viewCount ?? "取得不可"})`,
     );
   } catch (error) {
     console.warn(

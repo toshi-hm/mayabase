@@ -8,21 +8,44 @@ import {
 } from "./channelStats";
 
 describe("createEmptyChannelStats", () => {
-  test("subscriberCount / fetchedAt ともに null", () => {
-    expect(createEmptyChannelStats()).toEqual({ subscriberCount: null, fetchedAt: null });
+  test("subscriberCount / viewCount / fetchedAt ともに null", () => {
+    expect(createEmptyChannelStats()).toEqual({
+      subscriberCount: null,
+      viewCount: null,
+      fetchedAt: null,
+    });
   });
 });
 
 describe("parseChannelStats", () => {
   test("正常なデータをパースできる", () => {
-    const data = parseChannelStats({ subscriberCount: 12345, fetchedAt: "2026-07-28T00:00:00Z" });
-    expect(data).toEqual({ subscriberCount: 12345, fetchedAt: "2026-07-28T00:00:00Z" });
+    const data = parseChannelStats({
+      subscriberCount: 12345,
+      viewCount: 987654,
+      fetchedAt: "2026-07-28T00:00:00Z",
+    });
+    expect(data).toEqual({
+      subscriberCount: 12345,
+      viewCount: 987654,
+      fetchedAt: "2026-07-28T00:00:00Z",
+    });
   });
 
   test("null 値を許可する(未取得状態)", () => {
-    expect(parseChannelStats({ subscriberCount: null, fetchedAt: null })).toEqual({
+    expect(parseChannelStats({ subscriberCount: null, viewCount: null, fetchedAt: null })).toEqual({
       subscriberCount: null,
+      viewCount: null,
       fetchedAt: null,
+    });
+  });
+
+  test("viewCount 未設定の旧形式データも許容する(#60 で追加したフィールド)", () => {
+    expect(
+      parseChannelStats({ subscriberCount: 12345, fetchedAt: "2026-07-28T00:00:00Z" }),
+    ).toEqual({
+      subscriberCount: 12345,
+      viewCount: null,
+      fetchedAt: "2026-07-28T00:00:00Z",
     });
   });
 
@@ -35,33 +58,54 @@ describe("parseChannelStats", () => {
       "subscriberCount",
     );
     expect(() => parseChannelStats({ subscriberCount: null, fetchedAt: 123 })).toThrow("fetchedAt");
+    expect(() =>
+      parseChannelStats({ subscriberCount: null, viewCount: "1000", fetchedAt: null }),
+    ).toThrow("viewCount");
   });
 });
 
 describe("parseChannelStatsApiResponse", () => {
-  test("statistics.subscriberCount(文字列)を数値に変換する", () => {
-    const response = { items: [{ statistics: { subscriberCount: "4321" } }] };
-    expect(parseChannelStatsApiResponse(response)).toBe(4321);
-  });
-
-  test("hiddenSubscriberCount が true なら null", () => {
+  test("statistics.subscriberCount / viewCount(文字列)を数値に変換する", () => {
     const response = {
-      items: [{ statistics: { subscriberCount: "100", hiddenSubscriberCount: true } }],
+      items: [{ statistics: { subscriberCount: "4321", viewCount: "987654" } }],
     };
-    expect(parseChannelStatsApiResponse(response)).toBeNull();
+    expect(parseChannelStatsApiResponse(response)).toEqual({
+      subscriberCount: 4321,
+      viewCount: 987654,
+    });
   });
 
-  test("items が空配列なら null", () => {
-    expect(parseChannelStatsApiResponse({ items: [] })).toBeNull();
+  test("hiddenSubscriberCount が true なら subscriberCount のみ null(viewCount は非公開設定の対象外)", () => {
+    const response = {
+      items: [
+        { statistics: { subscriberCount: "100", viewCount: "500", hiddenSubscriberCount: true } },
+      ],
+    };
+    expect(parseChannelStatsApiResponse(response)).toEqual({
+      subscriberCount: null,
+      viewCount: 500,
+    });
   });
 
-  test("想定外の形式は例外を投げず null を返す", () => {
-    expect(parseChannelStatsApiResponse(null)).toBeNull();
-    expect(parseChannelStatsApiResponse({})).toBeNull();
-    expect(parseChannelStatsApiResponse({ items: [{ statistics: {} }] })).toBeNull();
+  test("items が空配列なら両方 null", () => {
+    expect(parseChannelStatsApiResponse({ items: [] })).toEqual({
+      subscriberCount: null,
+      viewCount: null,
+    });
+  });
+
+  test("想定外の形式は例外を投げず両方 null を返す", () => {
+    expect(parseChannelStatsApiResponse(null)).toEqual({ subscriberCount: null, viewCount: null });
+    expect(parseChannelStatsApiResponse({})).toEqual({ subscriberCount: null, viewCount: null });
+    expect(parseChannelStatsApiResponse({ items: [{ statistics: {} }] })).toEqual({
+      subscriberCount: null,
+      viewCount: null,
+    });
     expect(
-      parseChannelStatsApiResponse({ items: [{ statistics: { subscriberCount: "abc" } }] }),
-    ).toBeNull();
+      parseChannelStatsApiResponse({
+        items: [{ statistics: { subscriberCount: "abc", viewCount: "xyz" } }],
+      }),
+    ).toEqual({ subscriberCount: null, viewCount: null });
   });
 });
 
