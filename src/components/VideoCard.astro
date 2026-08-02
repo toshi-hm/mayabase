@@ -1,6 +1,7 @@
 ---
 import { formatDateJa } from "../lib/format";
 import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
+import PreviewButton from "./PreviewButton.astro";
 import ShareButton from "./ShareButton.astro";
 
 interface Props {
@@ -68,5 +69,6 @@ const { video, position, total, eager = false, featured = false, viewCountLabel 
       </p>
     </div>
   </a>
+  <PreviewButton videoId={video.id} title={video.title} />
   <ShareButton title={video.title} url={videoUrl(video)} />
 </li>
