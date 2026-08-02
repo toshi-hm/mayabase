@@ -222,6 +222,48 @@ const searchableDescriptionsSafe = JSON.stringify(
     card.style.removeProperty("display");
   }
 
+  // URL 経由で受け取ってよいカテゴリ値(ボタンが実際に持つ値のみ許可し、任意の入力は信用しない)
+  const validCategories = new Set(
+    [...buttons].map((button) => button.dataset.filterCategory ?? "all"),
+  );
+
+  function setPressedCategory(nextCategory: string): void {
+    for (const button of buttons) {
+      button.setAttribute(
+        "aria-pressed",
+        String((button.dataset.filterCategory ?? "all") === nextCategory),
+      );
+    }
+  }
+
+  // クエリパラメータ(category / q)から絞り込み状態を復元する。
+  // 不正な category 値は "all" にフォールバックする(任意の入力を信用しない)。
+  function restoreStateFromUrl(): void {
+    const params = new URLSearchParams(location.search);
+    const urlCategory = params.get("category");
+    category = urlCategory && validCategories.has(urlCategory) ? urlCategory : "all";
+    setPressedCategory(category);
+    if (search) search.value = params.get("q") ?? "";
+  }
+
+  // 現在の絞り込み状態を URL クエリパラメータへ反映する。
+  // デフォルト値(category=all・空検索)はパラメータごと省略し URL をきれいに保つ。
+  // mode "push": 独立した履歴エントリを作る(戻るボタンで直前のカテゴリに戻れるようにする)
+  // mode "replace": 現在の履歴エントリを書き換えるのみ(入力のたびに履歴を汚さない)
+  function syncUrl(mode: "push" | "replace"): void {
+    const params = new URLSearchParams();
+    if (category !== "all") params.set("category", category);
+    const query = (search?.value ?? "").trim();
+    if (query) params.set("q", query);
+    const queryString = params.toString();
+    const newUrl = `${location.pathname}${queryString ? `?${queryString}` : ""}${location.hash}`;
+    if (mode === "push") {
+      history.pushState(null, "", newUrl);
+    } else {
+      history.replaceState(null, "", newUrl);
+    }
+  }
+
   function cardMatches(card: HTMLLIElement, query: string): boolean {
     return (
       (category === "all" || card.dataset.category === category) &&
@@ -261,13 +303,17 @@ const searchableDescriptionsSafe = JSON.stringify(
   for (const button of buttons) {
     button.addEventListener("click", () => {
       category = button.dataset.filterCategory ?? "all";
-      for (const other of buttons) {
-        other.setAttribute("aria-pressed", String(other === button));
-      }
+      setPressedCategory(category);
       applyFilter();
+      // カテゴリ変更は独立した絞り込み状態とみなし、戻るボタンで前のカテゴリに戻れるよう履歴を1件積む
+      syncUrl("push");
     });
   }
-  search?.addEventListener("input", applyFilter);
+  search?.addEventListener("input", () => {
+    applyFilter();
+    // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
+    syncUrl("replace");
+  });
 
   moreButton?.addEventListener("click", () => {
     // 展開直前に「これから現れる最初のカード」を控えておき、展開後にフォーカスを移す
@@ -278,6 +324,14 @@ const searchableDescriptionsSafe = JSON.stringify(
     firstRevealed?.querySelector("a")?.focus();
   });
 
-  // 初期表示:件数が INITIAL_COUNT を超えていれば頭打ち + ボタン表示
+  // 戻る/進むボタン操作時は URL から絞り込み状態を再構築する
+  window.addEventListener("popstate", () => {
+    restoreStateFromUrl();
+    applyFilter();
+  });
+
+  // 初期表示:URL のクエリパラメータから絞り込み状態を復元してから表示する
+  // (件数が INITIAL_COUNT を超えていれば頭打ち + ボタン表示)
+  restoreStateFromUrl();
   applyFilter();
 </script>
