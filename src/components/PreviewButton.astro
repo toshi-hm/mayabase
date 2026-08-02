@@ -1,0 +1,40 @@
+---
+interface Props {
+  /** YouTube video ID(ライトボックスの埋め込み対象) */
+  videoId: string;
+  /** アクセシブルラベル・ライトボックスのタイトルに使う動画タイトル */
+  title: string;
+  /** サムネイルのアスペクト比。Shorts の縦型サムネイル(ShortCard)は "short" を指定する */
+  aspect?: "video" | "short";
+}
+
+const { videoId, title, aspect = "video" } = Astro.props;
+---
+
+{
+  /* 親要素(カード全体)は YouTube へのリンク <a> のため、入れ子のインタラクティブ要素(a > button)を
+  避けて兄弟要素として同じ位置に重ねる(ShareButton.astro と同じ方針)。ヒットエリアはサムネイル全体とし、
+  中央の再生アイコンのみを可視化することでカードの角丸ラインを気にせず配置できるようにする。 */
+}
+<button
+  type="button"
+  data-lightbox-video-id={videoId}
+  data-lightbox-title={title}
+  aria-haspopup="dialog"
+  aria-label={`プレビュー再生: ${title}`}
+  class:list={[
+    "group/preview absolute inset-x-0 top-0 z-10 flex cursor-pointer items-center justify-center bg-transparent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand",
+    aspect === "short" ? "aspect-[9/16]" : "aspect-video",
+  ]}
+>
+  <span
+    class="grid h-11 w-11 place-items-center rounded-full bg-ink/75 text-white shadow-lg backdrop-blur motion-safe:transition motion-safe:duration-200 group-hover/preview:bg-ink/90 motion-safe:group-hover/preview:scale-110 motion-safe:group-focus-visible/preview:scale-110"
+    aria-hidden="true"
+  >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path
+        d="M8 5.14v13.72a1 1 0 0 0 1.53.85l10.4-6.86a1 1 0 0 0 0-1.7L9.53 4.29A1 1 0 0 0 8 5.14Z"
+      ></path>
+    </svg>
+  </span>
+</button>
