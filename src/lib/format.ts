@@ -38,11 +38,14 @@ export function formatViewCount(count: number): string {
  * 概要欄末尾は全動画共通の定型文(Profile・SNS・連絡先・使用ガジェット等)で、
  * いずれも "【" から始まる見出しを持つため、最初の "【" 以降を除外してノイズを減らす。
  * 該当箇所が無ければ全文をそのまま返す。
+ * さらに概要欄冒頭には全動画共通の署名欄ハッシュタグ行(例: "#chatgpt #vlog #ai ..."）が
+ * 置かれているため、これも検索対象から除外する(#79)。ハッシュタグでない冒頭行はそのまま残す。
  */
 export function extractSearchableText(description: string): string {
   const boilerplateStart = description.indexOf("【");
   const body = boilerplateStart === -1 ? description : description.slice(0, boilerplateStart);
-  return body.trim();
+  const withoutLeadingHashtags = body.replace(/^(?:[ \t]*#\S+[ \t]*)+\n*/, "");
+  return withoutLeadingHashtags.trim();
 }
 
 /** 正規表現メタ文字をエスケープする */
