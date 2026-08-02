@@ -2,11 +2,13 @@
 import ArchiveCard from "../components/ArchiveCard.astro";
 import Breadcrumb from "../components/Breadcrumb.astro";
 import { site } from "../config/site";
+import gearJson from "../data/gear.json";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
 import { CATEGORY_LABELS, CATEGORY_ORDER, categorizeVideo } from "../lib/categories";
 import { extractSearchableText, truncate } from "../lib/format";
+import { buildVideoGearMap, parseGearData } from "../lib/gear";
 import {
   embedUrl,
   parseVideosData,
@@ -17,6 +19,9 @@ import {
 
 const { videos } = parseVideosData(videosJson);
 const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
+// 動画側から「紹介ガジェット」を表示するための逆引きマップ(#70)
+const { items: gearItems } = parseGearData(gearJson);
+const videoGearMap = buildVideoGearMap(gearItems);
 const INITIAL_COUNT = 12;
 const LOCAL_THUMBNAILS: Partial<Record<string, string>> = {
   "2WX26Bekrfk": "/images/videos-first-thumbnail.webp",
@@ -156,6 +161,7 @@ const searchableDescriptionsSafe = JSON.stringify(
             eager={index === 0}
             thumbnailSrc={index === 0 ? firstThumbnailSrc : undefined}
             initiallyHidden={index >= INITIAL_COUNT}
+            gearItems={videoGearMap.get(video.id) ?? []}
           />
         ))
       }

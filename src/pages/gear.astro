@@ -3,6 +3,7 @@ import Breadcrumb from "../components/Breadcrumb.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import { site } from "../config/site";
 import gearJson from "../data/gear.json";
+import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
 import {
@@ -10,10 +11,13 @@ import {
   groupGearByCategory,
   isAffiliateUrl,
   parseGearData,
+  resolveGearVideos,
 } from "../lib/gear";
+import { parseVideosData, videoUrl } from "../lib/youtube";
 
 const { items } = parseGearData(gearJson);
 const groups = groupGearByCategory(items).filter(([, groupItems]) => groupItems.length > 0);
+const { videos } = parseVideosData(videosJson);
 
 const pageTitle = `愛用ガジェット | ${site.name}`;
 const pageDescription = `${site.name} の動画制作・デスク環境で実際に使っている機材とガジェットの一覧。キーボード・マイク・カメラからスマート家電まで、動画で気になったアイテムをまとめてチェックできます。`;
@@ -122,48 +126,73 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         <section aria-labelledby={`gear-${category}-heading`} class="pt-14">
           <SectionHeading id={`gear-${category}-heading`} title={GEAR_CATEGORY_LABELS[category]} />
           <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {groupItems.map((item, itemIndex) => (
-              <li>
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel={
-                    isAffiliateUrl(item.url)
-                      ? "sponsored noopener noreferrer"
-                      : "noopener noreferrer"
-                  }
-                  class="group/card flex h-full flex-col overflow-hidden rounded-lg border border-line bg-surface transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
-                >
-                  {item.image && (
-                    <div class="grid aspect-[4/3] place-items-center bg-white p-6">
-                      <img
-                        src={item.image}
-                        alt=""
-                        width="800"
-                        height="800"
-                        loading={groupIndex === 0 && itemIndex === 0 ? "eager" : "lazy"}
-                        fetchpriority={groupIndex === 0 && itemIndex === 0 ? "high" : "auto"}
-                        decoding="async"
-                        class="h-auto w-auto max-h-56 max-w-72 object-contain transition duration-300 group-hover/card:scale-[1.03]"
-                      />
-                    </div>
-                  )}
-                  <div class="flex flex-1 flex-col border-t border-line p-5">
-                    <p class="text-xs font-semibold tracking-wider text-brand-accent">
-                      {item.brand}
-                    </p>
-                    <h3 class="mt-1 font-semibold leading-snug group-hover/card:text-brand-accent">
-                      {item.name}
-                    </h3>
-                    {item.note && <p class="mt-2 text-sm text-ink-muted">{item.note}</p>}
-                    <p class="mt-auto pt-3 text-sm font-semibold text-brand-accent">
-                      詳細を見る<span aria-hidden="true"> →</span>
-                      <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
-                    </p>
+            {groupItems.map((item, itemIndex) => {
+              const gearVideos = resolveGearVideos(item, videos);
+              return (
+                <li>
+                  <div class="group/card flex h-full flex-col overflow-hidden rounded-lg border border-line bg-surface transition hover:-translate-y-1 hover:shadow-lg">
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel={
+                        isAffiliateUrl(item.url)
+                          ? "sponsored noopener noreferrer"
+                          : "noopener noreferrer"
+                      }
+                      class="flex flex-1 flex-col focus-visible:outline-2 focus-visible:outline-brand"
+                    >
+                      {item.image && (
+                        <div class="grid aspect-[4/3] place-items-center bg-white p-6">
+                          <img
+                            src={item.image}
+                            alt=""
+                            width="800"
+                            height="800"
+                            loading={groupIndex === 0 && itemIndex === 0 ? "eager" : "lazy"}
+                            fetchpriority={groupIndex === 0 && itemIndex === 0 ? "high" : "auto"}
+                            decoding="async"
+                            class="h-auto w-auto max-h-56 max-w-72 object-contain transition duration-300 group-hover/card:scale-[1.03]"
+                          />
+                        </div>
+                      )}
+                      <div class="flex flex-1 flex-col border-t border-line p-5">
+                        <p class="text-xs font-semibold tracking-wider text-brand-accent">
+                          {item.brand}
+                        </p>
+                        <h3 class="mt-1 font-semibold leading-snug group-hover/card:text-brand-accent">
+                          {item.name}
+                        </h3>
+                        {item.note && <p class="mt-2 text-sm text-ink-muted">{item.note}</p>}
+                        <p class="mt-auto pt-3 text-sm font-semibold text-brand-accent">
+                          詳細を見る<span aria-hidden="true"> →</span>
+                          <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+                        </p>
+                      </div>
+                    </a>
+                    {gearVideos.length > 0 && (
+                      <div class="border-t border-line px-5 py-3">
+                        <p class="text-xs font-semibold text-ink-muted">この動画で紹介</p>
+                        <ul class="mt-1 flex flex-col gap-1">
+                          {gearVideos.map((video) => (
+                            <li>
+                              <a
+                                href={videoUrl(video)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="line-clamp-1 text-xs font-semibold text-brand-accent hover:underline focus-visible:outline-2 focus-visible:outline-brand"
+                              >
+                                {video.title}
+                                <span class="sr-only">(YouTube・新しいタブで開きます)</span>
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                </a>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ))
