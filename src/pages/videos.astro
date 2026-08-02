@@ -30,6 +30,11 @@ const availableCategories = CATEGORY_ORDER.filter((category) =>
   categorized.some((entry) => entry.category === category),
 );
 
+// 再生回数ソートのトグル(#48)。RSS のみ(YOUTUBE_API_KEY 未設定)の環境では
+// 全動画の viewCount が null になるため、1 件も取得できていなければトグル自体を非表示にする
+// (index.astro の popularVideos / subscriberCount と同じフォールバック方針)
+const hasViewCounts = videos.some((video) => video.viewCount !== null);
+
 const pageTitle = `動画ライブラリ | ${site.name}`;
 const pageDescription = `${site.name} の全動画アーカイブ。AI・ガジェット/家電・社会人 Vlog・エンジニアキャリアのカテゴリやキーワードから過去の動画を探せます。`;
 
@@ -127,6 +132,28 @@ const searchableDescriptionsSafe = JSON.stringify(
           ))
         }
       </div>
+      {
+        hasViewCounts && (
+          <div role="group" aria-label="並び替え" class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-sort-order="newest"
+              aria-pressed="true"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              新しい順
+            </button>
+            <button
+              type="button"
+              data-sort-order="popular"
+              aria-pressed="false"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              人気順
+            </button>
+          </div>
+        )
+      }
       <div class="max-w-md">
         <label for="video-search" class="mb-1 block text-sm text-ink-muted">キーワード検索</label>
         <input
@@ -202,8 +229,13 @@ const searchableDescriptionsSafe = JSON.stringify(
   // サーバー側(videos.astro のフロントマター)の値を data 属性経由で受け取り、二重定義を避ける
   const INITIAL_COUNT = Number(grid?.dataset.initialCount) || 12;
   const buttons = document.querySelectorAll<HTMLButtonElement>("[data-filter-category]");
+  const sortButtons = document.querySelectorAll<HTMLButtonElement>("[data-sort-order]");
   const search = document.getElementById("video-search") as HTMLInputElement | null;
-  const cards = document.querySelectorAll<HTMLLIElement>("#videos-grid > li");
+  // 「新しい順」に戻す際に再利用する元の DOM 順(= videos.json の公開日時降順)を保持しておく。
+  // 並び替え後は appendChild でカードを移動するだけなので、この配列自体の中身(要素参照)は不変。
+  const originalOrder = [...document.querySelectorAll<HTMLLIElement>("#videos-grid > li")];
+  // applyFilter が参照する「現在の表示順」。並び替え時に reorderGrid() が差し替える。
+  let cards: HTMLLIElement[] = originalOrder;
   const descriptionsElement = document.getElementById("video-search-descriptions");
   const descriptions: Record<string, string> = descriptionsElement?.textContent
     ? JSON.parse(descriptionsElement.textContent)
@@ -314,6 +346,39 @@ const searchableDescriptionsSafe = JSON.stringify(
     // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
     syncUrl("replace");
   });
+
+  // 再生回数ベースの並び替え(#48)。viewCount が 1 件も無い環境ではトグル自体が
+  // レンダリングされない(videos.astro のフロントマター参照)ため sortButtons は空になる。
+  function getViewCount(card: HTMLLIElement): number {
+    const raw = card.dataset.viewCount;
+    if (!raw) return -1; // 未取得の動画は「人気順」で最下位に回す
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : -1;
+  }
+
+  // カードを DOM 上で並び替える(appendChild は既存ノードの移動であり、
+  // 複製ではないため、状態やイベントリスナーはそのまま保たれる)
+  function reorderGrid(order: "newest" | "popular"): void {
+    const sorted =
+      order === "popular"
+        ? [...originalOrder].sort((a, b) => getViewCount(b) - getViewCount(a))
+        : originalOrder;
+    for (const card of sorted) {
+      grid?.appendChild(card);
+    }
+    cards = sorted;
+  }
+
+  for (const button of sortButtons) {
+    button.addEventListener("click", () => {
+      const order = button.dataset.sortOrder === "popular" ? "popular" : "newest";
+      for (const other of sortButtons) {
+        other.setAttribute("aria-pressed", String(other === button));
+      }
+      reorderGrid(order);
+      applyFilter();
+    });
+  }
 
   moreButton?.addEventListener("click", () => {
     // 展開直前に「これから現れる最初のカード」を控えておき、展開後にフォーカスを移す
