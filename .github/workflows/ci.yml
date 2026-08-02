@@ -39,6 +39,16 @@ jobs:
       - name: テスト
         run: bun test
 
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      - name: フォントサブセットの最新性チェック
+        run: |
+          bun run font:subset
+          git diff --exit-code -- public/fonts || {
+            echo "::error::public/fonts が最新の動画データ・タイトルと同期していません。'bun run font:subset' を実行し、生成物をコミットしてください。"
+            exit 1
+          }
+
       - name: ビルド
         run: bun run build
 
