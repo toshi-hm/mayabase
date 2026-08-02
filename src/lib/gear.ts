@@ -1,3 +1,5 @@
+import type { Video } from "./youtube";
+
 /** 愛用ガジェットのカテゴリ(表示順) */
 export const GEAR_CATEGORY_ORDER = ["desk", "studio", "audio-smart"] as const;
 
@@ -23,6 +25,11 @@ export interface GearItem {
   image?: string;
   /** ひとことコメント(任意) */
   note?: string;
+  /**
+   * このガジェットを紹介した動画の YouTube video ID(任意・手動管理)。
+   * 「愛用ガジェット」⇄「動画ライブラリ」の相互リンク用(#70)。存在しない ID は表示側で無視する。
+   */
+  videoIds?: string[];
 }
 
 /** gear.json 全体の構造 */
@@ -88,6 +95,13 @@ export function parseGearData(data: unknown): GearData {
     if (item.note !== undefined && typeof item.note !== "string") {
       throw new Error(`gear.json: items[${i}].note は文字列である必要があります`);
     }
+    if (
+      item.videoIds !== undefined &&
+      (!Array.isArray(item.videoIds) ||
+        item.videoIds.some((id) => typeof id !== "string" || id.length === 0))
+    ) {
+      throw new Error(`gear.json: items[${i}].videoIds は文字列の配列である必要があります`);
+    }
     return {
       name: item.name,
       brand: item.brand,
@@ -95,6 +109,7 @@ export function parseGearData(data: unknown): GearData {
       url: item.url,
       ...(item.image !== undefined ? { image: item.image } : {}),
       ...(item.note !== undefined ? { note: item.note } : {}),
+      ...(item.videoIds !== undefined ? { videoIds: item.videoIds as string[] } : {}),
     };
   });
   return { items: parsed };
@@ -106,4 +121,38 @@ export function groupGearByCategory(items: readonly GearItem[]): [GearCategory, 
     category,
     items.filter((item) => item.category === category),
   ]);
+}
+
+/**
+ * ガジェット 1 件が紹介されている動画を videoIds から解決する(#70)。
+ * videos.json 側に存在しない ID(削除・typo 等)は無視し、throw しない(手動管理データのため)。
+ */
+export function resolveGearVideos(
+  item: Pick<GearItem, "videoIds">,
+  videos: readonly Video[],
+): Video[] {
+  if (!item.videoIds || item.videoIds.length === 0) return [];
+  const videoById = new Map(videos.map((video) => [video.id, video]));
+  return item.videoIds
+    .map((id) => videoById.get(id))
+    .filter((video): video is Video => video !== undefined);
+}
+
+/**
+ * 動画 ID → その動画で紹介されているガジェット一覧、の逆引きマップを構築する(#70)。
+ * gear.json の記載順を維持する。
+ */
+export function buildVideoGearMap(items: readonly GearItem[]): Map<string, GearItem[]> {
+  const map = new Map<string, GearItem[]>();
+  for (const item of items) {
+    for (const videoId of item.videoIds ?? []) {
+      const existing = map.get(videoId);
+      if (existing) {
+        existing.push(item);
+      } else {
+        map.set(videoId, [item]);
+      }
+    }
+  }
+  return map;
 }

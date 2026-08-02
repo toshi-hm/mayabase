@@ -1,6 +1,7 @@
 ---
 import { CATEGORY_LABELS, type VideoCategory } from "../lib/categories";
 import { formatDateJa, formatViewCount } from "../lib/format";
+import type { GearItem } from "../lib/gear";
 import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
 import ShareButton from "./ShareButton.astro";
 
@@ -13,9 +14,18 @@ interface Props {
   thumbnailSrc?: string;
   /** 初期表示件数を超えるカードは、クライアント処理前からレイアウト対象外にする */
   initiallyHidden?: boolean;
+  /** この動画で紹介されているガジェット(愛用ガジェットとの相互リンク用・#70) */
+  gearItems?: GearItem[];
 }
 
-const { video, category, eager = false, thumbnailSrc, initiallyHidden = false } = Astro.props;
+const {
+  video,
+  category,
+  eager = false,
+  thumbnailSrc,
+  initiallyHidden = false,
+  gearItems = [],
+} = Astro.props;
 // RSS のみ(YOUTUBE_API_KEY 未設定)の環境では取得できず null になる(#35 と同じフォールバック方針)
 const viewCountLabel = video.viewCount !== null ? formatViewCount(video.viewCount) : null;
 ---
@@ -41,46 +51,65 @@ const viewCountLabel = video.viewCount !== null ? formatViewCount(video.viewCoun
   data-initial-hidden={initiallyHidden ? "true" : undefined}
   style={initiallyHidden ? "display:none" : undefined}
 >
-  <a
-    href={videoUrl(video)}
-    target="_blank"
-    rel="noopener noreferrer"
-    class="group/card block h-full overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
+  <div
+    class="group/card flex h-full flex-col overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg"
   >
-    <div class="relative">
-      {/* Shorts も 16:9 で統一表示する(縦型サムネイルは中央トリミングされる) */}
-      <img
-        src={thumbnailSrc ?? (eager ? thumbnailFallbackUrl(video.id) : thumbnailUrl(video.id))}
-        onerror={eager || thumbnailSrc
-          ? undefined
-          : `this.onerror=null;this.src='${thumbnailFallbackUrl(video.id)}'`}
-        alt=""
-        width="1280"
-        height="720"
-        loading={eager ? "eager" : "lazy"}
-        fetchpriority={eager ? "high" : "auto"}
-        decoding="async"
-        class="aspect-video w-full object-cover"
-      />
-      {
-        video.isShort && (
-          <span class="absolute top-2 left-2 rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
-            Shorts
+    <a
+      href={videoUrl(video)}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="focus-visible:outline-2 focus-visible:outline-brand"
+    >
+      <div class="relative">
+        {/* Shorts も 16:9 で統一表示する(縦型サムネイルは中央トリミングされる) */}
+        <img
+          src={thumbnailSrc ?? (eager ? thumbnailFallbackUrl(video.id) : thumbnailUrl(video.id))}
+          onerror={eager || thumbnailSrc
+            ? undefined
+            : `this.onerror=null;this.src='${thumbnailFallbackUrl(video.id)}'`}
+          alt=""
+          width="1280"
+          height="720"
+          loading={eager ? "eager" : "lazy"}
+          fetchpriority={eager ? "high" : "auto"}
+          decoding="async"
+          class="aspect-video w-full object-cover"
+        />
+        {
+          video.isShort && (
+            <span class="absolute top-2 left-2 rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
+              Shorts
+            </span>
+          )
+        }
+      </div>
+      <div class="p-4">
+        <h3 class="line-clamp-2 font-semibold leading-snug group-hover/card:text-brand-accent">
+          {video.title}
+          <span class="sr-only">(YouTube・新しいタブで開きます)</span>
+        </h3>
+        <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+          <time datetime={video.publishedAt}>{formatDateJa(video.publishedAt)}</time>
+          <span class="rounded-full bg-surface px-2 py-0.5 text-xs">
+            {CATEGORY_LABELS[category]}
           </span>
-        )
-      }
-    </div>
-    <div class="p-4">
-      <h3 class="line-clamp-2 font-semibold leading-snug group-hover/card:text-brand-accent">
-        {video.title}
-        <span class="sr-only">(YouTube・新しいタブで開きます)</span>
-      </h3>
-      <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
-        <time datetime={video.publishedAt}>{formatDateJa(video.publishedAt)}</time>
-        <span class="rounded-full bg-surface px-2 py-0.5 text-xs">{CATEGORY_LABELS[category]}</span>
-        {viewCountLabel && <span>{viewCountLabel}視聴</span>}
-      </p>
-    </div>
-  </a>
+          {viewCountLabel && <span>{viewCountLabel}視聴</span>}
+        </p>
+      </div>
+    </a>
+    {
+      gearItems.length > 0 && (
+        <p class="mt-auto border-t border-line/60 px-4 py-3 text-xs text-ink-muted">
+          紹介ガジェット: {gearItems.map((item) => `${item.brand} ${item.name}`).join("、")}{" "}
+          <a
+            href="/gear/"
+            class="font-semibold text-brand-accent hover:underline focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            愛用ガジェットで見る<span aria-hidden="true">→</span>
+          </a>
+        </p>
+      )
+    }
+  </div>
   <ShareButton title={video.title} url={videoUrl(video)} />
 </li>
