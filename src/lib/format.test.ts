@@ -51,8 +51,8 @@ describe("formatViewCount", () => {
 
 describe("extractSearchableText", () => {
   test("最初の「【」より前の本文だけを取り出す", () => {
-    const description = "#ai #vlog\n\n本文の内容です。\n\n【Profile】\n定型文...";
-    expect(extractSearchableText(description)).toBe("#ai #vlog\n\n本文の内容です。");
+    const description = "本文の内容です。\n\n【Profile】\n定型文...";
+    expect(extractSearchableText(description)).toBe("本文の内容です。");
   });
 
   test("「【」が無ければ全文を trim して返す", () => {
@@ -61,6 +61,24 @@ describe("extractSearchableText", () => {
 
   test("空文字は空文字のまま", () => {
     expect(extractSearchableText("")).toBe("");
+  });
+
+  test("冒頭の全動画共通ハッシュタグ行は検索対象から除外する(#79)", () => {
+    const description =
+      "#chatgpt #gptlive #openai #エンジニア #メガベンチャー #プランナー #ai #it #vlog\n\n本文の内容です。\n\n【Profile】\n定型文...";
+    expect(extractSearchableText(description)).toBe("本文の内容です。");
+  });
+
+  test("冒頭ハッシュタグ行除外後も本文中の語で検索できる(#79)", () => {
+    const description = "#ai #vlog\n\n大学院で学んだことをまとめました。\n\n【Profile】\n定型文...";
+    const text = extractSearchableText(description);
+    expect(textMatchesKeyword(text, "大学院")).toBe(true);
+    expect(textMatchesKeyword(text, "vlog")).toBe(false);
+  });
+
+  test("ハッシュタグで始まらない本文はそのまま残る", () => {
+    const description = "メガベンチャーで働く1日をお届けします。\n\n【Profile】\n定型文...";
+    expect(extractSearchableText(description)).toBe("メガベンチャーで働く1日をお届けします。");
   });
 });
 
