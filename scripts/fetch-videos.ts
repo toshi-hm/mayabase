@@ -19,6 +19,7 @@ import {
   createEmptyVideosData,
   extractChannelId,
   type FeedEntry,
+  type FetchLike,
   mapWithConcurrency,
   mergeVideos,
   parseFeed,
@@ -64,7 +65,10 @@ async function loadExisting(): Promise<VideosData> {
   }
 }
 
-async function resolveChannelId(existing: VideosData): Promise<string | null> {
+async function resolveChannelId(
+  existing: VideosData,
+  fetchFn: FetchLike = fetchWithTimeout,
+): Promise<string | null> {
   if (site.youtube.channelId) return site.youtube.channelId;
   if (existing.channelId) return existing.channelId;
 
@@ -72,7 +76,7 @@ async function resolveChannelId(existing: VideosData): Promise<string | null> {
   console.warn(
     "[fetch-videos] site.ts に channelId が未設定のため、チャンネルページから解決を試みます",
   );
-  const res = await fetchWithTimeout(`https://www.youtube.com/${site.youtube.handle}`);
+  const res = await fetchFn(`https://www.youtube.com/${site.youtube.handle}`);
   if (!res.ok) {
     console.warn(`[fetch-videos] チャンネルページの取得に失敗しました (HTTP ${res.status})`);
     return null;
@@ -85,7 +89,11 @@ async function resolveChannelId(existing: VideosData): Promise<string | null> {
  * uploads プレイリストを nextPageToken が尽きるまで辿る。
  * 失敗時は null を返して呼び出し側で RSS にフォールバックさせる。
  */
-async function fetchAllViaApi(channelId: string, apiKey: string): Promise<FeedEntry[] | null> {
+async function fetchAllViaApi(
+  channelId: string,
+  apiKey: string,
+  fetchFn: FetchLike = fetchWithTimeout,
+): Promise<FeedEntry[] | null> {
   const playlistId = uploadsPlaylistId(channelId);
   if (!playlistId) {
     console.warn(
@@ -110,7 +118,7 @@ async function fetchAllViaApi(channelId: string, apiKey: string): Promise<FeedEn
       // fetch の接続エラー時にエラーオブジェクトが URL(path)を保持しても
       // キーが漏れないようにするため(GitHub Actions のマスキングが効かない
       // ローカル実行やログ貼り付け経路での漏洩を防ぐ)。
-      const res = await fetchWithTimeout(url.toString(), {
+      const res = await fetchFn(url.toString(), {
         headers: { "X-goog-api-key": apiKey },
       });
       if (!res.ok) {
@@ -159,12 +167,16 @@ async function fetchAllViaApi(channelId: string, apiKey: string): Promise<FeedEn
  * src/data/channel-stats.json を更新する。失敗しても例外を投げない(呼び出し側の
  * 動画取得フローを止めない。既存ファイルは維持される)。
  */
-async function updateChannelStats(channelId: string, apiKey: string): Promise<void> {
+async function updateChannelStats(
+  channelId: string,
+  apiKey: string,
+  fetchFn: FetchLike = fetchWithTimeout,
+): Promise<void> {
   try {
     const url = new URL("https://www.googleapis.com/youtube/v3/channels");
     url.searchParams.set("part", "statistics");
     url.searchParams.set("id", channelId);
-    const res = await fetchWithTimeout(url.toString(), {
+    const res = await fetchFn(url.toString(), {
       headers: { "X-goog-api-key": apiKey },
     });
     if (!res.ok) {
@@ -214,7 +226,11 @@ async function probeShorts(videos: Video[]): Promise<Video[]> {
  * 個別バッチの失敗は無視し(取得できた分だけ反映)、既存の viewCount は失敗時にも維持される
  * (mergeVideos/main 側で prev の値にフォールバックするため)。
  */
-async function fetchViewCounts(videoIds: string[], apiKey: string): Promise<Map<string, number>> {
+async function fetchViewCounts(
+  videoIds: string[],
+  apiKey: string,
+  fetchFn: FetchLike = fetchWithTimeout,
+): Promise<Map<string, number>> {
   const batches: string[][] = [];
   for (let i = 0; i < videoIds.length; i += VIEW_COUNT_BATCH_SIZE) {
     batches.push(videoIds.slice(i, i + VIEW_COUNT_BATCH_SIZE));
@@ -225,7 +241,7 @@ async function fetchViewCounts(videoIds: string[], apiKey: string): Promise<Map<
       const url = new URL("https://www.googleapis.com/youtube/v3/videos");
       url.searchParams.set("part", "statistics");
       url.searchParams.set("id", batch.join(","));
-      const res = await fetchWithTimeout(url.toString(), {
+      const res = await fetchFn(url.toString(), {
         headers: { "X-goog-api-key": apiKey },
       });
       if (!res.ok) {
@@ -249,10 +265,10 @@ async function fetchViewCounts(videoIds: string[], apiKey: string): Promise<Map<
   return merged;
 }
 
-async function main(): Promise<void> {
+async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   const existing = await loadExisting();
 
-  const channelId = await resolveChannelId(existing);
+  const channelId = await resolveChannelId(existing, fetchFn);
   if (!channelId) {
     console.warn(
       "[fetch-videos] channelId を解決できませんでした。src/config/site.ts の youtube.channelId を設定してください。既存データを維持します。",
@@ -264,9 +280,9 @@ async function main(): Promise<void> {
   const apiKey = process.env.YOUTUBE_API_KEY?.trim();
   let entries: FeedEntry[] | null = null;
   if (apiKey) {
-    entries = await fetchAllViaApi(channelId, apiKey);
+    entries = await fetchAllViaApi(channelId, apiKey, fetchFn);
     // 動画取得の成否に関わらず試みる(quota 消費は channels.list で 1 unit と小さい)
-    await updateChannelStats(channelId, apiKey);
+    await updateChannelStats(channelId, apiKey, fetchFn);
   } else {
     console.log(
       "[fetch-videos] YOUTUBE_API_KEY 未設定のため RSS(最新 15 件)を使用します。全動画取得には API キーを設定してください。",
@@ -275,7 +291,7 @@ async function main(): Promise<void> {
 
   if (entries === null) {
     const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
-    const res = await fetchWithTimeout(feedUrl);
+    const res = await fetchFn(feedUrl);
     if (!res.ok) {
       console.warn(
         `[fetch-videos] RSS の取得に失敗しました (HTTP ${res.status})。既存データを維持します。`,
@@ -296,6 +312,7 @@ async function main(): Promise<void> {
     const viewCounts = await fetchViewCounts(
       merged.map((v) => v.id),
       apiKey,
+      fetchFn,
     );
     if (viewCounts.size > 0) {
       merged = merged.map((video) => ({
@@ -326,9 +343,16 @@ async function main(): Promise<void> {
   );
 }
 
-try {
-  await main();
-} catch (error) {
-  // ビルドは決して落とさない(既存の videos.json でビルド継続)
-  console.warn("[fetch-videos] 取得処理でエラーが発生しました。既存データを維持します:", error);
+// import.meta.main は直接実行時(bun run scripts/fetch-videos.ts)のみ true になり、
+// テストからの import 時は false になる(Bun の仕様)。これによりテストの import 時に
+// main() が実際にネットワークアクセスするのを防ぐ。
+if (import.meta.main) {
+  try {
+    await main();
+  } catch (error) {
+    // ビルドは決して落とさない(既存の videos.json でビルド継続)
+    console.warn("[fetch-videos] 取得処理でエラーが発生しました。既存データを維持します:", error);
+  }
 }
+
+export { fetchAllViaApi, fetchViewCounts, main, resolveChannelId, updateChannelStats };
