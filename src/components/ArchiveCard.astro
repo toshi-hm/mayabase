@@ -3,6 +3,7 @@ import { CATEGORY_LABELS, type VideoCategory } from "../lib/categories";
 import { formatDateJa, formatViewCount } from "../lib/format";
 import type { GearItem } from "../lib/gear";
 import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
+import PreviewButton from "./PreviewButton.astro";
 import ShareButton from "./ShareButton.astro";
 
 interface Props {
@@ -111,5 +112,6 @@ const viewCountLabel = video.viewCount !== null ? formatViewCount(video.viewCoun
       )
     }
   </div>
+  <PreviewButton videoId={video.id} title={video.title} />
   <ShareButton title={video.title} url={videoUrl(video)} />
 </li>

@@ -1,6 +1,7 @@
 ---
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
+import VideoLightbox from "../components/VideoLightbox.astro";
 import { site } from "../config/site";
 import "../styles/global.css";
 
@@ -70,5 +71,9 @@ const ogImage = new URL(ogImagePath, Astro.site);
     <SiteHeader />
     <slot />
     <SiteFooter />
+    {
+      /* 全ページ共通のオンサイト・プレビュー再生ライトボックス(#69)。カード側は data 属性で連携する */
+    }
+    <VideoLightbox />
   </body>
 </html>

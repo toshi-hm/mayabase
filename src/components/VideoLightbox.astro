@@ -1,0 +1,121 @@
+---
+/**
+ * サイト内でのオンサイト・プレビュー再生用ライトボックス(#69)。
+ * Base.astro に 1 つだけ配置し、各カードの PreviewButton.astro(data-lightbox-video-id 属性)
+ * からのクリックをこのコンポーネントのスクリプトが拾って開閉を制御する。
+ * ネイティブ <dialog> の showModal() を使うことで、Esc キーでの close・フォーカストラップ・
+ * 開いた要素へのフォーカス復帰を自前実装せずに得られる。
+ */
+---
+
+<dialog
+  id="video-lightbox"
+  aria-labelledby="video-lightbox-title"
+  class="video-lightbox m-auto w-[min(56rem,92vw)] max-w-none rounded-2xl border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-ink/70"
+>
+  <div class="flex items-center justify-between gap-4 border-b border-line px-4 py-3">
+    <h2 id="video-lightbox-title" class="line-clamp-1 text-sm font-semibold sm:text-base"></h2>
+    <button
+      type="button"
+      data-lightbox-close
+      aria-label="プレビューを閉じる"
+      class="shrink-0 cursor-pointer rounded-full p-2 text-ink-muted transition hover:bg-surface-raised hover:text-ink focus-visible:outline-2 focus-visible:outline-brand"
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <path d="M6 6l12 12M18 6L6 18"></path>
+      </svg>
+    </button>
+  </div>
+  <div class="aspect-video w-full bg-black">
+    <iframe
+      id="video-lightbox-iframe"
+      src=""
+      title=""
+      class="h-full w-full"
+      allow="autoplay; encrypted-media; picture-in-picture; web-share"
+      allowfullscreen></iframe>
+  </div>
+</dialog>
+
+<script>
+  import { embedUrl } from "../lib/youtube";
+
+  const dialog = document.getElementById("video-lightbox");
+  const iframe = document.getElementById("video-lightbox-iframe");
+  const titleEl = document.getElementById("video-lightbox-title");
+  const closeButton = dialog?.querySelector<HTMLButtonElement>("[data-lightbox-close]");
+
+  if (
+    dialog instanceof HTMLDialogElement &&
+    iframe instanceof HTMLIFrameElement &&
+    titleEl &&
+    closeButton
+  ) {
+    const openLightbox = (videoId: string, title: string): void => {
+      iframe.src = `${embedUrl(videoId)}?autoplay=1&rel=0`;
+      iframe.title = title;
+      titleEl.textContent = title;
+      dialog.showModal();
+    };
+
+    const closeLightbox = (): void => {
+      if (dialog.open) dialog.close();
+    };
+
+    // 再生停止(バックグラウンド再生防止)は close イベントに一元化する。
+    // Esc キー・閉じるボタン・backdrop クリックのいずれで閉じても close() 経由でここに届く。
+    dialog.addEventListener("close", () => {
+      iframe.src = "";
+      iframe.title = "";
+      titleEl.textContent = "";
+    });
+
+    closeButton.addEventListener("click", closeLightbox);
+
+    // ::backdrop のクリックは dialog 要素自身への click として届く。
+    // パネル内クリックとの誤判定を避けるため target === dialog のときだけ閉じる。
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) closeLightbox();
+    });
+
+    for (const trigger of document.querySelectorAll<HTMLElement>("[data-lightbox-video-id]")) {
+      trigger.addEventListener("click", () => {
+        const videoId = trigger.dataset.lightboxVideoId;
+        if (!videoId) return;
+        openLightbox(videoId, trigger.dataset.lightboxTitle ?? "");
+      });
+    }
+  }
+</script>
+
+<style>
+  .video-lightbox[open] {
+    animation: video-lightbox-in 200ms ease-out both;
+  }
+
+  @keyframes video-lightbox-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97) translateY(0.5rem);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .video-lightbox[open] {
+      animation: none;
+    }
+  }
+</style>
