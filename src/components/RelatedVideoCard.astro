@@ -1,0 +1,40 @@
+---
+import { CATEGORY_LABELS, type VideoCategory } from "../lib/categories";
+import { formatDateJa } from "../lib/format";
+import { thumbnailFallbackUrl, thumbnailUrl, type Video } from "../lib/youtube";
+
+interface Props {
+  video: Video;
+  category: VideoCategory;
+}
+
+const { video, category } = Astro.props;
+---
+
+{/* 動画詳細ページ専用の関連動画カード。他カードと異なりサイト内の個別ページへリンクする(#83) */}
+<li>
+  <a
+    href={`/videos/${video.id}/`}
+    class="group/card block h-full overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
+  >
+    <img
+      src={thumbnailUrl(video.id)}
+      onerror={`this.onerror=null;this.src='${thumbnailFallbackUrl(video.id)}'`}
+      alt=""
+      width="1280"
+      height="720"
+      loading="lazy"
+      decoding="async"
+      class="aspect-video w-full object-cover"
+    />
+    <div class="p-4">
+      <h3 class="line-clamp-2 font-semibold leading-snug group-hover/card:text-brand-accent">
+        {video.title}
+      </h3>
+      <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+        <time datetime={video.publishedAt}>{formatDateJa(video.publishedAt)}</time>
+        <span class="rounded-full bg-surface px-2 py-0.5 text-xs">{CATEGORY_LABELS[category]}</span>
+      </p>
+    </div>
+  </a>
+</li>
