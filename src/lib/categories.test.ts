@@ -68,6 +68,12 @@ describe("categorizeVideo", () => {
     expect(categorizeVideo({ title: "Maya のライブ配信" })).toBe("vlog");
   });
 
+  test("「二足のわらじ」は定番ハッシュタグとして全動画に付与されるため、単独では career と判定しない(#68)", () => {
+    // career 特有語(新卒・大学院等)を含まない Vlog 系動画まで career に吸収されないこと
+    expect(categorizeVideo({ title: "休日ドライブ - 山梨 【二足のわらじ】" })).toBe("vlog");
+    expect(categorizeVideo({ title: "週5日 在宅勤務でした。【二足のわらじ】" })).toBe("vlog");
+  });
+
   test("どのキーワードにも該当しなければ other になる", () => {
     expect(categorizeVideo({ title: "タイトル未定" })).toBe("other");
     expect(categorizeVideo({ title: "" })).toBe("other");

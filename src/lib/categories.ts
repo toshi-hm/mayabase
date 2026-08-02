@@ -42,7 +42,6 @@ const CATEGORY_KEYWORDS: readonly (readonly [VideoCategory, readonly string[]])[
       "SIer",
       "勉強法",
       "新卒",
-      "二足のわらじ",
       "非情報系",
     ],
   ],
@@ -65,7 +64,7 @@ const CATEGORY_KEYWORDS: readonly (readonly [VideoCategory, readonly string[]])[
     ],
   ],
   ["ai", ["AI", "ChatGPT", "GPT", "OpenAI", "Claude", "Gemini", "Copilot", "LLM"]],
-  ["vlog", ["Vlog", "日常", "旅行", "ルーティン", "1日", "休日", "ライブ配信", "CDJ"]],
+  ["vlog", ["Vlog", "日常", "旅行", "ルーティン", "1日", "休日", "ライブ配信", "CDJ", "在宅勤務"]],
 ];
 
 /** タイトルから動画の主カテゴリを判定する。どれにも該当しなければ "other" */
