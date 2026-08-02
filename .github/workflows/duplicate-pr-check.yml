@@ -1,0 +1,120 @@
+name: Duplicate PR Check
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+  # PRへのコメント投稿は Issues API 経由(GitHub上ではPRもissueの一種)のため issues: write が必要
+  issues: write
+
+concurrency:
+  group: duplicate-pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # actions/github-script は同一組織内の housekeeper リポジトリでも @v7(タグ参照)
+      # で使われている一次(GitHub公式)アクションのため、他アクションのSHA固定という
+      # このリポジトリの慣例からは外れるがタグ参照のままにしている。
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = "<!-- duplicate-pr-check -->";
+            const pr = context.payload.pull_request;
+            const closingKeywordRe = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+            const hashRefRe = /#(\d+)/g;
+            const branchNumberRe = /^[a-z]+\/(\d+)(?:-|$)/i;
+
+            // このPR自身が「どのIssue向けか」を、タイトル/本文中の #N 参照とブランチ名
+            // (このリポジトリの規約: type/NNN-slug)の両方から抽出する(issue #49 の提案通り)。
+            const extractIssueNumbers = (title, body, branchRef) => {
+              const numbers = new Set();
+              for (const re of [closingKeywordRe, hashRefRe]) {
+                for (const text of [title ?? "", body ?? ""]) {
+                  re.lastIndex = 0;
+                  let match;
+                  while ((match = re.exec(text))) numbers.add(Number(match[1]));
+                }
+              }
+              const branchMatch = branchNumberRe.exec(branchRef ?? "");
+              if (branchMatch) numbers.add(Number(branchMatch[1]));
+              return numbers;
+            };
+
+            const myIssueNumbers = extractIssueNumbers(pr.title, pr.body, pr.head.ref);
+            if (myIssueNumbers.size === 0) {
+              console.log("No issue number referenced in this PR; nothing to check.");
+              return;
+            }
+
+            const { data: openPrs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+
+            // Issue番号 -> それを参照している他PR番号の一覧
+            const duplicatesByIssue = new Map();
+            for (const other of openPrs) {
+              if (other.number === pr.number) continue;
+              const otherIssueNumbers = extractIssueNumbers(
+                other.title,
+                other.body,
+                other.head.ref,
+              );
+              for (const issueNumber of myIssueNumbers) {
+                if (!otherIssueNumbers.has(issueNumber)) continue;
+                if (!duplicatesByIssue.has(issueNumber)) duplicatesByIssue.set(issueNumber, []);
+                duplicatesByIssue.get(issueNumber).push(other.number);
+              }
+            }
+
+            if (duplicatesByIssue.size === 0) {
+              console.log("No duplicate PRs found for this PR's referenced issue(s).");
+              return;
+            }
+
+            const lines = [...duplicatesByIssue.entries()]
+              .sort(([a], [b]) => a - b)
+              .map(
+                ([issueNumber, prNumbers]) =>
+                  `- Issue #${issueNumber} に対する PR が既に存在します: ${prNumbers
+                    .sort((a, b) => a - b)
+                    .map((n) => `#${n}`)
+                    .join(", ")}`,
+              );
+            const body = [
+              marker,
+              "⚠️ 同じ Issue を参照している他の open な PR が見つかりました。重複実装の可能性があるため確認してください。",
+              "",
+              ...lines,
+            ].join("\n");
+
+            // 同じ内容を push のたびに再投稿しない(synchronize イベントでの通知過多を防ぐ)。
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              per_page: 100,
+            });
+            const alreadyPosted = comments.some(
+              (c) => c.body?.startsWith(marker) && c.body === body,
+            );
+            if (alreadyPosted) {
+              console.log("Duplicate PR warning with identical content already posted.");
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body,
+            });
