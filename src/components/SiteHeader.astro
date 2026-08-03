@@ -20,7 +20,10 @@ const isCurrent = (href: string): boolean => currentPath === href.replace(/\/+$/
     <a
       href="/"
       aria-current={currentPath === "/" ? "page" : undefined}
-      class="flex-none text-lg font-black transition hover:text-brand-accent"
+      class:list={[
+        "flex-none text-lg font-black transition hover:text-brand-accent",
+        currentPath === "/" && "text-brand-accent",
+      ]}
     >
       {site.name}
     </a>
