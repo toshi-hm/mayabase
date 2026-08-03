@@ -65,5 +65,22 @@ export function textMatchesKeyword(text: string, keyword: string): boolean {
   if (/^[\x21-\x7e]+$/.test(keyword)) {
     return new RegExp(`\\b${escapeRegExp(keyword)}\\b`, "i").test(text);
   }
-  return text.toLowerCase().includes(keyword.toLowerCase());
+  const lowerText = text.toLowerCase();
+  const lowerKeyword = keyword.toLowerCase();
+  if (!/^[0-9]/.test(lowerKeyword)) {
+    return lowerText.includes(lowerKeyword);
+  }
+  // 数字始まりの日本語混じりキーワード(例: "1日")は単語境界が使えないため部分一致に
+  // 頼らざるを得ないが、そのままでは「31日」「21日」のような日付表記の末尾に
+  // 偶然一致してしまう。直前の文字が数字でない出現(=数字の並びの一部ではない)
+  // のみを一致とみなすことで、この種の誤マッチを避ける。
+  let index = lowerText.indexOf(lowerKeyword);
+  while (index !== -1) {
+    const precedingChar = lowerText[index - 1];
+    if (precedingChar === undefined || !/[0-9]/.test(precedingChar)) {
+      return true;
+    }
+    index = lowerText.indexOf(lowerKeyword, index + 1);
+  }
+  return false;
 }
