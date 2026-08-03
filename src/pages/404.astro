@@ -1,0 +1,41 @@
+---
+import { site, subscribeUrl } from "../config/site";
+import Base from "../layouts/Base.astro";
+
+const pageTitle = `ページが見つかりません | ${site.name}`;
+const pageDescription =
+  "お探しのページは見つかりませんでした。URLをご確認いただくか、トップページからお探しください。";
+---
+
+<Base title={pageTitle} description={pageDescription}>
+  <main id="main" class="mx-auto flex max-w-2xl flex-col items-center px-4 py-24 text-center">
+    <p class="text-sm font-bold text-brand-accent">404</p>
+    <h1 class="mt-2 text-3xl font-black sm:text-4xl">ページが見つかりません</h1>
+    <p class="mt-4 leading-relaxed text-ink-muted">
+      お探しのページは移動または削除された可能性があります。URLをご確認いただくか、以下のリンクからお探しください。
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-4">
+      <a
+        href="/"
+        class="rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-strong"
+      >
+        トップページへ
+      </a>
+      <a
+        href="/videos/"
+        class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface-raised"
+      >
+        動画ライブラリを見る
+      </a>
+      <a
+        href={subscribeUrl()}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface-raised"
+      >
+        チャンネル登録する <span aria-hidden="true">↗</span>
+        <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+      </a>
+    </div>
+  </main>
+</Base>

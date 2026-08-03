@@ -5,7 +5,9 @@
   "compatibility_date": "2026-07-12",
   // 完全静的サイトのため Worker スクリプト(main)は持たず、静的アセット配信のみを使う
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    // 未マッチのURLで src/pages/404.astro 由来の dist/404.html を返す(#102)
+    "not_found_handling": "404-page"
   },
   "observability": {
     "enabled": true
