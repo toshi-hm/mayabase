@@ -8,7 +8,7 @@ import Base from "../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../lib/breadcrumb";
 import { CATEGORY_LABELS, categorizeVideo } from "../../lib/categories";
 import { formatDateJa, formatViewCount, truncate } from "../../lib/format";
-import { getRelatedVideos } from "../../lib/relatedVideos";
+import { getAdjacentVideos, getRelatedVideos } from "../../lib/relatedVideos";
 import {
   embedUrl,
   parseVideosData,
@@ -35,6 +35,8 @@ const { videos } = parseVideosData(videosJson);
 const category = categorizeVideo(video);
 const RELATED_LIMIT = 6;
 const relatedVideos = getRelatedVideos(video, videos, category, RELATED_LIMIT);
+// 公開日時順の前後ナビゲーション(#106)。関連動画(同カテゴリ)とは別軸の発見導線。
+const adjacentVideos = getAdjacentVideos(video, videos);
 const viewCountText = video.viewCount !== null ? formatViewCount(video.viewCount) : null;
 // 概要欄の段落(空行区切り)を保持したまま表示するため行単位に分割する
 const descriptionParagraphs = video.description.split("\n");
@@ -160,6 +162,52 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         {descriptionParagraphs.map((line) => (line === "" ? <br /> : <p>{line}</p>))}
       </div>
     </section>
+
+    {
+      (adjacentVideos.older || adjacentVideos.newer) && (
+        <nav
+          aria-label="公開日順の前後ナビゲーション"
+          class="mt-12 grid gap-3 border-t border-b border-line py-4 sm:grid-cols-2"
+        >
+          {adjacentVideos.older ? (
+            <a
+              href={`/videos/${adjacentVideos.older.id}/`}
+              class="group/pager flex items-center gap-3 rounded-lg p-3 transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand"
+            >
+              <span aria-hidden="true" class="text-ink-muted">
+                ←
+              </span>
+              <span class="min-w-0">
+                <span class="block text-xs text-ink-muted">前の動画</span>
+                <span class="line-clamp-1 font-semibold group-hover/pager:text-brand-accent">
+                  {adjacentVideos.older.title}
+                </span>
+              </span>
+            </a>
+          ) : (
+            <span />
+          )}
+          {adjacentVideos.newer ? (
+            <a
+              href={`/videos/${adjacentVideos.newer.id}/`}
+              class="group/pager flex items-center justify-end gap-3 rounded-lg p-3 text-right transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand sm:col-start-2"
+            >
+              <span class="min-w-0">
+                <span class="block text-xs text-ink-muted">次の動画</span>
+                <span class="line-clamp-1 font-semibold group-hover/pager:text-brand-accent">
+                  {adjacentVideos.newer.title}
+                </span>
+              </span>
+              <span aria-hidden="true" class="text-ink-muted">
+                →
+              </span>
+            </a>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )
+    }
 
     {
       relatedVideos.length > 0 && (
