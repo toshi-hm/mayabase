@@ -52,17 +52,6 @@
     --color-line: oklch(36% 0.02 235);
     --color-accent: oklch(68% 0.1 180);
   }
-
-  /*
-   * ::selection の背景色(下記)はモード非依存の固定値(brand + white)のため、
-   * 明るい --color-ink(93%)と組み合わせるとコントラスト比が約 1.15:1 まで低下し、
-   * 選択したテキストがほぼ判読できなくなる。ダークモードでは背景を暗くし、
-   * 文字色を明るい ink に固定してコントラストを確保する(WCAG AA 4.5:1 以上を確認済み)。
-   */
-  ::selection {
-    background: color-mix(in oklab, var(--color-brand) 55%, black);
-    color: var(--color-ink);
-  }
 }
 
 html {
@@ -84,4 +73,19 @@ body {
 
 ::selection {
   background: color-mix(in oklab, var(--color-brand) 24%, white);
+}
+
+/*
+ * ::selection の背景色(上記)はモード非依存の固定値(brand + white)のため、
+ * 明るい --color-ink(93%)と組み合わせるとコントラスト比が約 1.15:1 まで低下し、
+ * 選択したテキストがほぼ判読できなくなる。ダークモードでは背景を暗くし、
+ * 文字色を明るい ink に固定してコントラストを確保する(WCAG AA 4.5:1 以上を確認済み)。
+ * 上記の無条件ルールより後ろに置くことで、カスケード(同詳細度・後勝ち)により
+ * ダークモードではこちらが優先される。
+ */
+@media (prefers-color-scheme: dark) {
+  ::selection {
+    background: color-mix(in oklab, var(--color-brand) 55%, black);
+    color: var(--color-ink);
+  }
 }
