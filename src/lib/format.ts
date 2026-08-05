@@ -53,6 +53,48 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** HTML への挿入前に特殊文字をエスケープする(属性値・テキストノード両方で安全な最小限のセット) */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+const URL_PATTERN = /https?:\/\/[^\s<>"'　]+/g;
+// URL 末尾に付きがちな区切り記号は URL 本体から除外する(文末の句読点・括弧閉じ等が
+// リンクに巻き込まれて意図しないURLになるのを防ぐ)
+const TRAILING_PUNCTUATION_PATTERN = /[)\].,、。」』】]+$/;
+
+/**
+ * プレーンテキスト中の http(s) URL をアンカータグに変換する(動画概要欄の表示用)。
+ * YouTube の概要欄という外部入力を `set:html` で挿入する前提のため、URL 以外の部分は
+ * 必ず `escapeHtml` でエスケープしてから連結する(スキームは http(s) のみに限定しているため
+ * javascript: 等の危険なスキームは URL として検出されない)。
+ */
+export function linkifyText(text: string): string {
+  let result = "";
+  let lastIndex = 0;
+  for (const match of text.matchAll(URL_PATTERN)) {
+    const rawUrl = match[0];
+    const start = match.index ?? 0;
+    const trailingMatch = rawUrl.match(TRAILING_PUNCTUATION_PATTERN);
+    const trailing = trailingMatch ? trailingMatch[0] : "";
+    const url = trailing ? rawUrl.slice(0, rawUrl.length - trailing.length) : rawUrl;
+    if (url === "") continue;
+
+    result += escapeHtml(text.slice(lastIndex, start));
+    const escapedUrl = escapeHtml(url);
+    result += `<a href="${escapedUrl}" target="_blank" rel="noopener noreferrer">${escapedUrl}</a>`;
+    result += escapeHtml(trailing);
+    lastIndex = start + rawUrl.length;
+  }
+  result += escapeHtml(text.slice(lastIndex));
+  return result;
+}
+
 /**
  * テキストにキーワードが含まれるか判定する(大文字小文字を区別しない)。
  * 英数字のみのキーワードは単語境界で照合する(例: "AI" が "iPad Air" の "Air" に
