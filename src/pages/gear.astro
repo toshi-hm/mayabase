@@ -76,7 +76,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         class="mx-auto flex w-fit flex-col items-center lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mx-0 lg:justify-self-end"
       >
         <a
-          href="https://amzn.asia/d/07216xEl"
+          href={site.gear.storefrontUrl}
           target="_blank"
           rel="sponsored noopener noreferrer"
           class="inline-flex w-fit items-center gap-2 rounded-md border border-ink bg-surface px-4 py-2 text-sm font-semibold transition hover:bg-brand hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
@@ -86,7 +86,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         </a>
 
         <a
-          href="https://amzn.asia/d/07216xEl"
+          href={site.gear.storefrontUrl}
           target="_blank"
           rel="sponsored noopener noreferrer"
           id="storefront-mascot"
@@ -229,7 +229,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
   <a
     id="storefront-floating"
-    href="https://amzn.asia/d/07216xEl"
+    href={site.gear.storefrontUrl}
     target="_blank"
     rel="sponsored noopener noreferrer"
     aria-hidden="true"
