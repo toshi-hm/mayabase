@@ -24,6 +24,10 @@ describe("site config", () => {
     expect(site.carousel.maxItems).toBeGreaterThan(0);
     expect(site.carousel.maxItems).toBeLessThanOrEqual(6);
   });
+
+  test("Storefront URL は https で始まる(#119)", () => {
+    expect(site.gear.storefrontUrl.startsWith("https://")).toBe(true);
+  });
 });
 
 describe("subscribeUrl", () => {

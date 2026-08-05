@@ -35,6 +35,12 @@ export const site = {
     url: "https://marshmallow-qa.com/5grb3tbhads2ey9",
   },
 
+  /** 愛用ガジェットページ関連の設定 */
+  gear: {
+    /** Amazon Storefront の URL(gear.astro 内の複数箇所から参照する単一の情報源) */
+    storefrontUrl: "https://amzn.asia/d/07216xEl",
+  },
+
   /** 運営者プロフィール(動画概要欄の公式プロフィールに基づく) */
   profile: {
     name: "Maya",
