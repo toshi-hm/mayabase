@@ -105,4 +105,11 @@ describe("textMatchesKeyword", () => {
   test("一致しない場合は false", () => {
     expect(textMatchesKeyword("関係のない本文です", "ai")).toBe(false);
   });
+
+  test("数字始まりの日本語混じりキーワードは日付表記の一部に誤マッチしない", () => {
+    expect(textMatchesKeyword("12月31日の記録", "1日")).toBe(false);
+    expect(textMatchesKeyword("2026年1月21日のこと", "1日")).toBe(false);
+    expect(textMatchesKeyword("エンジニアのリアルな1日", "1日")).toBe(true);
+    expect(textMatchesKeyword("新卒2年目 1日ルーティーン", "1日")).toBe(true);
+  });
 });
