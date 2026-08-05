@@ -74,6 +74,11 @@ describe("categorizeVideo", () => {
     expect(categorizeVideo({ title: "週5日 在宅勤務でした。【二足のわらじ】" })).toBe("vlog");
   });
 
+  test("「1日」キーワードは日付表記(◯月31日等)に誤マッチしない", () => {
+    expect(categorizeVideo({ title: "12月31日の記録" })).toBe("other");
+    expect(categorizeVideo({ title: "2026年1月21日のこと" })).toBe("other");
+  });
+
   test("どのキーワードにも該当しなければ other になる", () => {
     expect(categorizeVideo({ title: "タイトル未定" })).toBe("other");
     expect(categorizeVideo({ title: "" })).toBe("other");
