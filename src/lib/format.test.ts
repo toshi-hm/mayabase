@@ -113,6 +113,17 @@ describe("textMatchesKeyword", () => {
     expect(textMatchesKeyword("エンジニアのリアルな1日", "1日")).toBe(true);
     expect(textMatchesKeyword("新卒2年目 1日ルーティーン", "1日")).toBe(true);
   });
+
+  test("記号で始まる/終わる英数字キーワードにも一致する(#126)", () => {
+    expect(textMatchesKeyword("I love #chatgpt today", "#chatgpt")).toBe(true);
+    expect(textMatchesKeyword("I code in C++ daily", "C++")).toBe(true);
+    expect(textMatchesKeyword("no hashtag here", "#chatgpt")).toBe(false);
+  });
+
+  test("記号で始まる/終わるキーワードも単語境界の誤マッチは防ぐ", () => {
+    // "#chatgpt" が "#chatgptbot" のような後続文字列の一部にマッチしない
+    expect(textMatchesKeyword("check #chatgptbot out", "#chatgpt")).toBe(false);
+  });
 });
 
 describe("linkifyText", () => {

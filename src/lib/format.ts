@@ -105,7 +105,11 @@ export function linkifyText(text: string): string {
 export function textMatchesKeyword(text: string, keyword: string): boolean {
   if (keyword === "") return true;
   if (/^[\x21-\x7e]+$/.test(keyword)) {
-    return new RegExp(`\\b${escapeRegExp(keyword)}\\b`, "i").test(text);
+    // `\b` はキーワード自身の先頭・末尾が単語構成文字([A-Za-z0-9_])であることを前提に
+    // 境界を判定するため、"#chatgpt" や "C++" のように記号で始まる/終わるキーワードでは
+    // 常に不一致になってしまう(#126)。前後読みでテキスト側の隣接文字が単語構成文字で
+    // ないことを直接判定することで、キーワード自身の先頭・末尾の文字種に依存しないようにする。
+    return new RegExp(`(?<![A-Za-z0-9_])${escapeRegExp(keyword)}(?![A-Za-z0-9_])`, "i").test(text);
   }
   const lowerText = text.toLowerCase();
   const lowerKeyword = keyword.toLowerCase();
