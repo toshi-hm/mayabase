@@ -7,7 +7,13 @@ import videosJson from "../../data/videos.json";
 import Base from "../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../lib/breadcrumb";
 import { CATEGORY_LABELS, categorizeVideo } from "../../lib/categories";
-import { formatDateJa, formatViewCount, linkifyText, truncate } from "../../lib/format";
+import {
+  extractSearchableText,
+  formatDateJa,
+  formatViewCount,
+  linkifyText,
+  truncate,
+} from "../../lib/format";
 import { getAdjacentVideos, getRelatedVideos } from "../../lib/relatedVideos";
 import {
   embedUrl,
@@ -42,8 +48,9 @@ const viewCountText = video.viewCount !== null ? formatViewCount(video.viewCount
 const descriptionParagraphs = video.description.split("\n");
 
 const pageTitle = `${video.title} | ${site.name}`;
-// meta description はハッシュタグ等を含む概要欄をそのまま出すと読みづらいため要約する
-const pageDescription = truncate(video.description, 140) || video.title;
+// meta description はハッシュタグ等を含む概要欄をそのまま出すと読みづらいため、
+// 冒頭の署名欄ハッシュタグ・末尾の定型文を除いた本文相当部分を要約する(#125)
+const pageDescription = truncate(extractSearchableText(video.description), 140) || video.title;
 
 if (!Astro.site) {
   throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
@@ -65,8 +72,9 @@ const jsonLd = {
       "@type": "VideoObject",
       "@id": `${siteUrl}videos/${video.id}/#video`,
       name: video.title,
-      // 概要欄全文はハッシュタグや定型文が長く JSON-LD を肥大化させるため要約する(videos.astro と同じ方針)
-      description: truncate(video.description, 160) || video.title,
+      // 概要欄全文はハッシュタグや定型文が長く JSON-LD を肥大化させるため要約する(videos.astro と同じ方針)。
+      // 冒頭の署名欄ハッシュタグはノイズでしかないため、要約前に除外する(#125)
+      description: truncate(extractSearchableText(video.description), 160) || video.title,
       thumbnailUrl: [thumbnailUrl(video.id), thumbnailFallbackUrl(video.id)],
       uploadDate: video.publishedAt,
       embedUrl: embedUrl(video.id),
