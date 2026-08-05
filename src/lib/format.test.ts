@@ -3,6 +3,7 @@ import {
   extractSearchableText,
   formatDateJa,
   formatViewCount,
+  linkifyText,
   textMatchesKeyword,
   truncate,
 } from "./format";
@@ -111,5 +112,57 @@ describe("textMatchesKeyword", () => {
     expect(textMatchesKeyword("2026年1月21日のこと", "1日")).toBe(false);
     expect(textMatchesKeyword("エンジニアのリアルな1日", "1日")).toBe(true);
     expect(textMatchesKeyword("新卒2年目 1日ルーティーン", "1日")).toBe(true);
+  });
+});
+
+describe("linkifyText", () => {
+  test("URLを含まないテキストはそのまま(HTMLエスケープのみ)返す", () => {
+    expect(linkifyText("ただの本文です")).toBe("ただの本文です");
+  });
+
+  test("URLを <a> タグに変換する", () => {
+    expect(linkifyText("詳細はこちら https://example.com/page です")).toBe(
+      '詳細はこちら <a href="https://example.com/page" target="_blank" rel="noopener noreferrer">https://example.com/page</a> です',
+    );
+  });
+
+  test("文末の句読点・括弧はリンクに含めない", () => {
+    expect(linkifyText("参考(https://example.com/a)。")).toBe(
+      '参考(<a href="https://example.com/a" target="_blank" rel="noopener noreferrer">https://example.com/a</a>)。',
+    );
+  });
+
+  test("1行に複数URLがあればそれぞれ変換する", () => {
+    expect(linkifyText("https://a.example.com と https://b.example.com")).toBe(
+      '<a href="https://a.example.com" target="_blank" rel="noopener noreferrer">https://a.example.com</a> と <a href="https://b.example.com" target="_blank" rel="noopener noreferrer">https://b.example.com</a>',
+    );
+  });
+
+  test("URL以外の部分に含まれるHTML特殊文字をエスケープする", () => {
+    expect(linkifyText("<script>と&の説明 https://example.com/x")).toBe(
+      '&lt;script&gt;と&amp;の説明 <a href="https://example.com/x" target="_blank" rel="noopener noreferrer">https://example.com/x</a>',
+    );
+  });
+
+  test("URL自体に含まれるクエリの & もエスケープする", () => {
+    expect(linkifyText("https://example.com/?a=1&b=2")).toBe(
+      '<a href="https://example.com/?a=1&amp;b=2" target="_blank" rel="noopener noreferrer">https://example.com/?a=1&amp;b=2</a>',
+    );
+  });
+
+  test("http のみのスキームも変換する", () => {
+    expect(linkifyText("http://example.com/legacy")).toBe(
+      '<a href="http://example.com/legacy" target="_blank" rel="noopener noreferrer">http://example.com/legacy</a>',
+    );
+  });
+
+  test("javascript: 等の非対応スキームはリンク化されない", () => {
+    expect(linkifyText("javascript:alert(1) は無視される")).toBe(
+      "javascript:alert(1) は無視される",
+    );
+  });
+
+  test("空文字は空文字のまま", () => {
+    expect(linkifyText("")).toBe("");
   });
 });
