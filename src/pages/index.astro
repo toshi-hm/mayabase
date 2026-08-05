@@ -13,7 +13,7 @@ import xPostsJson from "../data/x-posts.json";
 import Base from "../layouts/Base.astro";
 import { formatFetchedAt, formatSubscriberCount, parseChannelStats } from "../lib/channelStats";
 import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredVideos";
-import { formatViewCount, truncate } from "../lib/format";
+import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
 import { parseXPostsData } from "../lib/x";
 import {
   embedUrl,
@@ -103,8 +103,9 @@ const jsonLd = {
               item: {
                 "@type": "VideoObject",
                 name: video.title,
-                // 概要欄全文はハッシュタグや定型文が長く JSON-LD を肥大化させるため要約する(videos.astro と同じ方針)
-                description: truncate(video.description, 160) || video.title,
+                // 概要欄全文はハッシュタグや定型文が長く JSON-LD を肥大化させるため要約する(videos.astro と同じ方針)。
+                // 冒頭の署名欄ハッシュタグはノイズでしかないため、要約前に除外する(#125)
+                description: truncate(extractSearchableText(video.description), 160) || video.title,
                 thumbnailUrl: [thumbnailUrl(video.id), thumbnailFallbackUrl(video.id)],
                 uploadDate: video.publishedAt,
                 embedUrl: embedUrl(video.id),
