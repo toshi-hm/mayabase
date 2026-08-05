@@ -8,10 +8,17 @@ import "../styles/global.css";
 interface Props {
   title?: string;
   description?: string;
-  /** ページ内容に応じたOGP画像パス（`public/` からの絶対パス）。未指定時はサイト共通の `/ogp.png` (#16)。 */
+  /**
+   * ページ内容に応じたOGP画像パス（`public/` からの絶対パス、または外部の絶対URL）。
+   * 外部URLの場合も `new URL(ogImagePath, Astro.site)` が絶対URLをそのまま採用するため
+   * 問題なく使える。未指定時はサイト共通の `/ogp.png` (#16)。
+   */
   ogImagePath?: string;
   /** OGP画像のalt文言。`ogImagePath` を指定する場合は画像内容に合わせて併せて指定する。 */
   ogImageAlt?: string;
+  /** OGP画像の幅・高さ(px)。未指定時は共通OGP画像の実寸(1200x630)。 */
+  ogImageWidth?: number;
+  ogImageHeight?: number;
 }
 
 const {
@@ -19,6 +26,8 @@ const {
   description = site.description,
   ogImagePath = "/ogp.png",
   ogImageAlt = `${site.name} - ITで日常をより便利に`,
+  ogImageWidth = 1200,
+  ogImageHeight = 630,
 } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const ogImage = new URL(ogImagePath, Astro.site);
@@ -48,8 +57,8 @@ const ogImage = new URL(ogImagePath, Astro.site);
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogImage} />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    <meta property="og:image:width" content={String(ogImageWidth)} />
+    <meta property="og:image:height" content={String(ogImageHeight)} />
     <meta property="og:image:alt" content={ogImageAlt} />
 
     {/* X (Twitter) Card */}
