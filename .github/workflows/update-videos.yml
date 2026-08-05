@@ -35,15 +35,23 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: bun run fetch
 
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      - name: フォントサブセットの再生成
+        # このワークフローの自動コミット(GITHUB_TOKEN)は ci.yml をトリガーできず(#128)、
+        # 動画タイトルの自動更新で新しい文字種が混入してもフォントサブセットの最新性チェックが
+        # 素通りしてしまう。ここで直接再生成し、差分があれば videos.json 等と同じコミットに含める。
+        run: bun run font:subset
+
       - name: 変更があればコミット
         run: |
-          if git diff --quiet src/data/videos.json src/data/channel-stats.json; then
+          if git diff --quiet src/data/videos.json src/data/channel-stats.json public/fonts; then
             echo "変更なし"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/data/videos.json src/data/channel-stats.json
+          git add src/data/videos.json src/data/channel-stats.json public/fonts
           git commit -m "chore: 動画データを自動更新"
           # 実行中に main へ別コミットが入った場合に備えてリベースしてから push
           git fetch origin main
