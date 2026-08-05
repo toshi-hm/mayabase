@@ -19,6 +19,8 @@ interface Props {
   /** OGP画像の幅・高さ(px)。未指定時は共通OGP画像の実寸(1200x630)。 */
   ogImageWidth?: number;
   ogImageHeight?: number;
+  /** `<meta name="robots">` の content。404ページ等、検索結果に出したくないページで指定する。 */
+  robots?: string;
 }
 
 const {
@@ -28,6 +30,7 @@ const {
   ogImageAlt = `${site.name} - ITで日常をより便利に`,
   ogImageWidth = 1200,
   ogImageHeight = 630,
+  robots,
 } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const ogImage = new URL(ogImagePath, Astro.site);
@@ -41,6 +44,7 @@ const ogImage = new URL(ogImagePath, Astro.site);
     <link rel="preconnect" href="https://i.ytimg.com" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    {robots && <meta name="robots" content={robots} />}
     <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
