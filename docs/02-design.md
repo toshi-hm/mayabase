@@ -128,7 +128,10 @@ interface Video {
   - すべての画像に明示的な width/height(CLS 対策)
   - `<head>` に `<link rel="preconnect" href="https://i.ytimg.com">` を追加
   - フォントは LINE Seed JP Regular をサイト内テキストにサブセット化してセルフホストし、`font-display: swap`、合成ウェイト、システムフォントのフォールバックを使用
-- **a11y**: セマンティック HTML(section/h2)、コントラスト比 AA 以上、Biome の a11y ルール有効化。
+- **a11y**: セマンティック HTML(section/h2)、コントラスト比 AA 以上、Biome の a11y ルール有効化
+  (`.ts`/`.js` のみ対象。Biome は `.astro` のマークアップを正しく解析できず誤検知するため
+  `biome.json` で `.astro` を除外しており、`.astro` 内のマークアップの a11y は Lighthouse CI と
+  レビューで担保する(#129))。
 - 目標: Lighthouse Performance / Accessibility / Best Practices / SEO 全て 95 以上(SEO は 100)。
 
 ## 6. デザイン方針
