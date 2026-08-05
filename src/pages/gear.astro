@@ -148,7 +148,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                         <div class="grid aspect-[4/3] place-items-center bg-white p-6">
                           <img
                             src={item.image}
-                            alt=""
+                            alt={`${item.brand} ${item.name}`}
                             width="800"
                             height="800"
                             loading={groupIndex === 0 && itemIndex === 0 ? "eager" : "lazy"}
