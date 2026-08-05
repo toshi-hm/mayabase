@@ -185,6 +185,40 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     if (empty) empty.hidden = matched > 0;
   }
 
-  search?.addEventListener("input", applyFilter);
+  // 検索キーワードを URL クエリパラメータ(q)へ反映する(videos.astro と同じ方針)。
+  // 検索結果を直接共有・ブックマークできるようにする。空検索時はパラメータごと省略する。
+  // mode "push": 独立した履歴エントリを作る / "replace": 現在の履歴エントリを書き換えるのみ
+  function syncUrl(mode: "push" | "replace"): void {
+    const params = new URLSearchParams();
+    const query = (search?.value ?? "").trim();
+    if (query) params.set("q", query);
+    const queryString = params.toString();
+    const newUrl = `${location.pathname}${queryString ? `?${queryString}` : ""}${location.hash}`;
+    if (mode === "push") {
+      history.pushState(null, "", newUrl);
+    } else {
+      history.replaceState(null, "", newUrl);
+    }
+  }
+
+  // URL のクエリパラメータ(q)から検索状態を復元する
+  function restoreStateFromUrl(): void {
+    if (search) search.value = new URLSearchParams(location.search).get("q") ?? "";
+  }
+
+  search?.addEventListener("input", () => {
+    applyFilter();
+    // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
+    syncUrl("replace");
+  });
+
+  // 戻る/進むボタン操作時は URL から検索状態を再構築する
+  window.addEventListener("popstate", () => {
+    restoreStateFromUrl();
+    applyFilter();
+  });
+
+  // 初期表示:URL のクエリパラメータから検索状態を復元してから表示する
+  restoreStateFromUrl();
   applyFilter();
 </script>
