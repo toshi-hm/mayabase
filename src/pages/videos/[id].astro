@@ -224,7 +224,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <p class="mt-2 text-sm text-ink-muted">
             「{CATEGORY_LABELS[category]}」カテゴリの他の動画です。
           </p>
-          <ul class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul role="list" class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {relatedVideos.map((relatedVideo) => (
               <RelatedVideoCard video={relatedVideo} category={category} />
             ))}

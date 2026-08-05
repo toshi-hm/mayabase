@@ -128,7 +128,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       groups.map(([category, groupItems], groupIndex) => (
         <section aria-labelledby={`gear-${category}-heading`} class="pt-14">
           <SectionHeading id={`gear-${category}-heading`} title={GEAR_CATEGORY_LABELS[category]} />
-          <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul role="list" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {groupItems.map((item, itemIndex) => {
               const gearVideos = resolveGearVideos(item, videos);
               return (
@@ -175,7 +175,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                     {gearVideos.length > 0 && (
                       <div class="border-t border-line px-5 py-3">
                         <p class="text-xs font-semibold text-ink-muted">この動画で紹介</p>
-                        <ul class="mt-1 flex flex-col gap-1">
+                        <ul role="list" class="mt-1 flex flex-col gap-1">
                           {gearVideos.map((video) => (
                             <li>
                               <a

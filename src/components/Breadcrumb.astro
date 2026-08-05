@@ -10,7 +10,7 @@ const { items } = Astro.props;
 ---
 
 <nav aria-label="パンくずリスト" class="mb-4 text-sm text-ink-muted">
-  <ol class="flex flex-wrap items-center gap-1.5">
+  <ol role="list" class="flex flex-wrap items-center gap-1.5">
     {
       items.map((item, index) => {
         const isLast = index === items.length - 1;

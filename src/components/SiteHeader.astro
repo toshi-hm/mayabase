@@ -27,7 +27,7 @@ const isCurrent = (href: string): boolean => currentPath === href.replace(/\/+$/
     >
       {site.name}
     </a>
-    <ul class="ml-auto flex gap-1 overflow-x-auto text-sm">
+    <ul role="list" class="ml-auto flex gap-1 overflow-x-auto text-sm">
       {
         NAV_ITEMS.map((item) => (
           <li class="flex-none">
