@@ -22,16 +22,16 @@ export function getStaticPaths() {
   const { videos } = parseVideosData(videosJson);
   return videos.map((video) => ({
     params: { id: video.id },
-    props: { video },
+    props: { video, videos },
   }));
 }
 
 interface Props {
   video: Video;
+  videos: Video[];
 }
 
-const { video } = Astro.props;
-const { videos } = parseVideosData(videosJson);
+const { video, videos } = Astro.props;
 const category = categorizeVideo(video);
 const RELATED_LIMIT = 6;
 const relatedVideos = getRelatedVideos(video, videos, category, RELATED_LIMIT);
