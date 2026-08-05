@@ -45,6 +45,13 @@ import { site } from "../config/site";
         </li>
       </ul>
     </nav>
-    <p>&copy; {new Date().getFullYear()} {site.name}</p>
+    <p>&copy; <span id="footer-year">{new Date().getFullYear()}</span> {site.name}</p>
   </div>
 </footer>
+
+<script>
+  // 静的サイトのためビルド時刻の年がHTMLに固定される。年をまたいでビルドされない期間があっても
+  // 訪問時点の正しい年を表示できるよう、クライアント側で実際の現在時刻の年に更新する。
+  const yearEl = document.getElementById("footer-year");
+  if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+</script>
