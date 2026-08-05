@@ -139,7 +139,10 @@ export function parseFeed(xml: string): FeedEntry[] {
       published?: unknown;
       "media:group"?: { "media:description"?: unknown };
     };
-    const id = typeof entry["yt:videoId"] === "string" ? entry["yt:videoId"] : "";
+    // 全桁数字の動画IDは XML パーサが number 型へ変換するため、title/description と
+    // 同様に toText() で文字列化してから扱う(数値化されたまま typeof 判定すると
+    // そのエントリがサイレントに読み飛ばされてしまう)。
+    const id = toText(entry["yt:videoId"]);
     const title = toText(entry.title);
     const publishedAt = typeof entry.published === "string" ? entry.published : "";
     if (!id || !publishedAt) continue;

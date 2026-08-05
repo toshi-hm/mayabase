@@ -89,6 +89,25 @@ describe("parseFeed", () => {
     expect(entries[0]?.description).toBe("42");
   });
 
+  test("全桁数字の動画IDも文字列として扱う(パーサの number 変換対策)", () => {
+    const xml = `<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/">
+      <entry>
+        <yt:videoId>12345678901</yt:videoId>
+        <title>数字IDの動画</title>
+        <published>2026-07-01T12:00:00+00:00</published>
+        <media:group><media:description>説明</media:description></media:group>
+      </entry>
+    </feed>`;
+    const entries = parseFeed(xml);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toEqual({
+      id: "12345678901",
+      title: "数字IDの動画",
+      description: "説明",
+      publishedAt: "2026-07-01T12:00:00+00:00",
+    });
+  });
+
   test("media:group 自体が無いエントリでも動作する", () => {
     const xml = `<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015">
       <entry>
