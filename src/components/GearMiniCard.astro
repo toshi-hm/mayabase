@@ -1,0 +1,48 @@
+---
+import { gearDisplayName, isAffiliateUrl, type GearItem } from "../lib/gear";
+
+interface Props {
+  item: GearItem;
+}
+
+const { item } = Astro.props;
+---
+
+{
+  /* 動画詳細ページの「この動画で紹介したガジェット」セクション専用の軽量カード(#134)。
+gear.astro の商品カードと違い、note やこの動画で紹介した他動画の一覧は持たない。 */
+}
+<li>
+  <a
+    href={item.url}
+    target="_blank"
+    rel={isAffiliateUrl(item.url) ? "sponsored noopener noreferrer" : "noopener noreferrer"}
+    class="group/card flex h-full items-center gap-4 rounded-lg border border-line bg-surface p-4 transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
+  >
+    {
+      item.image && (
+        <img
+          src={item.image}
+          alt=""
+          width="96"
+          height="96"
+          loading="lazy"
+          decoding="async"
+          class="h-16 w-16 flex-none rounded-md bg-white object-contain p-1"
+        />
+      )
+    }
+    <span class="min-w-0">
+      <span class="block text-xs font-semibold tracking-wider text-brand-accent">
+        {item.brand}
+      </span>
+      <span class="mt-1 block truncate font-semibold group-hover/card:text-brand-accent">
+        {item.name}
+      </span>
+      <span class="mt-1 block text-xs font-semibold text-brand-accent">
+        詳細を見る<span aria-hidden="true"> →</span>
+        <span class="sr-only">({gearDisplayName(item)}・外部サイト・新しいタブで開きます)</span>
+      </span>
+    </span>
+  </a>
+</li>

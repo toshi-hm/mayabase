@@ -5,6 +5,7 @@ import {
   buildVideoGearMap,
   GEAR_CATEGORY_LABELS,
   GEAR_CATEGORY_ORDER,
+  gearDisplayName,
   groupGearByCategory,
   isAffiliateUrl,
   parseGearData,
@@ -89,6 +90,21 @@ describe("parseGearData", () => {
   test("実データ(gear.json)がスキーマを満たす(回帰テスト)", () => {
     const { items } = parseGearData(gearJson);
     expect(items.length).toBeGreaterThan(0);
+  });
+});
+
+describe("gearDisplayName", () => {
+  test("ブランド名と製品名を半角スペース区切りで結合する(#134)", () => {
+    expect(gearDisplayName({ brand: "PFU", name: "HHKB Professional HYBRID Type-S" })).toBe(
+      "PFU HHKB Professional HYBRID Type-S",
+    );
+  });
+
+  test("gear.json の全アイテムで組み立てられる(回帰テスト・#134)", () => {
+    const { items } = parseGearData(gearJson);
+    for (const item of items) {
+      expect(gearDisplayName(item)).toBe(`${item.brand} ${item.name}`);
+    }
   });
 });
 
