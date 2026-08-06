@@ -252,6 +252,8 @@ const searchableDescriptionsSafe = JSON.stringify(
   const empty = document.getElementById("videos-empty");
   const moreButton = document.getElementById("videos-more") as HTMLButtonElement | null;
   let category = "all";
+  // 並び替え状態(#152: category/q と同じくURLに同期する)
+  let sortOrder: "newest" | "popular" = "newest";
   // 一度展開したら以降は全件表示のまま(ボタンは二度と出さない)
   let expanded = false;
 
@@ -276,25 +278,40 @@ const searchableDescriptionsSafe = JSON.stringify(
     }
   }
 
-  // クエリパラメータ(category / q)から絞り込み状態を復元する。
-  // 不正な category 値は "all" にフォールバックする(任意の入力を信用しない)。
+  function setPressedSortOrder(nextOrder: "newest" | "popular"): void {
+    for (const button of sortButtons) {
+      const buttonOrder = button.dataset.sortOrder === "popular" ? "popular" : "newest";
+      button.setAttribute("aria-pressed", String(buttonOrder === nextOrder));
+    }
+  }
+
+  // クエリパラメータ(category / q / order)から絞り込み・並び替え状態を復元する。
+  // 不正な category / order 値はそれぞれの既定値にフォールバックする(任意の入力を信用しない)。
   function restoreStateFromUrl(): void {
     const params = new URLSearchParams(location.search);
     const urlCategory = params.get("category");
     category = urlCategory && validCategories.has(urlCategory) ? urlCategory : "all";
     setPressedCategory(category);
     if (search) search.value = params.get("q") ?? "";
+
+    // 並び替えトグル自体が無い環境(viewCount 未取得)では order パラメータを無視する
+    if (sortButtons.length > 0) {
+      sortOrder = params.get("order") === "popular" ? "popular" : "newest";
+      setPressedSortOrder(sortOrder);
+      reorderGrid(sortOrder);
+    }
   }
 
-  // 現在の絞り込み状態を URL クエリパラメータへ反映する。
-  // デフォルト値(category=all・空検索)はパラメータごと省略し URL をきれいに保つ。
-  // mode "push": 独立した履歴エントリを作る(戻るボタンで直前のカテゴリに戻れるようにする)
+  // 現在の絞り込み・並び替え状態を URL クエリパラメータへ反映する。
+  // デフォルト値(category=all・空検索・order=newest)はパラメータごと省略し URL をきれいに保つ。
+  // mode "push": 独立した履歴エントリを作る(戻るボタンで直前の状態に戻れるようにする)
   // mode "replace": 現在の履歴エントリを書き換えるのみ(入力のたびに履歴を汚さない)
   function syncUrl(mode: "push" | "replace"): void {
     const params = new URLSearchParams();
     if (category !== "all") params.set("category", category);
     const query = (search?.value ?? "").trim();
     if (query) params.set("q", query);
+    if (sortOrder !== "newest") params.set("order", sortOrder);
     const queryString = params.toString();
     const newUrl = `${location.pathname}${queryString ? `?${queryString}` : ""}${location.hash}`;
     if (mode === "push") {
@@ -379,12 +396,12 @@ const searchableDescriptionsSafe = JSON.stringify(
 
   for (const button of sortButtons) {
     button.addEventListener("click", () => {
-      const order = button.dataset.sortOrder === "popular" ? "popular" : "newest";
-      for (const other of sortButtons) {
-        other.setAttribute("aria-pressed", String(other === button));
-      }
-      reorderGrid(order);
+      sortOrder = button.dataset.sortOrder === "popular" ? "popular" : "newest";
+      setPressedSortOrder(sortOrder);
+      reorderGrid(sortOrder);
       applyFilter();
+      // 並び替えもカテゴリと同様、独立した状態変化とみなし履歴を1件積む
+      syncUrl("push");
     });
   }
 
