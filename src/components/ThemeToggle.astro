@@ -1,0 +1,129 @@
+{
+  /*
+    ダークモードの手動切り替えボタン(#135)。
+    system(既定) → light → dark → system … の順に1クリックで巡回する3択トグル。
+    表示直後のテーマ確定・FOUC対策は Base.astro のインラインスクリプトが担い、
+    こちらはボタンの見た目(アイコン・aria-label)と切り替え操作のみを担当する。
+  */
+}
+<button
+  type="button"
+  id="theme-toggle"
+  class="inline-flex flex-none cursor-pointer items-center justify-center rounded-full border border-ink-muted p-2 text-ink-muted transition hover:border-ink hover:bg-surface-raised hover:text-ink focus-visible:outline-2 focus-visible:outline-brand"
+>
+  {/* システム設定アイコン(モニター) */}
+  <svg
+    data-theme-icon="system"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    aria-hidden="true"
+  >
+    <rect x="2" y="4" width="20" height="13" rx="2"></rect>
+    <path d="M8 21h8M12 17v4"></path>
+  </svg>
+  {/* ライトモードアイコン(太陽) */}
+  <svg
+    data-theme-icon="light"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    aria-hidden="true"
+    class="hidden"
+  >
+    <circle cx="12" cy="12" r="4"></circle>
+    <path
+      d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+    ></path>
+  </svg>
+  {/* ダークモードアイコン(三日月) */}
+  <svg
+    data-theme-icon="dark"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    aria-hidden="true"
+    class="hidden"
+  >
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+  </svg>
+</button>
+
+<script>
+  import {
+    isTheme,
+    nextTheme,
+    resolveTheme,
+    THEME_STORAGE_KEY,
+    themeClassName,
+    themeColorMedia,
+    type Theme,
+  } from "../lib/theme";
+
+  const THEME_LABELS: Record<Theme, string> = {
+    system: "システム設定",
+    light: "ライトモード",
+    dark: "ダークモード",
+  };
+
+  const button = document.getElementById("theme-toggle");
+  const icons = button?.querySelectorAll<SVGElement>("[data-theme-icon]");
+  const lightMeta = document.getElementById("theme-color-light");
+  const darkMeta = document.getElementById("theme-color-dark");
+
+  function readStoredTheme(): Theme {
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(THEME_STORAGE_KEY);
+    } catch {
+      // プライベートモード等で localStorage が使えない場合は system 扱いにする
+    }
+    return isTheme(raw) ? raw : "system";
+  }
+
+  function prefersDark(): boolean {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+
+  function applyTheme(theme: Theme): void {
+    const resolved = resolveTheme(theme, prefersDark());
+
+    document.documentElement.classList.remove("theme-dark", "theme-light");
+    document.documentElement.classList.add(themeClassName(resolved));
+
+    const media = themeColorMedia(theme, resolved);
+    lightMeta?.setAttribute("media", media.light);
+    darkMeta?.setAttribute("media", media.dark);
+
+    for (const icon of icons ?? []) {
+      icon.classList.toggle("hidden", icon.dataset.themeIcon !== theme);
+    }
+    button?.setAttribute("aria-label", `テーマ: ${THEME_LABELS[theme]}(クリックで切り替え)`);
+  }
+
+  applyTheme(readStoredTheme());
+
+  button?.addEventListener("click", () => {
+    const next = nextTheme(readStoredTheme());
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, next);
+    } catch {
+      // 保存に失敗しても当該セッション内の表示切り替え自体は継続する
+    }
+    applyTheme(next);
+  });
+
+  // "system" 選択中は OS 側のダーク設定の変化にもリアルタイムに追従させる
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    if (readStoredTheme() === "system") applyTheme("system");
+  });
+</script>

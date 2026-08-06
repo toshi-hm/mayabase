@@ -3,6 +3,7 @@ import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import VideoLightbox from "../components/VideoLightbox.astro";
 import { site } from "../config/site";
+import { THEME_STORAGE_KEY } from "../lib/theme";
 import "../styles/global.css";
 
 interface Props {
@@ -49,9 +50,53 @@ const ogImage = new URL(ogImagePath, Astro.site);
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#fdfcf9" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#11171d" media="(prefers-color-scheme: dark)" />
+    <meta
+      id="theme-color-light"
+      name="theme-color"
+      content="#fdfcf9"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      id="theme-color-dark"
+      name="theme-color"
+      content="#11171d"
+      media="(prefers-color-scheme: dark)"
+    />
     <meta name="generator" content={Astro.generator} />
+
+    {
+      /*
+        ダークモード手動切り替え(#135)のFOUC対策。
+        CSSは prefers-color-scheme に加え <html> の theme-dark / theme-light クラスでも
+        トークンを上書きできるため(global.css)、初回ペイント前に同期実行でクラスを確定させる。
+        type="module" は読み込みが非同期化されチラつきの原因になるため、is:inline で
+        素のスクリプトとして即時実行する。ロジックは src/lib/theme.ts の
+        parseStoredTheme / resolveTheme / themeColorMedia と同等だが、
+        非同期化できない制約上ここではバニラJSに複製している(変更時は両方を揃えること)。
+      */
+    }
+    <script is:inline define:vars={{ storageKey: THEME_STORAGE_KEY }}>
+      (function () {
+        var THEMES = ["system", "light", "dark"];
+        var stored = null;
+        try {
+          stored = localStorage.getItem(storageKey);
+        } catch (e) {
+          // プライベートモード等で localStorage が使えない場合は system 扱いにする
+        }
+        var theme = THEMES.indexOf(stored) !== -1 ? stored : "system";
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var resolved = theme === "system" ? (prefersDark ? "dark" : "light") : theme;
+        document.documentElement.classList.add(resolved === "dark" ? "theme-dark" : "theme-light");
+
+        if (theme !== "system") {
+          var lightMeta = document.getElementById("theme-color-light");
+          var darkMeta = document.getElementById("theme-color-dark");
+          if (lightMeta) lightMeta.setAttribute("media", resolved === "light" ? "all" : "not all");
+          if (darkMeta) darkMeta.setAttribute("media", resolved === "dark" ? "all" : "not all");
+        }
+      })();
+    </script>
 
     {/* OGP */}
     <meta property="og:type" content="website" />

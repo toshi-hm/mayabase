@@ -54,6 +54,38 @@
   }
 }
 
+/*
+ * 手動テーマ切り替え(#135)。ThemeToggle / Base.astro のインラインスクリプトが
+ * <html> に theme-dark / theme-light クラスを付与し、OS の prefers-color-scheme に
+ * 関わらずどちらかへ強制的に固定する。`:root.theme-dark` は `:root`(prefers-color-scheme
+ * ブロック内含む)よりセレクタ詳細度が高い(0,2,0 > 0,1,0)ため、CSS の記述順に関わらず
+ * 確実に優先される。値は直前の prefers-color-scheme ブロックと同一(変更時は両方揃えること)。
+ */
+:root.theme-dark {
+  --color-brand-accent: oklch(68% 0.19 25);
+  --color-surface: oklch(20% 0.015 250);
+  --color-surface-raised: oklch(27% 0.018 240);
+  --color-surface-mint: oklch(23% 0.035 178);
+  --color-surface-sun: oklch(24% 0.05 94);
+  --color-ink: oklch(93% 0.012 245);
+  --color-ink-muted: oklch(72% 0.02 245);
+  --color-line: oklch(36% 0.02 235);
+  --color-accent: oklch(68% 0.1 180);
+}
+
+/* OS はダーク設定でも手動でライトを選んだ場合に、既定(ライト)のトークンへ明示的に戻す */
+:root.theme-light {
+  --color-brand-accent: oklch(54% 0.2 25);
+  --color-surface: oklch(99% 0.004 95);
+  --color-surface-raised: oklch(96.5% 0.008 220);
+  --color-surface-mint: oklch(95% 0.035 178);
+  --color-surface-sun: oklch(96% 0.055 94);
+  --color-ink: oklch(24% 0.025 245);
+  --color-ink-muted: oklch(48% 0.025 245);
+  --color-line: oklch(88% 0.015 235);
+  --color-accent: oklch(47% 0.11 180);
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -88,4 +120,19 @@ body {
     background: color-mix(in oklab, var(--color-brand) 55%, black);
     color: var(--color-ink);
   }
+}
+
+/*
+ * 手動テーマ(#135)。`:root.theme-dark ::selection` は詳細度(0,1,1)が
+ * `@media (prefers-color-scheme: dark) { ::selection }`(0,0,1)より高いため、
+ * OS がライト設定でも手動でダークを選んだ場合に確実に上書きできる。
+ * theme-light 側は逆に、OS がダーク設定でも手動でライトを選んだ場合に既定値へ戻す。
+ */
+:root.theme-dark ::selection {
+  background: color-mix(in oklab, var(--color-brand) 55%, black);
+  color: var(--color-ink);
+}
+
+:root.theme-light ::selection {
+  background: color-mix(in oklab, var(--color-brand) 24%, white);
 }
