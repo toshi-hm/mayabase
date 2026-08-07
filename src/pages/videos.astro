@@ -356,6 +356,15 @@ const searchableDescriptionsSafe = JSON.stringify(
 
   for (const button of buttons) {
     button.addEventListener("click", (event) => {
+      // 修飾キー付きクリック・中クリックはブラウザ標準の「新しいタブで開く」に任せる
+      // (カテゴリチップは /videos/category/{category}/ への実リンクを兼ねるため)。
+      if (
+        button instanceof HTMLAnchorElement &&
+        event instanceof MouseEvent &&
+        (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey)
+      ) {
+        return;
+      }
       // カテゴリチップは実リンク(<a href>)を兼ねる。JS 有効時はページ遷移させず、
       // 既存のクライアントサイド絞り込み体験(このページ内での即時絞り込み)を維持する(#121)。
       event.preventDefault();
@@ -364,6 +373,18 @@ const searchableDescriptionsSafe = JSON.stringify(
       applyFilter();
       // カテゴリ変更は独立した絞り込み状態とみなし、戻るボタンで前のカテゴリに戻れるよう履歴を1件積む
       syncUrl("push");
+    });
+    // role="button" の <a> はネイティブでは Space キーでの activate に対応しないため、
+    // button と同じ操作性になるよう Space キーでもクリック相当の動作をさせる。
+    button.addEventListener("keydown", (event) => {
+      if (
+        button instanceof HTMLAnchorElement &&
+        event instanceof KeyboardEvent &&
+        event.key === " "
+      ) {
+        event.preventDefault();
+        button.click();
+      }
     });
   }
   search?.addEventListener("input", () => {
