@@ -8,6 +8,7 @@ import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
 import {
   GEAR_CATEGORY_LABELS,
+  gearDisplayName,
   groupGearByCategory,
   isAffiliateUrl,
   parseGearData,
@@ -47,7 +48,7 @@ const jsonLd = {
       itemListElement: displayOrderedItems.map((item, index) => ({
         "@type": "ListItem",
         position: index + 1,
-        name: `${item.brand} ${item.name}`,
+        name: gearDisplayName(item),
         url: item.url,
         ...(item.image ? { image: item.image } : {}),
       })),
@@ -149,10 +150,10 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                       class="flex flex-1 flex-col focus-visible:outline-2 focus-visible:outline-brand"
                     >
                       {item.image && (
-                        <div class="grid aspect-[4/3] place-items-center bg-white p-6">
+                        <div class="grid aspect-[4/3] place-items-center bg-surface-photo p-6">
                           <img
                             src={item.image}
-                            alt={`${item.brand} ${item.name}`}
+                            alt={gearDisplayName(item)}
                             width="800"
                             height="800"
                             loading={groupIndex === 0 && itemIndex === 0 ? "eager" : "lazy"}
