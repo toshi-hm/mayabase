@@ -130,13 +130,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             <p class="mb-2 text-sm font-bold text-brand-accent">ITで日常をより便利に</p>
             <h1 class="text-4xl font-black sm:text-6xl">{site.name}</h1>
             {
-              subscriberText && (
+              (subscriberText || totalViewCountText) && (
                 <p class="mt-2 text-sm font-semibold text-ink-muted">
-                  チャンネル登録者数 <span class="text-ink">{subscriberText}</span>
+                  {subscriberText && (
+                    <>
+                      チャンネル登録者数 <span class="text-ink">{subscriberText}</span>
+                    </>
+                  )}
+                  {subscriberText && totalViewCountText && " / "}
                   {totalViewCountText && (
                     <>
-                      {" "}
-                      / 総再生回数 <span class="text-ink">{totalViewCountText}</span>
+                      総再生回数 <span class="text-ink">{totalViewCountText}</span>
                     </>
                   )}
                   {fetchedAtText && ` (${fetchedAtText})`}
