@@ -115,6 +115,14 @@ export function parseGearData(data: unknown): GearData {
   return { items: parsed };
 }
 
+/**
+ * 「ブランド名 製品名」の表示用ラベルを組み立てる。
+ * 商品カード(gear.astro / 動画詳細ページのガジェットセクション等)で共通利用する(#134)。
+ */
+export function gearDisplayName(item: Pick<GearItem, "brand" | "name">): string {
+  return `${item.brand} ${item.name}`;
+}
+
 /** カテゴリごとにグループ化する(GEAR_CATEGORY_ORDER 順。JSON 内の記載順は維持) */
 export function groupGearByCategory(items: readonly GearItem[]): [GearCategory, GearItem[]][] {
   return GEAR_CATEGORY_ORDER.map((category) => [
