@@ -324,6 +324,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       link.addEventListener("click", (event) => {
         const seconds = link.dataset.chapterSeconds;
         if (!seconds) return;
+        // 修飾キー(Ctrl/Cmd/Shift)クリックや中クリックはブラウザ標準の
+        // 「新しいタブで開く」動作を優先し、iframe差し替えは行わない
+        if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
         event.preventDefault();
         const url = new URL(frame.src);
         url.searchParams.set("start", seconds);
