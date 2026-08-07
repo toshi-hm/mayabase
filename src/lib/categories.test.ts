@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import videosJson from "../data/videos.json";
-import { CATEGORY_LABELS, CATEGORY_ORDER, categorizeVideo } from "./categories";
+import {
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  categorizeVideo,
+  categoryUrl,
+  getAvailableCategories,
+} from "./categories";
 import { parseVideosData } from "./youtube";
 
 describe("categorizeVideo", () => {
@@ -97,5 +103,52 @@ describe("カテゴリ定義", () => {
   test("CATEGORY_ORDER は全カテゴリを一度ずつ含む", () => {
     const orderedKeys: string[] = [...CATEGORY_ORDER];
     expect(orderedKeys.sort()).toEqual(Object.keys(CATEGORY_LABELS).sort());
+  });
+});
+
+describe("categoryUrl", () => {
+  test("カテゴリ別静的アーカイブページの URL を組み立てる", () => {
+    expect(categoryUrl("ai")).toBe("/videos/category/ai/");
+    expect(categoryUrl("gadget")).toBe("/videos/category/gadget/");
+    expect(categoryUrl("vlog")).toBe("/videos/category/vlog/");
+    expect(categoryUrl("career")).toBe("/videos/category/career/");
+    expect(categoryUrl("other")).toBe("/videos/category/other/");
+  });
+});
+
+describe("getAvailableCategories", () => {
+  test("動画が 1 件でもあるカテゴリのみを CATEGORY_ORDER の順序で返す", () => {
+    const categorized = [{ category: "vlog" as const }, { category: "ai" as const }];
+    expect(getAvailableCategories(categorized)).toEqual(["ai", "vlog"]);
+  });
+
+  test("動画が 0 件のカテゴリは含めない", () => {
+    const categorized = [{ category: "ai" as const }];
+    expect(getAvailableCategories(categorized)).toEqual(["ai"]);
+    expect(getAvailableCategories(categorized)).not.toContain("gadget");
+    expect(getAvailableCategories(categorized)).not.toContain("other");
+  });
+
+  test("動画が 1 件も無ければ空配列を返す", () => {
+    expect(getAvailableCategories([])).toEqual([]);
+  });
+
+  test("実データでは categorizeVideo が other を返さないため other は含まれない(回帰テスト)", () => {
+    const { videos } = parseVideosData(videosJson);
+    const categorized = videos.map((video) => ({ category: categorizeVideo(video) }));
+    expect(getAvailableCategories(categorized)).not.toContain("other");
+  });
+
+  test("実データの各カテゴリの getStaticPaths 用動画一覧が 1 件以上になる", () => {
+    // src/pages/videos/category/[category].astro の getStaticPaths が生成するページ数と
+    // 各ページの動画一覧が 0 件にならないことの回帰テスト(#121)
+    const { videos } = parseVideosData(videosJson);
+    const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
+    const available = getAvailableCategories(categorized);
+    expect(available.length).toBeGreaterThan(0);
+    for (const category of available) {
+      const categoryVideos = categorized.filter((entry) => entry.category === category);
+      expect(categoryVideos.length).toBeGreaterThan(0);
+    }
   });
 });

@@ -6,7 +6,12 @@ import gearJson from "../data/gear.json";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
-import { CATEGORY_LABELS, CATEGORY_ORDER, categorizeVideo } from "../lib/categories";
+import {
+  categoryUrl,
+  CATEGORY_LABELS,
+  categorizeVideo,
+  getAvailableCategories,
+} from "../lib/categories";
 import { extractSearchableText, truncate } from "../lib/format";
 import { buildVideoGearMap, parseGearData } from "../lib/gear";
 import {
@@ -30,10 +35,8 @@ const firstThumbnailSrc = videos[0]
   ? (LOCAL_THUMBNAILS[videos[0].id] ?? thumbnailFallbackUrl(videos[0].id))
   : undefined;
 
-// 動画が 1 件以上あるカテゴリだけをフィルタ UI に出す
-const availableCategories = CATEGORY_ORDER.filter((category) =>
-  categorized.some((entry) => entry.category === category),
-);
+// 動画が 1 件以上あるカテゴリだけをフィルタ UI に出す(カテゴリ別静的ページと同じ方針・#121)
+const availableCategories = getAvailableCategories(categorized);
 
 // 再生回数ソートのトグル(#48)。RSS のみ(YOUTUBE_API_KEY 未設定)の環境では
 // 全動画の viewCount が null になるため、1 件も取得できていなければトグル自体を非表示にする
@@ -126,15 +129,23 @@ const searchableDescriptionsSafe = JSON.stringify(
           すべて
         </button>
         {
+          /* カテゴリチップは、クライアントサイド絞り込みのトグルボタンであると同時に、
+          カテゴリ別静的ページ(/videos/category/{category}/)への実リンクでもある(#121)。
+          JS 有効時はクリックを後述のスクリプトが preventDefault してこのページ内で絞り込み、
+          JS 無効時・クローラーはそのままリンク先の静的ページへ遷移/到達できる。
+          role="button" によりトグルボタンとしての aria-pressed を有効な組み合わせにする。 */
+        }
+        {
           availableCategories.map((category) => (
-            <button
-              type="button"
+            <a
+              href={categoryUrl(category)}
+              role="button"
               data-filter-category={category}
               aria-pressed="false"
               class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
             >
               {CATEGORY_LABELS[category]}
-            </button>
+            </a>
           ))
         }
       </div>
@@ -236,7 +247,10 @@ const searchableDescriptionsSafe = JSON.stringify(
   const grid = document.getElementById("videos-grid");
   // サーバー側(videos.astro のフロントマター)の値を data 属性経由で受け取り、二重定義を避ける
   const INITIAL_COUNT = Number(grid?.dataset.initialCount) || 12;
-  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-filter-category]");
+  // 「すべて」は button、各カテゴリチップはカテゴリページへの実リンクを兼ねる a 要素(#121)
+  const buttons = document.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>(
+    "[data-filter-category]",
+  );
   const sortButtons = document.querySelectorAll<HTMLButtonElement>("[data-sort-order]");
   const search = document.getElementById("video-search") as HTMLInputElement | null;
   // 「新しい順」に戻す際に再利用する元の DOM 順(= videos.json の公開日時降順)を保持しておく。
@@ -358,12 +372,36 @@ const searchableDescriptionsSafe = JSON.stringify(
   }
 
   for (const button of buttons) {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", (event) => {
+      // 修飾キー付きクリック・中クリックはブラウザ標準の「新しいタブで開く」に任せる
+      // (カテゴリチップは /videos/category/{category}/ への実リンクを兼ねるため)。
+      if (
+        button instanceof HTMLAnchorElement &&
+        event instanceof MouseEvent &&
+        (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey)
+      ) {
+        return;
+      }
+      // カテゴリチップは実リンク(<a href>)を兼ねる。JS 有効時はページ遷移させず、
+      // 既存のクライアントサイド絞り込み体験(このページ内での即時絞り込み)を維持する(#121)。
+      event.preventDefault();
       category = button.dataset.filterCategory ?? "all";
       setPressedCategory(category);
       applyFilter();
       // カテゴリ変更は独立した絞り込み状態とみなし、戻るボタンで前のカテゴリに戻れるよう履歴を1件積む
       syncUrl("push");
+    });
+    // role="button" の <a> はネイティブでは Space キーでの activate に対応しないため、
+    // button と同じ操作性になるよう Space キーでもクリック相当の動作をさせる。
+    button.addEventListener("keydown", (event) => {
+      if (
+        button instanceof HTMLAnchorElement &&
+        event instanceof KeyboardEvent &&
+        event.key === " "
+      ) {
+        event.preventDefault();
+        button.click();
+      }
     });
   }
   search?.addEventListener("input", () => {

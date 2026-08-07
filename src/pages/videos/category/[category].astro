@@ -1,0 +1,166 @@
+---
+import ArchiveCard from "../../../components/ArchiveCard.astro";
+import Breadcrumb from "../../../components/Breadcrumb.astro";
+import { site } from "../../../config/site";
+import gearJson from "../../../data/gear.json";
+import videosJson from "../../../data/videos.json";
+import Base from "../../../layouts/Base.astro";
+import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../../lib/breadcrumb";
+import {
+  CATEGORY_LABELS,
+  categorizeVideo,
+  categoryUrl,
+  getAvailableCategories,
+  type VideoCategory,
+} from "../../../lib/categories";
+import { extractSearchableText, truncate } from "../../../lib/format";
+import { buildVideoGearMap, parseGearData } from "../../../lib/gear";
+import {
+  embedUrl,
+  parseVideosData,
+  thumbnailFallbackUrl,
+  thumbnailUrl,
+  type Video,
+  videoUrl,
+} from "../../../lib/youtube";
+
+export function getStaticPaths() {
+  const { videos } = parseVideosData(videosJson);
+  const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
+  // 動画が 1 件以上あるカテゴリだけページを生成する(videos.astro の availableCategories と同じ方針・#121)
+  return getAvailableCategories(categorized).map((category) => ({
+    params: { category },
+    props: {
+      category,
+      categoryVideos: categorized
+        .filter((entry) => entry.category === category)
+        .map((entry) => entry.video),
+    },
+  }));
+}
+
+interface Props {
+  category: VideoCategory;
+  categoryVideos: Video[];
+}
+
+const { category, categoryVideos }: Props = Astro.props;
+const categoryLabel = CATEGORY_LABELS[category];
+
+// 愛用ガジェットとの相互リンク(videos.astro と同じ #70)
+const { items: gearItems } = parseGearData(gearJson);
+const videoGearMap = buildVideoGearMap(gearItems);
+
+// 他のカテゴリへの内部リンク(全カテゴリ横断のページランク分散・回遊導線)
+const { videos: allVideos } = parseVideosData(videosJson);
+const allCategorized = allVideos.map((video) => ({ video, category: categorizeVideo(video) }));
+const otherCategories = getAvailableCategories(allCategorized).filter((c) => c !== category);
+
+const LOCAL_THUMBNAILS: Partial<Record<string, string>> = {
+  "2WX26Bekrfk": "/images/videos-first-thumbnail.webp",
+};
+const firstThumbnailSrc = categoryVideos[0]
+  ? (LOCAL_THUMBNAILS[categoryVideos[0].id] ?? thumbnailFallbackUrl(categoryVideos[0].id))
+  : undefined;
+
+const pageTitle = `${categoryLabel}の動画一覧 | ${site.name}`;
+const pageDescription = `${site.name} の「${categoryLabel}」カテゴリの動画アーカイブ。${categoryVideos.length} 本の動画をまとめてチェックできます。`;
+
+if (!Astro.site) {
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
+}
+const siteUrl = Astro.site.toString();
+const breadcrumbItems: BreadcrumbItem[] = [
+  { name: "ホーム", href: "/" },
+  { name: "動画ライブラリ", href: "/videos/" },
+  { name: categoryLabel, href: categoryUrl(category) },
+];
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: buildBreadcrumbJsonLd(breadcrumbItems, siteUrl),
+    },
+    {
+      "@type": "ItemList",
+      "@id": `${siteUrl}videos/category/${category}/#videos`,
+      name: `${site.name} の「${categoryLabel}」動画一覧`,
+      itemListElement: categoryVideos.map((video, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        item: {
+          "@type": "VideoObject",
+          name: video.title,
+          // 概要欄全文はハッシュタグや定型文が長く JSON-LD を肥大化させるため要約する(videos.astro と同じ方針)。
+          // 冒頭の署名欄ハッシュタグはノイズでしかないため、要約前に除外する(#125)
+          description: truncate(extractSearchableText(video.description), 160) || video.title,
+          thumbnailUrl: [thumbnailUrl(video.id), thumbnailFallbackUrl(video.id)],
+          uploadDate: video.publishedAt,
+          embedUrl: embedUrl(video.id),
+          url: videoUrl(video),
+        },
+      })),
+    },
+  ],
+};
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+---
+
+<Base
+  title={pageTitle}
+  description={pageDescription}
+  ogImagePath="/ogp-videos.png"
+  ogImageAlt={`${site.name} ${categoryLabel}の動画一覧`}
+>
+  {
+    firstThumbnailSrc && (
+      <link rel="preload" as="image" href={firstThumbnailSrc} fetchpriority="high" slot="head" />
+    )
+  }
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
+    <Breadcrumb items={breadcrumbItems} />
+    <h1 class="text-3xl font-bold sm:text-4xl">{categoryLabel}の動画一覧</h1>
+    <p class="mt-3 max-w-2xl text-ink-muted">
+      「{categoryLabel}」カテゴリの動画 {categoryVideos.length}
+      本のアーカイブです。気になる動画を見つけて、YouTube でご覧ください。
+    </p>
+
+    {
+      otherCategories.length > 0 && (
+        <nav aria-label="他のカテゴリ" class="mt-8 flex flex-wrap gap-2">
+          <a
+            href="/videos/"
+            class="rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            すべて
+          </a>
+          {otherCategories.map((c) => (
+            <a
+              href={categoryUrl(c)}
+              class="rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand"
+            >
+              {CATEGORY_LABELS[c]}
+            </a>
+          ))}
+        </nav>
+      )
+    }
+
+    <h2 class="sr-only">{categoryLabel}の動画一覧</h2>
+    <ul role="list" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        categoryVideos.map((video, index) => (
+          <ArchiveCard
+            video={video}
+            category={category}
+            eager={index === 0}
+            thumbnailSrc={index === 0 ? firstThumbnailSrc : undefined}
+            gearItems={videoGearMap.get(video.id) ?? []}
+          />
+        ))
+      }
+    </ul>
+  </main>
+</Base>
