@@ -109,6 +109,13 @@ export function embedUrl(videoId: string): string {
   return `https://www.youtube.com/embed/${videoId}`;
 }
 
+/** 指定秒数から再生開始する視聴 URL(チャプター一覧のリンク先。#154) */
+export function videoUrlAtTime(video: Pick<Video, "id" | "isShort">, seconds: number): string {
+  const base = videoUrl(video);
+  const separator = base.includes("?") ? "&" : "?";
+  return `${base}${separator}t=${seconds}s`;
+}
+
 /** RSS フィードから取り出した 1 エントリ(Shorts 判定前) */
 export interface FeedEntry {
   id: string;
