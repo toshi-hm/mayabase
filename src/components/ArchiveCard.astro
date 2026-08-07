@@ -1,7 +1,7 @@
 ---
 import { CATEGORY_LABELS, type VideoCategory } from "../lib/categories";
 import { formatDateJa, formatViewCount } from "../lib/format";
-import type { GearItem } from "../lib/gear";
+import { gearDisplayName, type GearItem } from "../lib/gear";
 import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
 import PreviewButton from "./PreviewButton.astro";
 import ShareButton from "./ShareButton.astro";
@@ -101,7 +101,7 @@ const viewCountLabel = video.viewCount !== null ? formatViewCount(video.viewCoun
     {
       gearItems.length > 0 && (
         <p class="mt-auto border-t border-line/60 px-4 py-3 text-xs text-ink-muted">
-          紹介ガジェット: {gearItems.map((item) => `${item.brand} ${item.name}`).join("、")}{" "}
+          紹介ガジェット: {gearItems.map((item) => gearDisplayName(item)).join("、")}{" "}
           <a
             href="/gear/"
             class="font-semibold text-brand-accent hover:underline focus-visible:outline-2 focus-visible:outline-brand"
