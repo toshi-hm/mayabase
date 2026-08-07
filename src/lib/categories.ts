@@ -76,3 +76,21 @@ export function categorizeVideo(video: Pick<Video, "title">): VideoCategory {
   }
   return "other";
 }
+
+/**
+ * 動画が 1 件以上あるカテゴリだけを CATEGORY_ORDER の順序で返す。
+ * `/videos/` のフィルタ UI と `/videos/category/{category}/` の静的ページ生成
+ * (getStaticPaths)の双方で「0 件カテゴリは出さない」方針を単一の実装に集約する(#121)。
+ */
+export function getAvailableCategories(
+  categorized: readonly { category: VideoCategory }[],
+): VideoCategory[] {
+  return CATEGORY_ORDER.filter((category) =>
+    categorized.some((entry) => entry.category === category),
+  );
+}
+
+/** カテゴリ別静的アーカイブページの URL(#121) */
+export function categoryUrl(category: VideoCategory): string {
+  return `/videos/category/${category}/`;
+}
