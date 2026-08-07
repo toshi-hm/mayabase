@@ -31,5 +31,6 @@ const { post, account, position, total } = Astro.props;
       <span>@{account}</span>
       <time datetime={post.date}>{formatDateJa(post.date)}</time>
     </footer>
+    <span class="sr-only">(X・新しいタブで開きます)</span>
   </a>
 </li>

@@ -130,13 +130,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             <p class="mb-2 text-sm font-bold text-brand-accent">ITで日常をより便利に</p>
             <h1 class="text-4xl font-black sm:text-6xl">{site.name}</h1>
             {
-              subscriberText && (
+              (subscriberText || totalViewCountText) && (
                 <p class="mt-2 text-sm font-semibold text-ink-muted">
-                  チャンネル登録者数 <span class="text-ink">{subscriberText}</span>
+                  {subscriberText && (
+                    <>
+                      チャンネル登録者数 <span class="text-ink">{subscriberText}</span>
+                    </>
+                  )}
+                  {subscriberText && totalViewCountText && " / "}
                   {totalViewCountText && (
                     <>
-                      {" "}
-                      / 総再生回数 <span class="text-ink">{totalViewCountText}</span>
+                      総再生回数 <span class="text-ink">{totalViewCountText}</span>
                     </>
                   )}
                   {fetchedAtText && ` (${fetchedAtText})`}
@@ -159,6 +163,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                 class="rounded-md bg-brand px-4 py-2 text-white transition hover:bg-brand-strong"
               >
                 チャンネル登録する <span aria-hidden="true">↗</span>
+                <span class="sr-only">(新しいタブで開きます)</span>
               </a>
               <a
                 href={site.youtube.url}
@@ -167,6 +172,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                 class="px-1 py-2 underline decoration-line underline-offset-4 hover:text-brand-accent"
               >
                 YouTube で見る
+                <span class="sr-only">(新しいタブで開きます)</span>
               </a>
               <a
                 href="/videos/"
@@ -204,6 +210,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                 class="text-brand-accent underline underline-offset-4"
               >
                 YouTube チャンネル
+                <span class="sr-only">(新しいタブで開きます)</span>
               </a>
               で最新の動画をご覧ください。
             </p>
@@ -279,6 +286,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                 class="text-brand-accent underline underline-offset-4"
               >
                 YouTube チャンネル
+                <span class="sr-only">(新しいタブで開きます)</span>
               </a>
               でご覧ください。
             </p>
@@ -315,7 +323,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                 rel="noopener noreferrer"
                 class="text-brand-accent underline underline-offset-4"
               >
-                X(@{account})
+                X(@{account})<span class="sr-only">(新しいタブで開きます)</span>
               </a>
               で最新の投稿をご覧ください。
             </p>
