@@ -1,8 +1,10 @@
 ---
 import Breadcrumb from "../../components/Breadcrumb.astro";
+import GearMiniCard from "../../components/GearMiniCard.astro";
 import RelatedVideoCard from "../../components/RelatedVideoCard.astro";
 import ShareButton from "../../components/ShareButton.astro";
 import { site, subscribeUrl } from "../../config/site";
+import gearJson from "../../data/gear.json";
 import videosJson from "../../data/videos.json";
 import Base from "../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../lib/breadcrumb";
@@ -15,6 +17,7 @@ import {
   linkifyText,
   truncate,
 } from "../../lib/format";
+import { buildVideoGearMap, parseGearData, type GearItem } from "../../lib/gear";
 import { getAdjacentVideos, getRelatedVideos } from "../../lib/relatedVideos";
 import {
   embedUrl,
@@ -28,18 +31,24 @@ import {
 
 export function getStaticPaths() {
   const { videos } = parseVideosData(videosJson);
+  // 動画 ID → 紹介ガジェット一覧の逆引きマップ(videos.astro と同じ方針・#134)。
+  // 動画数だけページが生成されるため、マップの構築は getStaticPaths 側で 1 度だけ行う。
+  const { items: gearItems } = parseGearData(gearJson);
+  const videoGearMap = buildVideoGearMap(gearItems);
   return videos.map((video) => ({
     params: { id: video.id },
-    props: { video, videos },
+    props: { video, videos, gearItems: videoGearMap.get(video.id) ?? [] },
   }));
 }
 
 interface Props {
   video: Video;
   videos: Video[];
+  /** この動画で紹介されているガジェット(愛用ガジェットとの相互リンク用・#134) */
+  gearItems: GearItem[];
 }
 
-const { video, videos } = Astro.props;
+const { video, videos, gearItems } = Astro.props;
 const category = categorizeVideo(video);
 const RELATED_LIMIT = 6;
 const relatedVideos = getRelatedVideos(video, videos, category, RELATED_LIMIT);
@@ -221,6 +230,29 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         }
       </div>
     </section>
+
+    {
+      /* 0 件なら非表示(featuredVideos/popularVideos・関連動画と同じ方針・#134) */
+      gearItems.length > 0 && (
+        <section aria-labelledby="gear-heading" class="mt-12">
+          <h2 id="gear-heading" class="text-xl font-bold">
+            この動画で紹介したガジェット
+          </h2>
+          <p class="mt-2 text-sm text-ink-muted">
+            動画内で使用・紹介した機材です。ほかの愛用ガジェットは
+            <a href="/gear/" class="font-semibold text-brand-accent hover:underline">
+              愛用ガジェット
+            </a>
+            でまとめてチェックできます。
+          </p>
+          <ul role="list" class="mt-5 grid gap-3 sm:grid-cols-2">
+            {gearItems.map((item) => (
+              <GearMiniCard item={item} />
+            ))}
+          </ul>
+        </section>
+      )
+    }
 
     {
       (adjacentVideos.older || adjacentVideos.newer) && (
