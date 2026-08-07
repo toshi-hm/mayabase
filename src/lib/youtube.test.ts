@@ -16,6 +16,7 @@ import {
   uploadsPlaylistId,
   type Video,
   videoUrl,
+  videoUrlAtTime,
 } from "./youtube";
 
 const FEED_XML = `<?xml version="1.0" encoding="UTF-8"?>
@@ -359,6 +360,19 @@ describe("URL ヘルパー", () => {
     expect(thumbnailUrl("abc")).toBe("https://i.ytimg.com/vi/abc/hq720.jpg");
     expect(thumbnailFallbackUrl("abc")).toBe("https://i.ytimg.com/vi/abc/hqdefault.jpg");
     expect(embedUrl("abc")).toBe("https://www.youtube.com/embed/abc");
+  });
+
+  test("videoUrlAtTime は videoUrl に t= パラメータを付与する(#154)", () => {
+    expect(videoUrlAtTime({ id: "abc", isShort: false }, 83)).toBe(
+      "https://www.youtube.com/watch?v=abc&t=83s",
+    );
+    expect(videoUrlAtTime({ id: "abc", isShort: null }, 0)).toBe(
+      "https://www.youtube.com/watch?v=abc&t=0s",
+    );
+    // shorts URL はクエリを持たないため "?" 区切りになる
+    expect(videoUrlAtTime({ id: "abc", isShort: true }, 5)).toBe(
+      "https://www.youtube.com/shorts/abc?t=5s",
+    );
   });
 });
 

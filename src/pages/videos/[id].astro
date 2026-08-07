@@ -7,6 +7,7 @@ import videosJson from "../../data/videos.json";
 import Base from "../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../lib/breadcrumb";
 import { CATEGORY_LABELS, categorizeVideo } from "../../lib/categories";
+import { formatChapterTime, parseChapters } from "../../lib/chapters";
 import {
   extractSearchableText,
   formatDateJa,
@@ -22,6 +23,7 @@ import {
   thumbnailUrl,
   type Video,
   videoUrl,
+  videoUrlAtTime,
 } from "../../lib/youtube";
 
 export function getStaticPaths() {
@@ -46,6 +48,8 @@ const adjacentVideos = getAdjacentVideos(video, videos);
 const viewCountText = video.viewCount !== null ? formatViewCount(video.viewCount) : null;
 // 概要欄の段落(空行区切り)を保持したまま表示するため行単位に分割する
 const descriptionParagraphs = video.description.split("\n");
+// 概要欄にYouTubeのチャプター記法(0:00 見出し)があれば目次として表示する(#154)
+const chapters = parseChapters(video.description);
 
 const pageTitle = `${video.title} | ${site.name}`;
 // meta description はハッシュタグ等を含む概要欄をそのまま出すと読みづらいため、
@@ -79,6 +83,15 @@ const jsonLd = {
       uploadDate: video.publishedAt,
       embedUrl: embedUrl(video.id),
       url: videoUrl(video),
+      // 検索結果でのキーモーメント表示を狙い、チャプターを Clip として構造化する(#154)
+      ...(chapters.length > 0 && {
+        hasPart: chapters.map((chapter) => ({
+          "@type": "Clip",
+          name: chapter.label,
+          startOffset: chapter.seconds,
+          url: videoUrlAtTime(video, chapter.seconds),
+        })),
+      }),
     },
   ],
 };
@@ -157,6 +170,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       <h2 id="preview-heading" class="sr-only">動画プレビュー</h2>
       <div class="aspect-video w-full overflow-hidden rounded-xl bg-surface-raised">
         <iframe
+          id="video-player-frame"
           src={embedUrl(video.id)}
           title={video.title}
           loading="lazy"
@@ -165,6 +179,37 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           class="h-full w-full"></iframe>
       </div>
     </section>
+
+    {
+      chapters.length > 0 && (
+        <section aria-labelledby="chapters-heading" class="mt-8">
+          <h2 id="chapters-heading" class="text-xl font-bold">
+            チャプター
+          </h2>
+          <ol role="list" class="mt-4 divide-y divide-line rounded-xl border border-line">
+            {chapters.map((chapter) => (
+              <li>
+                <a
+                  href={videoUrlAtTime(video, chapter.seconds)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-chapter-seconds={chapter.seconds}
+                  class="flex items-center gap-4 px-4 py-3 transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
+                >
+                  <span class="w-16 shrink-0 font-mono text-sm text-ink-muted tabular-nums">
+                    {formatChapterTime(chapter.seconds)}
+                  </span>
+                  <span>
+                    {chapter.label}
+                    <span class="sr-only">(YouTube・新しいタブで開きます)</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )
+    }
 
     <section aria-labelledby="description-heading" class="mt-12">
       <h2 id="description-heading" class="text-xl font-bold">概要</h2>
@@ -268,3 +313,24 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     </section>
   </main>
 </Base>
+
+<script>
+  // チャプターリンクは通常のYouTube視聴URLへのリンク(JS無効環境・クローラー向けフォールバック)。
+  // JS有効時はページ遷移せず、埋め込みプレイヤーのiframeを該当秒数から再生し直す(#154)
+  const frame = document.getElementById("video-player-frame");
+  const chapterLinks = document.querySelectorAll<HTMLAnchorElement>("[data-chapter-seconds]");
+  if (frame instanceof HTMLIFrameElement) {
+    for (const link of chapterLinks) {
+      link.addEventListener("click", (event) => {
+        const seconds = link.dataset.chapterSeconds;
+        if (!seconds) return;
+        event.preventDefault();
+        const url = new URL(frame.src);
+        url.searchParams.set("start", seconds);
+        url.searchParams.set("autoplay", "1");
+        frame.src = url.toString();
+        frame.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+  }
+</script>
