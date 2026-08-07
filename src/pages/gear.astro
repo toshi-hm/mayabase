@@ -105,8 +105,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             class="block h-auto w-full"
             aria-hidden="true"
           />
+          <!--
+            text-ink はダークモードで明るい色に切り替わるが、看板は画像内に
+            焼き込まれた常に白い背景のため、ここは light モードの --color-ink 固定値を使う。
+          -->
           <p
-            class="absolute top-[44%] right-[17%] left-[17%] flex h-[28%] flex-col items-center justify-center text-center text-xs leading-snug font-semibold text-ink"
+            class="absolute top-[44%] right-[17%] left-[17%] flex h-[28%] flex-col items-center justify-center text-center text-xs leading-snug font-semibold text-[oklch(24%_0.025_245)]"
             aria-hidden="true"
           >
             <span>Amazon Storefrontに</span>
@@ -146,7 +150,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                       class="flex flex-1 flex-col focus-visible:outline-2 focus-visible:outline-brand"
                     >
                       {item.image && (
-                        <div class="grid aspect-[4/3] place-items-center bg-white p-6">
+                        <div class="grid aspect-[4/3] place-items-center bg-surface-photo p-6">
                           <img
                             src={item.image}
                             alt={gearDisplayName(item)}
@@ -249,7 +253,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         class="block h-auto w-full"
       />
       <span
-        class="absolute top-[44%] right-[17%] left-[17%] flex h-[28%] items-center justify-center text-center text-[9px] leading-tight font-semibold text-ink sm:text-[11px]"
+        class="absolute top-[44%] right-[17%] left-[17%] flex h-[28%] items-center justify-center text-center text-[9px] leading-tight font-semibold text-[oklch(24%_0.025_245)] sm:text-[11px]"
       >
         Storefrontへ
       </span>

@@ -23,6 +23,13 @@
   --color-surface-raised: oklch(96.5% 0.008 220);
   --color-surface-mint: oklch(95% 0.035 178);
   --color-surface-sun: oklch(96% 0.055 94);
+  /*
+   * 商品写真タイル専用(#151)。ガジェット紹介の商品画像は白背景で撮影/合成された
+   * ものが多く(Amazon商品画像等)、他のsurfaceトークンのようにダークモードで
+   * 大きく暗転させると画像自体の白い背景が浮いて見える。ライトモードでは純白、
+   * ダークモードは白飛び・まぶしさを抑えたやや暗いオフホワイトに留める。
+   */
+  --color-surface-photo: oklch(100% 0 0);
   --color-ink: oklch(24% 0.025 245);
   --color-ink-muted: oklch(48% 0.025 245);
   --color-line: oklch(88% 0.015 235);
@@ -47,6 +54,7 @@
     --color-surface-raised: oklch(27% 0.018 240);
     --color-surface-mint: oklch(23% 0.035 178);
     --color-surface-sun: oklch(24% 0.05 94);
+    --color-surface-photo: oklch(88% 0.008 90);
     --color-ink: oklch(93% 0.012 245);
     --color-ink-muted: oklch(72% 0.02 245);
     --color-line: oklch(36% 0.02 235);
