@@ -80,6 +80,17 @@ describe("categorizeVideo", () => {
     expect(categorizeVideo({ title: "週5日 在宅勤務でした。【二足のわらじ】" })).toBe("vlog");
   });
 
+  test("フロアタイルを使ったDIY系動画は gadget になる(#167)", () => {
+    expect(
+      categorizeVideo({ title: "【DIY】6畳の空き部屋にフロアタイルを導入した結果… #shorts" }),
+    ).toBe("gadget");
+    expect(
+      categorizeVideo({
+        title: "原状回復OKな「置くだけフロアタイル」の敷き方とメリット & 自宅に〇〇を置きました",
+      }),
+    ).toBe("gadget");
+  });
+
   test("「1日」キーワードは日付表記(◯月31日等)に誤マッチしない", () => {
     expect(categorizeVideo({ title: "12月31日の記録" })).toBe("other");
     expect(categorizeVideo({ title: "2026年1月21日のこと" })).toBe("other");

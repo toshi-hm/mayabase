@@ -61,6 +61,7 @@ const CATEGORY_KEYWORDS: readonly (readonly [VideoCategory, readonly string[]])[
       "コーヒーメーカー",
       "体重計",
       "Amazon",
+      "フロアタイル",
     ],
   ],
   ["ai", ["AI", "ChatGPT", "GPT", "OpenAI", "Claude", "Gemini", "Copilot", "LLM"]],
