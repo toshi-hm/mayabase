@@ -267,16 +267,19 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             <div id="topic-picker-results" class="mt-6" hidden>
               <p id="topic-picker-count" aria-live="polite" class="mb-4 text-sm text-ink-muted" />
               {topicPanels.map(({ category, videos: panelVideos }) => (
-                <ul
-                  data-topic-panel={category}
-                  hidden
-                  role="list"
-                  class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
-                >
-                  {panelVideos.map((video) => (
-                    <ArchiveCard video={video} category={category} />
-                  ))}
-                </ul>
+                <div data-topic-panel={category} hidden>
+                  <ul role="list" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {panelVideos.map((video) => (
+                      <ArchiveCard video={video} category={category} />
+                    ))}
+                  </ul>
+                  <a
+                    href={categoryUrl(category)}
+                    class="mt-6 inline-block text-sm font-semibold text-brand hover:underline"
+                  >
+                    {CATEGORY_LABELS[category]}の動画をすべて見る
+                  </a>
+                </div>
               ))}
             </div>
           </div>
@@ -412,13 +415,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   const buttons = document.querySelectorAll<HTMLAnchorElement>("[data-topic-category]");
   const results = document.getElementById("topic-picker-results");
   const countLabel = document.getElementById("topic-picker-count");
-  const panels = document.querySelectorAll<HTMLUListElement>("[data-topic-panel]");
+  const panels = document.querySelectorAll<HTMLDivElement>("[data-topic-panel]");
 
   function selectTopic(category: string, label: string): void {
     for (const button of buttons) {
       button.setAttribute("aria-pressed", String(button.dataset.topicCategory === category));
     }
-    let selectedPanel: HTMLUListElement | null = null;
+    let selectedPanel: HTMLDivElement | null = null;
     for (const panel of panels) {
       const isMatch = panel.dataset.topicPanel === category;
       panel.hidden = !isMatch;
@@ -426,7 +429,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     }
     if (results) results.hidden = false;
     if (countLabel) {
-      countLabel.textContent = `${label}のおすすめ動画 ${selectedPanel?.children.length ?? 0} 件`;
+      const videoCount = selectedPanel?.querySelector("ul")?.children.length ?? 0;
+      countLabel.textContent = `${label}のおすすめ動画 ${videoCount} 件`;
     }
     // 絞り込み結果の先頭カードへフォーカスを移す(videos.astro の「もっと見る」と同じ方針)
     selectedPanel?.querySelector("a")?.focus();
