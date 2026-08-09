@@ -6,8 +6,21 @@ import {
   categorizeVideo,
   categoryUrl,
   getAvailableCategories,
+  topVideosByCategory,
 } from "./categories";
+import type { Video } from "./youtube";
 import { parseVideosData } from "./youtube";
+
+function makeVideo(overrides: Partial<Video> & { id: string }): Video {
+  return {
+    title: overrides.id,
+    publishedAt: "2026-01-01T00:00:00Z",
+    description: "",
+    isShort: false,
+    viewCount: null,
+    ...overrides,
+  };
+}
 
 describe("categorizeVideo", () => {
   test("AI 系のタイトルは ai になる", () => {
@@ -160,6 +173,51 @@ describe("getAvailableCategories", () => {
     for (const category of available) {
       const categoryVideos = categorized.filter((entry) => entry.category === category);
       expect(categoryVideos.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("topVideosByCategory", () => {
+  test("指定カテゴリの動画のみを再生回数の多い順に返す", () => {
+    const categorized = [
+      { video: makeVideo({ id: "a", viewCount: 100 }), category: "ai" as const },
+      { video: makeVideo({ id: "b", viewCount: 300 }), category: "ai" as const },
+      { video: makeVideo({ id: "c", viewCount: 500 }), category: "gadget" as const },
+    ];
+    expect(topVideosByCategory(categorized, "ai", 10).map((v) => v.id)).toEqual(["b", "a"]);
+  });
+
+  test("limit で上位件数に絞り込む", () => {
+    const categorized = [
+      { video: makeVideo({ id: "a", viewCount: 100 }), category: "ai" as const },
+      { video: makeVideo({ id: "b", viewCount: 300 }), category: "ai" as const },
+      { video: makeVideo({ id: "c", viewCount: 200 }), category: "ai" as const },
+    ];
+    expect(topVideosByCategory(categorized, "ai", 2).map((v) => v.id)).toEqual(["b", "c"]);
+  });
+
+  test("再生回数が未取得(null)の動画は最下位扱いで、元の順序を保つ(videos.astro の並び替えと同じ方針)", () => {
+    const categorized = [
+      { video: makeVideo({ id: "a", viewCount: null }), category: "ai" as const },
+      { video: makeVideo({ id: "b", viewCount: null }), category: "ai" as const },
+      { video: makeVideo({ id: "c", viewCount: 50 }), category: "ai" as const },
+    ];
+    expect(topVideosByCategory(categorized, "ai", 10).map((v) => v.id)).toEqual(["c", "a", "b"]);
+  });
+
+  test("該当カテゴリの動画が無ければ空配列を返す", () => {
+    const categorized = [{ video: makeVideo({ id: "a" }), category: "gadget" as const }];
+    expect(topVideosByCategory(categorized, "ai", 10)).toEqual([]);
+  });
+
+  test("実データで各カテゴリの上位動画が limit 件以内に収まる(回帰テスト)", () => {
+    const { videos } = parseVideosData(videosJson);
+    const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
+    for (const category of getAvailableCategories(categorized)) {
+      const top = topVideosByCategory(categorized, category, 6);
+      expect(top.length).toBeLessThanOrEqual(6);
+      expect(top.length).toBeGreaterThan(0);
+      expect(top.every((video) => categorizeVideo(video) === category)).toBe(true);
     }
   });
 });

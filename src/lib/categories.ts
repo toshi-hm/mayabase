@@ -95,3 +95,21 @@ export function getAvailableCategories(
 export function categoryUrl(category: VideoCategory): string {
   return `/videos/category/${category}/`;
 }
+
+/**
+ * 指定カテゴリの動画を再生回数の多い順(上位 `limit` 件)で返す。
+ * 再生回数が未取得(null)の動画は videos.astro の並び替えロジックと同様に最下位扱いとし、
+ * 結果として渡された配列内の元の順序(= videos.json の公開日時降順)が保たれる。
+ * トップページの「気になるテーマは?」導線(#156)で使用する。
+ */
+export function topVideosByCategory(
+  categorized: readonly { video: Video; category: VideoCategory }[],
+  category: VideoCategory,
+  limit: number,
+): Video[] {
+  return categorized
+    .filter((entry) => entry.category === category)
+    .map((entry) => entry.video)
+    .sort((a, b) => (b.viewCount ?? -1) - (a.viewCount ?? -1))
+    .slice(0, limit);
+}
