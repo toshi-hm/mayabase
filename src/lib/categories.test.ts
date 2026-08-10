@@ -93,6 +93,27 @@ describe("categorizeVideo", () => {
     expect(categorizeVideo({ title: "週5日 在宅勤務でした。【二足のわらじ】" })).toBe("vlog");
   });
 
+  test("「新卒」「大学院」は定番ブランディング語のため、vlog 語を伴う場合は career より vlog を優先する(#182)", () => {
+    // 末尾ハッシュタグ(#新卒 #エンジニア #大学院 等)のみを理由に career へ吸収されないこと
+    expect(
+      categorizeVideo({
+        title: "出社した日の日常【二足のわらじ】#新卒 #大学院生 #エンジニア #両立 #shorts",
+      }),
+    ).toBe("vlog");
+    expect(
+      categorizeVideo({
+        title:
+          "休日ドライブ - 山梨 【二足のわらじ】 #新卒 #エンジニア #大学院 #両立 #二足のわらじ #shorts",
+      }),
+    ).toBe("vlog");
+  });
+
+  test("「新卒」「大学院」は他のどのキーワードにも一致しない場合のみ career のフォールバックとして扱う(#182)", () => {
+    expect(
+      categorizeVideo({ title: "新卒エンジニア１年目。効率を追い求めて。【二足のわらじ】" }),
+    ).toBe("career");
+  });
+
   test("フロアタイルを使ったDIY系動画は gadget になる(#167)", () => {
     expect(
       categorizeVideo({ title: "【DIY】6畳の空き部屋にフロアタイルを導入した結果… #shorts" }),
