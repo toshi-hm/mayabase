@@ -27,24 +27,14 @@ export const CATEGORY_ORDER: readonly VideoCategory[] = ["ai", "gadget", "vlog",
  * 誤分類の原因になるため、照合対象はタイトルのみとする。
  * vlog の「1日」「休日」など一般語も含むため、分類が意図とズレた動画が出たら
  * ここのキーワードを見直すこと(categories.test.ts の実データ回帰テストで検知できる)。
+ *
+ * 「新卒」「大学院」は運営者の定番ブランディング語(「エンジニア×大学院生」の二足のわらじ)
+ * として末尾ハッシュタグ含めほぼ全動画のタイトルに登場するため career の主判定には使わず、
+ * vlog より後ろの弱いフォールバックとして扱う(#182)。career と確定させたい動画は
+ * 「就活」「学位」「修了」「卒業」等、より特異度の高い語で判定する。
  */
 const CATEGORY_KEYWORDS: readonly (readonly [VideoCategory, readonly string[]])[] = [
-  [
-    "career",
-    [
-      "就活",
-      "キャリア",
-      "大学院",
-      "学位",
-      "修了",
-      "卒業",
-      "転職",
-      "SIer",
-      "勉強法",
-      "新卒",
-      "非情報系",
-    ],
-  ],
+  ["career", ["就活", "キャリア", "学位", "修了", "卒業", "転職", "SIer", "勉強法", "非情報系"]],
   [
     "gadget",
     [
@@ -65,7 +55,12 @@ const CATEGORY_KEYWORDS: readonly (readonly [VideoCategory, readonly string[]])[
     ],
   ],
   ["ai", ["AI", "ChatGPT", "GPT", "OpenAI", "Claude", "Gemini", "Copilot", "LLM"]],
-  ["vlog", ["Vlog", "日常", "旅行", "ルーティン", "1日", "休日", "ライブ配信", "CDJ", "在宅勤務"]],
+  [
+    "vlog",
+    ["Vlog", "日常", "旅行", "ルーティン", "1日", "休日", "ライブ配信", "CDJ", "在宅勤務", "朝活"],
+  ],
+  // 弱いフォールバック(#182): 上記いずれにも該当しない場合のみ career 扱いにする
+  ["career", ["新卒", "大学院"]],
 ];
 
 /** タイトルから動画の主カテゴリを判定する。どれにも該当しなければ "other" */
