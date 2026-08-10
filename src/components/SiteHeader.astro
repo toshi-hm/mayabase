@@ -1,6 +1,7 @@
 ---
 import ThemeToggle from "./ThemeToggle.astro";
 import { site } from "../config/site";
+import { isNavCurrent } from "../lib/navigation";
 
 const NAV_ITEMS = [
   { href: "/videos/", label: "動画ライブラリ" },
@@ -10,7 +11,7 @@ const NAV_ITEMS = [
 
 // 末尾スラッシュの有無に依存しないよう正規化して現在ページを判定する
 const currentPath = Astro.url.pathname.replace(/\/+$/, "") || "/";
-const isCurrent = (href: string): boolean => currentPath === href.replace(/\/+$/, "");
+const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
 ---
 
 <header class="sticky top-0 z-40 border-b border-line bg-surface/92 backdrop-blur-lg">
