@@ -17,16 +17,25 @@ const { video, category } = Astro.props;
     href={`/videos/${video.id}/`}
     class="group/card block h-full overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
   >
-    <img
-      src={thumbnailUrl(video.id)}
-      onerror={`this.onerror=null;this.src='${thumbnailFallbackUrl(video.id)}'`}
-      alt=""
-      width="1280"
-      height="720"
-      loading="lazy"
-      decoding="async"
-      class="aspect-video w-full object-cover"
-    />
+    <div class="relative">
+      <img
+        src={thumbnailUrl(video.id)}
+        onerror={`this.onerror=null;this.src='${thumbnailFallbackUrl(video.id)}'`}
+        alt=""
+        width="1280"
+        height="720"
+        loading="lazy"
+        decoding="async"
+        class="aspect-video w-full object-cover"
+      />
+      {
+        video.isShort && (
+          <span class="absolute top-2 left-2 rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
+            Shorts
+          </span>
+        )
+      }
+    </div>
     <div class="p-4">
       <h3 class="line-clamp-2 font-semibold leading-snug group-hover/card:text-brand-accent">
         {video.title}
