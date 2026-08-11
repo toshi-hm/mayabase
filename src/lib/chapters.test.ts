@@ -44,6 +44,16 @@ describe("parseChapters", () => {
     expect(parseChapters(description)).toEqual([]);
   });
 
+  test("最初のチャプターが 0:00 から数十秒程度(許容範囲内)ずれていても抽出する(#195)", () => {
+    // 実データ(動画 me13gXsVR7c)と同じ「オープニング挨拶等で 0:00 ちょうどにならない」ケース
+    const description = ["もくじ", "0:12 在宅勤務", "2:34 ライブ", "3:26 出社"].join("\n");
+    expect(parseChapters(description)).toEqual([
+      { seconds: 12, label: "在宅勤務" },
+      { seconds: 154, label: "ライブ" },
+      { seconds: 206, label: "出社" },
+    ]);
+  });
+
   test("昇順でない場合は空配列を返す(時刻に見える無関係な行への誤検知防止)", () => {
     const description = ["0:00 導入", "5:00 本編", "3:00 まとめ"].join("\n");
     expect(parseChapters(description)).toEqual([]);
