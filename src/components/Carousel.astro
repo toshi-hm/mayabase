@@ -163,6 +163,15 @@ const { label } = Astro.props;
       if (!userPaused && leftCarousel) autoplay.play();
     });
 
+    // Embla-Autoplayプラグインは stopOnInteraction:false 指定時、内部で
+    // pointerUp イベント(ドラッグ/スワイプ操作の指を離した瞬間)に無条件で
+    // startAutoplay() を呼ぶため、userPaused=true でもスワイプ操作をきっかけに
+    // 自動切替が勝手に再開してしまう。プラグイン初期化後に登録することで
+    // その直後に実行され、ユーザーの明示的な停止を尊重し直す(#194)
+    embla.on("pointerUp", () => {
+      if (userPaused) autoplay.stop();
+    });
+
     const dots: HTMLButtonElement[] = embla.scrollSnapList().map((_, index) => {
       const dot = document.createElement("button");
       dot.type = "button";
