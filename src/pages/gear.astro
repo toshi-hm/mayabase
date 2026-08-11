@@ -94,13 +94,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           class="storefront-mascot relative mt-1 block w-72 max-w-[78vw] focus-visible:outline-2 focus-visible:outline-brand"
         >
           <span class="sr-only">Amazon Storefrontを見る(外部サイト・新しいタブで開きます)</span>
+          {
+            /* ファーストビュー内の装飾画像のため eager は維持するが、
+            fetchpriority="high" は付与しない。真のLCP候補は下の商品一覧の先頭画像で、
+            1ページに2枚 high を付けると優先度ヒントが競合してしまうため(#198) */
+          }
           <img
             src="/images/storefront-bear.png"
             alt=""
             width="640"
             height="640"
             loading="eager"
-            fetchpriority="high"
             decoding="async"
             class="block h-auto w-full"
             aria-hidden="true"
