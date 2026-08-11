@@ -23,7 +23,7 @@ export function postUrl(account: string, postId: string): string {
 /** X(Twitter)投稿インテントの URL を組み立てる(クエリは URLSearchParams で安全にエンコードする) */
 export function shareIntentUrl(text: string, url: string): string {
   const params = new URLSearchParams({ text, url });
-  return `https://twitter.com/intent/tweet?${params.toString()}`;
+  return `https://x.com/intent/tweet?${params.toString()}`;
 }
 
 /**
