@@ -170,7 +170,8 @@ const { label } = Astro.props;
       dot.className = "p-2 focus-visible:outline-2 focus-visible:outline-brand";
       dot.setAttribute("aria-label", `${index + 1} 番目のスライドへ`);
       const visual = document.createElement("span");
-      visual.className = "block h-2.5 w-2.5 rounded-full bg-ink-muted/70 transition";
+      // 選択状態は色だけでなく幅(ピル形状への変化)でも区別する(色のみに頼らないWCAG 1.4.1対応・#196)
+      visual.className = "block h-2.5 w-2.5 rounded-full bg-ink-muted/70 transition-all";
       dot.appendChild(visual);
       dot.addEventListener("click", () => embla.scrollTo(index));
       dotsContainer.appendChild(dot);
@@ -184,6 +185,8 @@ const { label } = Astro.props;
         dot.setAttribute("aria-current", String(isSelected));
         dot.firstElementChild?.classList.toggle("bg-brand", isSelected);
         dot.firstElementChild?.classList.toggle("bg-ink-muted/70", !isSelected);
+        dot.firstElementChild?.classList.toggle("w-6", isSelected);
+        dot.firstElementChild?.classList.toggle("w-2.5", !isSelected);
       });
       // 自動切替中の読み上げ連発を避け、停止中のみ現在位置を通知する
       if (status && !autoplay.isPlaying()) {
