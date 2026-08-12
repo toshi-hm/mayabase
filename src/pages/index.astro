@@ -22,6 +22,7 @@ import {
 import { formatFetchedAt, formatSubscriberCount, parseChannelStats } from "../lib/channelStats";
 import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredVideos";
 import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
+import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseXPostsData } from "../lib/x";
 import {
   embedUrl,
@@ -76,6 +77,11 @@ const subscriberText = subscriberCount !== null ? formatSubscriberCount(subscrib
 const totalViewCountText = viewCount !== null ? formatViewCount(viewCount) : null;
 // リアルタイム取得ではないため、取得日時を併記する
 const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt) : null;
+
+// 更新頻度の目安(#187)。初回訪問者が登録を判断する材料として提示する。
+// データ不足・ペースが低すぎる・間隔が不規則、のいずれかの場合は算出結果を出さない
+// (subscriberCount 等と同じ「取得できなければ非表示」の方針)。
+const updateFrequencyText = computeUpdateFrequencyLabel(videos);
 
 // JSON-LD 構造化データ(VideoObject は Google 必須の name / description / thumbnailUrl / uploadDate を含む)
 if (!Astro.site) {
@@ -175,6 +181,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             <p class="leading-relaxed text-ink-muted">
               AI、ガジェット、働く日々のリアル。暮らしと仕事を少し便利にする発見を動画で届けます。
             </p>
+            {
+              updateFrequencyText && (
+                <p class="mt-2 text-sm font-semibold text-ink-muted">
+                  更新頻度の目安 <span class="text-ink">{updateFrequencyText}</span>
+                </p>
+              )
+            }
             <nav
               aria-label="チャンネルリンク"
               class="mt-4 flex flex-wrap gap-4 text-sm font-semibold"
