@@ -12,7 +12,7 @@ describe("shareIntentUrl", () => {
   test("text と url をクエリパラメータとして付与する", () => {
     const result = shareIntentUrl("動画タイトル", "https://www.youtube.com/watch?v=abc123");
     const parsed = new URL(result);
-    expect(parsed.origin + parsed.pathname).toBe("https://twitter.com/intent/tweet");
+    expect(parsed.origin + parsed.pathname).toBe("https://x.com/intent/tweet");
     expect(parsed.searchParams.get("text")).toBe("動画タイトル");
     expect(parsed.searchParams.get("url")).toBe("https://www.youtube.com/watch?v=abc123");
   });
