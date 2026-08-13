@@ -111,7 +111,8 @@ const { label } = Astro.props;
       return;
     }
 
-    const delay = Number(root.dataset.autoplayDelay) || 5000;
+    const parsedDelay = Number(root.dataset.autoplayDelay);
+    const delay = Number.isFinite(parsedDelay) ? parsedDelay : 5000;
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // JS が動いたので横スクロールから Embla 制御へ切り替える
