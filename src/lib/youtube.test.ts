@@ -535,6 +535,16 @@ describe("parseVideosData / createEmptyVideosData", () => {
     ).toThrow("id");
   });
 
+  test("id が重複していればエラー", () => {
+    expect(() =>
+      parseVideosData({
+        channelId: "",
+        fetchedAt: null,
+        videos: [validVideo, { ...validVideo, title: "別の動画" }],
+      }),
+    ).toThrow("重複");
+  });
+
   test("createEmptyVideosData は毎回新しいオブジェクトを返す", () => {
     const a = createEmptyVideosData();
     const b = createEmptyVideosData();
