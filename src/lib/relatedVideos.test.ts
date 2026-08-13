@@ -46,6 +46,12 @@ describe("getRelatedVideos", () => {
     const related = getRelatedVideos(target, [target, otherCategory], "career", 10);
     expect(related).toEqual([]);
   });
+
+  test("不正なpublishedAtの動画はNaN比較にならず末尾に並ぶ", () => {
+    const invalidDate = video("invalid", "GPT の使い方まとめ", "not-a-date");
+    const related = getRelatedVideos(target, [target, sameCategoryNewer, invalidDate], "ai", 10);
+    expect(related.map((v) => v.id)).toEqual(["newer", "invalid"]);
+  });
 });
 
 describe("getAdjacentVideos", () => {
