@@ -10,9 +10,11 @@ interface Props {
   position: number;
   /** スライド総数 */
   total: number;
+  /** ファーストビューに入るカードは true(LCP 対策で eager 読み込み) */
+  eager?: boolean;
 }
 
-const { video, position, total } = Astro.props;
+const { video, position, total, eager = false } = Astro.props;
 ---
 
 <li
@@ -33,7 +35,8 @@ const { video, position, total } = Astro.props;
       alt=""
       width="480"
       height="360"
-      loading="lazy"
+      loading={eager ? "eager" : "lazy"}
+      fetchpriority={eager ? "high" : "auto"}
       decoding="async"
       class="aspect-[9/16] w-full object-cover"
     />
