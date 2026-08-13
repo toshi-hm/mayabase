@@ -15,8 +15,14 @@ export function getRelatedVideos(
 ): Video[] {
   return videos
     .filter((v) => v.id !== video.id && categorizeVideo(v) === category)
-    .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
+    .sort((a, b) => sortTime(b) - sortTime(a))
     .slice(0, limit);
+}
+
+/** ソート用の時刻値。不正な日付は最古扱いにして降順リストの末尾へ寄せる(youtube.ts / rss.ts の sortTime と同じ方針) */
+function sortTime(video: Pick<Video, "publishedAt">): number {
+  const time = Date.parse(video.publishedAt);
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
 }
 
 export interface AdjacentVideos {
@@ -34,7 +40,7 @@ export function getAdjacentVideos(
   video: Pick<Video, "id" | "publishedAt">,
   videos: readonly Video[],
 ): AdjacentVideos {
-  const sorted = [...videos].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+  const sorted = [...videos].sort((a, b) => sortTime(b) - sortTime(a));
   const index = sorted.findIndex((v) => v.id === video.id);
   if (index === -1) return { older: null, newer: null };
   return {
