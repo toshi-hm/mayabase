@@ -1,3 +1,4 @@
+import { textMatchesKeyword } from "./format";
 import type { Video } from "./youtube";
 
 /** 愛用ガジェットのカテゴリ(表示順) */
@@ -121,6 +122,19 @@ export function parseGearData(data: unknown): GearData {
  */
 export function gearDisplayName(item: Pick<GearItem, "brand" | "name">): string {
   return `${item.brand} ${item.name}`;
+}
+
+/**
+ * 愛用ガジェットのキーワード検索(gear.astro のクライアントスクリプトから使用)。
+ * name / brand / note / query はいずれも呼び出し側で小文字化済みの前提。
+ * `textMatchesKeyword`(format.ts、動画ライブラリ・FAQ の検索と共通)を使う(#215)。
+ */
+export function gearTextMatches(name: string, brand: string, note: string, query: string): boolean {
+  return (
+    textMatchesKeyword(name, query) ||
+    textMatchesKeyword(brand, query) ||
+    textMatchesKeyword(note, query)
+  );
 }
 
 /** カテゴリごとにグループ化する(GEAR_CATEGORY_ORDER 順。JSON 内の記載順は維持) */

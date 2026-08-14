@@ -133,15 +133,33 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </p>
     </div>
 
+    <section aria-label="愛用ガジェットの絞り込み" class="mt-10 max-w-md">
+      <label for="gear-search" class="mb-1 block text-sm text-ink-muted">キーワード検索</label>
+      <input
+        id="gear-search"
+        type="search"
+        placeholder="例: キーボード、マイク、ロジクール"
+        class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
+      />
+      <p id="gear-count" aria-live="polite" class="mt-2 text-sm text-ink-muted">
+        {displayOrderedItems.length} 件
+      </p>
+    </section>
+
     {
       groups.map(([category, groupItems], groupIndex) => (
-        <section aria-labelledby={`gear-${category}-heading`} class="pt-14">
+        <section aria-labelledby={`gear-${category}-heading`} class="pt-14" data-gear-section>
           <SectionHeading id={`gear-${category}-heading`} title={GEAR_CATEGORY_LABELS[category]} />
           <ul role="list" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {groupItems.map((item, itemIndex) => {
               const gearVideos = resolveGearVideos(item, videos);
               return (
-                <li>
+                <li
+                  data-gear-item
+                  data-name={item.name.toLowerCase()}
+                  data-brand={item.brand.toLowerCase()}
+                  data-note={(item.note ?? "").toLowerCase()}
+                >
                   <div class="group/card flex h-full flex-col overflow-hidden rounded-lg border border-line bg-surface transition hover:-translate-y-1 hover:shadow-lg">
                     <a
                       href={item.url}
@@ -209,6 +227,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         </section>
       ))
     }
+    <p
+      id="gear-empty"
+      hidden
+      class="mt-8 rounded-xl bg-surface-raised p-8 text-center text-ink-muted"
+    >
+      条件に一致するガジェットが見つかりませんでした。キーワードを変えてお試しください。
+    </p>
 
     <section aria-labelledby="gear-cta-heading" class="pt-16">
       <div class="rounded-2xl bg-surface-raised p-8 text-center">
@@ -290,6 +315,75 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     window.addEventListener("scroll", requestSync, { passive: true });
     window.addEventListener("resize", requestSync);
   }
+</script>
+
+<script>
+  // キーワード検索(カテゴリ横断)。JS 無効時は全件表示のまま(絞り込み UI のみ機能しない)
+  import { gearTextMatches } from "../lib/gear";
+
+  const search = document.getElementById("gear-search") as HTMLInputElement | null;
+  const sections = document.querySelectorAll<HTMLElement>("[data-gear-section]");
+  const count = document.getElementById("gear-count");
+  const empty = document.getElementById("gear-empty");
+
+  function applyFilter(): void {
+    const query = (search?.value ?? "").trim().toLowerCase();
+    let matched = 0;
+    for (const section of sections) {
+      let visibleInSection = 0;
+      for (const item of section.querySelectorAll<HTMLElement>("[data-gear-item]")) {
+        const isMatch = gearTextMatches(
+          item.dataset.name ?? "",
+          item.dataset.brand ?? "",
+          item.dataset.note ?? "",
+          query,
+        );
+        item.hidden = !isMatch;
+        if (isMatch) visibleInSection += 1;
+      }
+      section.hidden = visibleInSection === 0;
+      matched += visibleInSection;
+    }
+    if (count) count.textContent = `${matched} 件`;
+    if (empty) empty.hidden = matched > 0;
+  }
+
+  // 検索キーワードを URL クエリパラメータ(q)へ反映する(videos.astro / faq.astro と同じ方針)。
+  // 検索結果を直接共有・ブックマークできるようにする。空検索時はパラメータごと省略する。
+  // mode "push": 独立した履歴エントリを作る / "replace": 現在の履歴エントリを書き換えるのみ
+  function syncUrl(mode: "push" | "replace"): void {
+    const params = new URLSearchParams();
+    const query = (search?.value ?? "").trim();
+    if (query) params.set("q", query);
+    const queryString = params.toString();
+    const newUrl = `${location.pathname}${queryString ? `?${queryString}` : ""}${location.hash}`;
+    if (mode === "push") {
+      history.pushState(null, "", newUrl);
+    } else {
+      history.replaceState(null, "", newUrl);
+    }
+  }
+
+  // URL のクエリパラメータ(q)から検索状態を復元する
+  function restoreStateFromUrl(): void {
+    if (search) search.value = new URLSearchParams(location.search).get("q") ?? "";
+  }
+
+  search?.addEventListener("input", () => {
+    applyFilter();
+    // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
+    syncUrl("replace");
+  });
+
+  // 戻る/進むボタン操作時は URL から検索状態を再構築する
+  window.addEventListener("popstate", () => {
+    restoreStateFromUrl();
+    applyFilter();
+  });
+
+  // 初期表示:URL のクエリパラメータから検索状態を復元してから表示する
+  restoreStateFromUrl();
+  applyFilter();
 </script>
 
 <style>

@@ -6,6 +6,7 @@ import {
   GEAR_CATEGORY_LABELS,
   GEAR_CATEGORY_ORDER,
   gearDisplayName,
+  gearTextMatches,
   groupGearByCategory,
   isAffiliateUrl,
   parseGearData,
@@ -104,6 +105,46 @@ describe("gearDisplayName", () => {
     const { items } = parseGearData(gearJson);
     for (const item of items) {
       expect(gearDisplayName(item)).toBe(`${item.brand} ${item.name}`);
+    }
+  });
+});
+
+describe("gearTextMatches", () => {
+  test("空クエリは常に一致する", () => {
+    expect(gearTextMatches("hhkb", "pfu", "メインキーボード", "")).toBe(true);
+  });
+
+  test("製品名に含まれれば一致する", () => {
+    expect(gearTextMatches("hhkb professional hybrid type-s", "pfu", "", "hhkb")).toBe(true);
+  });
+
+  test("ブランド名に含まれれば一致する", () => {
+    expect(gearTextMatches("mx keys", "logicool", "", "logicool")).toBe(true);
+  });
+
+  test("コメントに含まれれば一致する", () => {
+    expect(gearTextMatches("mx keys", "logicool", "メインキーボード", "キーボード")).toBe(true);
+  });
+
+  test("いずれにも含まれなければ不一致", () => {
+    expect(gearTextMatches("mx keys", "logicool", "メインキーボード", "マイク")).toBe(false);
+  });
+
+  test("note が空文字でも例外にならない", () => {
+    expect(gearTextMatches("mx keys", "logicool", "", "マイク")).toBe(false);
+  });
+
+  test("gear.json の全アイテムで例外なく判定できる(回帰テスト・#215)", () => {
+    const { items } = parseGearData(gearJson);
+    for (const item of items) {
+      expect(
+        gearTextMatches(
+          item.name.toLowerCase(),
+          item.brand.toLowerCase(),
+          (item.note ?? "").toLowerCase(),
+          item.brand.toLowerCase(),
+        ),
+      ).toBe(true);
     }
   });
 });
