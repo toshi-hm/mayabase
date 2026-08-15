@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import videosJson from "../data/videos.json";
+import { categorizeVideo, getAvailableCategories } from "./categories";
 import { buildRssFeed } from "./rss";
 import type { Video } from "./youtube";
+import { parseVideosData } from "./youtube";
 
 const SITE_URL = new URL("https://portal.mayabase.workers.dev");
 const FEED_URL = new URL("https://portal.mayabase.workers.dev/rss.xml");
@@ -103,5 +106,33 @@ describe("buildRssFeed", () => {
     const video = makeVideo({ description: "" });
     const xml = buildRssFeed([video], SITE_URL, FEED_URL, CHANNEL);
     expect(xml).toContain("<description>動画タイトル</description>");
+  });
+
+  test("カテゴリで絞り込んだ動画一覧を渡すと、そのカテゴリのitemのみを含むフィードになる(videos/category/[category]/rss.xml.ts の実データ回帰テスト)", () => {
+    // src/pages/videos/category/[category]/rss.xml.ts(#214)と同じ絞り込み方法で
+    // 実データを使い、各カテゴリのフィードが空にならず、他カテゴリの動画を含まないことを検証する
+    const { videos } = parseVideosData(videosJson);
+    const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
+    const available = getAvailableCategories(categorized);
+    expect(available.length).toBeGreaterThan(0);
+
+    for (const category of available) {
+      const categoryVideos = videos.filter((video) => categorizeVideo(video) === category);
+      expect(categoryVideos.length).toBeGreaterThan(0);
+
+      const feedUrl = new URL(`videos/category/${category}/rss.xml`, SITE_URL);
+      const xml = buildRssFeed(categoryVideos, SITE_URL, feedUrl, CHANNEL);
+      const itemCount = xml.match(/<item>/g)?.length ?? 0;
+      expect(itemCount).toBeGreaterThan(0);
+
+      // フィードに含まれる動画がすべて対象カテゴリに属することを、他カテゴリ動画のIDが
+      // リンクとして出現しないことで確認する
+      const otherCategoryVideoIds = videos
+        .filter((video) => categorizeVideo(video) !== category)
+        .map((video) => video.id);
+      for (const otherId of otherCategoryVideoIds) {
+        expect(xml).not.toContain(`videos/${otherId}/`);
+      }
+    }
   });
 });
