@@ -19,7 +19,12 @@ import {
   categoryUrl,
   topVideosByCategory,
 } from "../lib/categories";
-import { formatFetchedAt, formatSubscriberCount, parseChannelStats } from "../lib/channelStats";
+import {
+  formatFetchedAt,
+  formatSubscriberCount,
+  nextSubscriberMilestone,
+  parseChannelStats,
+} from "../lib/channelStats";
 import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredVideos";
 import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
@@ -75,6 +80,14 @@ const { subscriberCount, viewCount, fetchedAt } = parseChannelStats(channelStats
 const subscriberText = subscriberCount !== null ? formatSubscriberCount(subscriberCount) : null;
 // チャンネル総再生回数(#60)。登録者数と同じフォールバック方針で、未取得時は非表示にする
 const totalViewCountText = viewCount !== null ? formatViewCount(viewCount) : null;
+// 次のマイルストーン(#200)。目標値は常に計算値のため、運用コストなしで最新の目標を維持できる。
+// 登録者数を取得できない環境(subscriberCount === null)では既存方針どおり非表示にする。
+const nextMilestoneText =
+  subscriberCount !== null ? formatSubscriberCount(nextSubscriberMilestone(subscriberCount)) : null;
+const milestoneRemainingText =
+  subscriberCount !== null
+    ? formatSubscriberCount(nextSubscriberMilestone(subscriberCount) - subscriberCount)
+    : null;
 // リアルタイム取得ではないため、取得日時を併記する
 const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt) : null;
 
@@ -173,6 +186,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                     </>
                   )}
                   {fetchedAtText && ` (${fetchedAtText})`}
+                </p>
+              )
+            }
+            {
+              subscriberText && nextMilestoneText && milestoneRemainingText && (
+                <p class="mt-1 text-sm font-semibold text-brand-accent">
+                  次の目標({nextMilestoneText})まであと{milestoneRemainingText}!
                 </p>
               )
             }
