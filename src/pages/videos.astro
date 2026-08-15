@@ -1,7 +1,7 @@
 ---
 import ArchiveCard from "../components/ArchiveCard.astro";
 import Breadcrumb from "../components/Breadcrumb.astro";
-import { site } from "../config/site";
+import { site, subscribeUrl } from "../config/site";
 import gearJson from "../data/gear.json";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
@@ -237,6 +237,37 @@ const searchableDescriptionsSafe = JSON.stringify(
         もっと見る
       </button>
     </div>
+
+    <section aria-labelledby="videos-cta-heading" class="pt-16">
+      <div class="rounded-2xl bg-surface-raised p-8 text-center">
+        <h2 id="videos-cta-heading" class="text-xl font-bold">
+          もっと{site.name}の動画を見たい方は
+        </h2>
+        <p class="mx-auto mt-2 max-w-xl text-ink-muted">
+          チャンネル登録すると、新着動画の通知を受け取れます。
+        </p>
+        <div class="mt-5 flex flex-wrap justify-center gap-4">
+          <a
+            href={subscribeUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-strong"
+          >
+            チャンネル登録する <span aria-hidden="true">↗</span>
+            <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+          </a>
+          <a
+            href={site.youtube.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface"
+          >
+            YouTube チャンネルへ <span aria-hidden="true">↗</span>
+            <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+          </a>
+        </div>
+      </div>
+    </section>
   </main>
 </Base>
 
