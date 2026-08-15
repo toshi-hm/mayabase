@@ -95,6 +95,28 @@ export function formatSubscriberCount(count: number): string {
   return `${count.toLocaleString("ja-JP")}人`;
 }
 
+/**
+ * 登録者数の桁数に応じたマイルストーンの刻み幅。
+ * 1,000未満は100人刻み、1,000〜10,000未満は1,000人刻み、以降も同様に一桁ずつ広げる(#200)。
+ */
+function subscriberMilestoneStep(count: number): number {
+  if (count < 1_000) return 100;
+  if (count < 10_000) return 1_000;
+  if (count < 100_000) return 10_000;
+  return 100_000;
+}
+
+/**
+ * 登録者数から「次のキリの良い目標」を計算する(#200)。
+ * 常に現在の登録者数より大きい値を返す(丁度キリが良い数値でも次の刻みに進む)。
+ * 手動設定ではなく計算値にすることで、古い目標のまま更新を忘れるリスクを構造的に防ぐ。
+ * 例: 284 → 300、999 → 1000、1000 → 2000、12345 → 20000
+ */
+export function nextSubscriberMilestone(count: number): number {
+  const step = subscriberMilestoneStep(count);
+  return (Math.floor(count / step) + 1) * step;
+}
+
 const fetchedAtFormatter = new Intl.DateTimeFormat("ja-JP", {
   timeZone: "Asia/Tokyo",
   month: "numeric",

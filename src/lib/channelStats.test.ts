@@ -3,6 +3,7 @@ import {
   createEmptyChannelStats,
   formatFetchedAt,
   formatSubscriberCount,
+  nextSubscriberMilestone,
   parseChannelStats,
   parseChannelStatsApiResponse,
 } from "./channelStats";
@@ -119,6 +120,31 @@ describe("formatSubscriberCount", () => {
     expect(formatSubscriberCount(10_000)).toBe("1万人");
     expect(formatSubscriberCount(12_345)).toBe("1.2万人");
     expect(formatSubscriberCount(150_000)).toBe("15万人");
+  });
+});
+
+describe("nextSubscriberMilestone", () => {
+  test("1,000未満は次の100の倍数を返す", () => {
+    expect(nextSubscriberMilestone(284)).toBe(300);
+    expect(nextSubscriberMilestone(0)).toBe(100);
+    expect(nextSubscriberMilestone(999)).toBe(1000);
+  });
+
+  test("1,000〜10,000未満は次の1,000の倍数を返す", () => {
+    expect(nextSubscriberMilestone(1000)).toBe(2000);
+    expect(nextSubscriberMilestone(1500)).toBe(2000);
+    expect(nextSubscriberMilestone(9999)).toBe(10_000);
+  });
+
+  test("10,000〜100,000未満は次の10,000の倍数を返す", () => {
+    expect(nextSubscriberMilestone(10_000)).toBe(20_000);
+    expect(nextSubscriberMilestone(12_345)).toBe(20_000);
+  });
+
+  test("丁度キリの良い数値でも必ず現在の登録者数より大きい値を返す", () => {
+    expect(nextSubscriberMilestone(100)).toBe(200);
+    expect(nextSubscriberMilestone(1000)).toBe(2000);
+    expect(nextSubscriberMilestone(10_000)).toBe(20_000);
   });
 });
 
