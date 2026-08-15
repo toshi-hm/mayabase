@@ -332,7 +332,10 @@ const searchableDescriptionsSafe = JSON.stringify(
 
   // クエリパラメータ(category / q / order)から絞り込み・並び替え状態を復元する。
   // 不正な category / order 値はそれぞれの既定値にフォールバックする(任意の入力を信用しない)。
+  // expanded(「もっと見る」展開状態)はURLに含めていないため、popstate 時は常に未展開に戻す
+  // (でないと戻る操作後もカテゴリ変更前の全件展開表示が残ってしまう)。
   function restoreStateFromUrl(): void {
+    expanded = false;
     const params = new URLSearchParams(location.search);
     const urlCategory = params.get("category");
     category = urlCategory && validCategories.has(urlCategory) ? urlCategory : "all";
