@@ -56,11 +56,10 @@ const { videos: allVideos } = parseVideosData(videosJson);
 const allCategorized = allVideos.map((video) => ({ video, category: categorizeVideo(video) }));
 const otherCategories = getAvailableCategories(allCategorized).filter((c) => c !== category);
 
-const LOCAL_THUMBNAILS: Partial<Record<string, string>> = {
-  "2WX26Bekrfk": "/images/videos-first-thumbnail.webp",
-};
+// 先頭カード(eager)の画像は onerror フォールバックの直列リクエストを避けるため、
+// 存在保証のある hqdefault を直接指定する(ArchiveCard.astro の eager 分岐と同じ方針)。
 const firstThumbnailSrc = categoryVideos[0]
-  ? (LOCAL_THUMBNAILS[categoryVideos[0].id] ?? thumbnailFallbackUrl(categoryVideos[0].id))
+  ? thumbnailFallbackUrl(categoryVideos[0].id)
   : undefined;
 
 const pageTitle = `${categoryLabel}の動画一覧 | ${site.name}`;
