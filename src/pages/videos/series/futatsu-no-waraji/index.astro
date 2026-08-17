@@ -26,10 +26,9 @@ const seriesVideos = videos.filter((video) => isFutatsuNoWarajiSeries(video));
 const { items: gearItems } = parseGearData(gearJson);
 const videoGearMap = buildVideoGearMap(gearItems);
 
-const LOCAL_THUMBNAILS: Partial<Record<string, string>> = {};
-const firstThumbnailSrc = seriesVideos[0]
-  ? (LOCAL_THUMBNAILS[seriesVideos[0].id] ?? thumbnailFallbackUrl(seriesVideos[0].id))
-  : undefined;
+// 先頭カード(eager)の画像は onerror フォールバックの直列リクエストを避けるため、
+// 存在保証のある hqdefault を直接指定する(ArchiveCard.astro の eager 分岐と同じ方針)。
+const firstThumbnailSrc = seriesVideos[0] ? thumbnailFallbackUrl(seriesVideos[0].id) : undefined;
 
 const pageTitle = `二足のわらじシリーズ 動画一覧 | ${site.name}`;
 const pageDescription = `エンジニア×大学院生として働く運営者の「二足のわらじ」シリーズ動画をまとめてチェックできます。${seriesVideos.length} 本のアーカイブです。`;
