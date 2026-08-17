@@ -98,6 +98,8 @@
 
 html {
   scroll-behavior: smooth;
+  /* sticky header (SiteHeader.astro) の下に見出しが隠れないよう確保する余白 */
+  scroll-padding-top: 4.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
