@@ -1,0 +1,121 @@
+---
+import ArchiveCard from "../../../../components/ArchiveCard.astro";
+import Breadcrumb from "../../../../components/Breadcrumb.astro";
+import { site } from "../../../../config/site";
+import gearJson from "../../../../data/gear.json";
+import videosJson from "../../../../data/videos.json";
+import Base from "../../../../layouts/Base.astro";
+import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../../../lib/breadcrumb";
+import { categorizeVideo } from "../../../../lib/categories";
+import { extractSearchableText, truncate } from "../../../../lib/format";
+import { buildVideoGearMap, parseGearData } from "../../../../lib/gear";
+import { isFutatsuNoWarajiSeries } from "../../../../lib/series";
+import {
+  embedUrl,
+  parseVideosData,
+  thumbnailFallbackUrl,
+  thumbnailUrl,
+  videoUrl,
+} from "../../../../lib/youtube";
+
+// 「二足のわらじ」タグを持つ動画を抽出する(トピックカテゴリを横断するシリーズ・#174)
+const { videos } = parseVideosData(videosJson);
+const seriesVideos = videos.filter((video) => isFutatsuNoWarajiSeries(video));
+
+// 愛用ガジェットとの相互リンク(videos.astro と同じ #70)
+const { items: gearItems } = parseGearData(gearJson);
+const videoGearMap = buildVideoGearMap(gearItems);
+
+// 先頭カード(eager)の画像は onerror フォールバックの直列リクエストを避けるため、
+// 存在保証のある hqdefault を直接指定する(ArchiveCard.astro の eager 分岐と同じ方針)。
+const firstThumbnailSrc = seriesVideos[0] ? thumbnailFallbackUrl(seriesVideos[0].id) : undefined;
+
+const pageTitle = `二足のわらじシリーズ 動画一覧 | ${site.name}`;
+const pageDescription = `エンジニア×大学院生として働く運営者の「二足のわらじ」シリーズ動画をまとめてチェックできます。${seriesVideos.length} 本のアーカイブです。`;
+
+if (!Astro.site) {
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
+}
+const siteUrl = Astro.site.toString();
+const breadcrumbItems: BreadcrumbItem[] = [
+  { name: "ホーム", href: "/" },
+  { name: "動画ライブラリ", href: "/videos/" },
+  { name: "二足のわらじシリーズ", href: "/videos/series/futatsu-no-waraji/" },
+];
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: buildBreadcrumbJsonLd(breadcrumbItems, siteUrl),
+    },
+    {
+      "@type": "ItemList",
+      "@id": `${siteUrl}videos/series/futatsu-no-waraji/#videos`,
+      name: `${site.name} の二足のわらじシリーズ動画一覧`,
+      itemListElement: seriesVideos.map((video, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        item: {
+          "@type": "VideoObject",
+          name: video.title,
+          // 概要欄全文はハッシュタグや定型文が長く JSON-LD を肥大化させるため要約する(#125 と同じ方針)
+          description: truncate(extractSearchableText(video.description), 160) || video.title,
+          thumbnailUrl: [thumbnailUrl(video.id), thumbnailFallbackUrl(video.id)],
+          uploadDate: video.publishedAt,
+          embedUrl: embedUrl(video.id),
+          url: videoUrl(video),
+        },
+      })),
+    },
+  ],
+};
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+---
+
+<Base
+  title={pageTitle}
+  description={pageDescription}
+  ogImagePath="/ogp-videos.png"
+  ogImageAlt={`${site.name} 二足のわらじシリーズ 動画一覧`}
+>
+  {
+    firstThumbnailSrc && (
+      <link rel="preload" as="image" href={firstThumbnailSrc} fetchpriority="high" slot="head" />
+    )
+  }
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
+    <Breadcrumb items={breadcrumbItems} />
+    <h1 class="text-3xl font-bold sm:text-4xl">二足のわらじシリーズ</h1>
+    <p class="mt-3 max-w-2xl text-ink-muted">
+      エンジニアとして働きながら大学院にも通う「二足のわらじ」生活を追いかけるシリーズです。
+      カテゴリを横断して {seriesVideos.length}
+      本の動画をまとめてチェックできます。
+    </p>
+
+    <nav aria-label="動画ライブラリへ戻る" class="mt-8 flex flex-wrap gap-2">
+      <a
+        href="/videos/"
+        class="rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        すべての動画を見る
+      </a>
+    </nav>
+
+    <h2 class="sr-only">二足のわらじシリーズの動画一覧</h2>
+    <ul role="list" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        seriesVideos.map((video, index) => (
+          <ArchiveCard
+            video={video}
+            category={categorizeVideo(video)}
+            eager={index === 0}
+            thumbnailSrc={index === 0 ? firstThumbnailSrc : undefined}
+            gearItems={videoGearMap.get(video.id) ?? []}
+          />
+        ))
+      }
+    </ul>
+  </main>
+</Base>
