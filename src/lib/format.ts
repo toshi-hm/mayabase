@@ -86,6 +86,11 @@ export function linkifyText(text: string): string {
     const start = match.index ?? 0;
     const trailingMatch = rawUrl.match(TRAILING_PUNCTUATION_PATTERN);
     const trailing = trailingMatch ? trailingMatch[0] : "";
+    // 末尾に連続するピリオド(例:「...」)を含む場合、YouTube側の表示省略(長いURLの
+    // 末尾が「...」で切られたもの)をそのままコピーした不完全なURLである可能性が高い。
+    // 通常の文末の句読点と同様にピリオドを取り除いてリンク化すると、存在しないパスへの
+    // 壊れたリンクになってしまうため、この場合はリンク化自体をスキップする。
+    if (/\.\.+/.test(trailing)) continue;
     const url = trailing ? rawUrl.slice(0, rawUrl.length - trailing.length) : rawUrl;
     if (url === "") continue;
 

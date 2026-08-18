@@ -198,4 +198,19 @@ describe("linkifyText", () => {
       '参考<a href="https://example.com/a" target="_blank" rel="noopener noreferrer">https://example.com/a</a>【本文】',
     );
   });
+
+  test("末尾が省略記号「...」で切れた不完全なURLはリンク化しない", () => {
+    // YouTube側の表示省略をそのままコピーしたと見られる、末尾が物理的に切れたURL。
+    // ピリオドを句読点として除去して残りをリンク化すると、存在しないパスへの
+    // 壊れたリンクになってしまうため、プレーンテキストのまま出力する。
+    expect(linkifyText("愛用品はこちら https://www.marshall.com/jp/ja/produc... です")).toBe(
+      "愛用品はこちら https://www.marshall.com/jp/ja/produc... です",
+    );
+  });
+
+  test("末尾の単発のピリオド(通常の文末句点)は従来通り除去してリンク化する", () => {
+    expect(linkifyText("詳細はhttps://example.com/a.")).toBe(
+      '詳細は<a href="https://example.com/a" target="_blank" rel="noopener noreferrer">https://example.com/a</a>.',
+    );
+  });
 });
