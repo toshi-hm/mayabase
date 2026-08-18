@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import videosJson from "../data/videos.json";
-import { categorizeVideo, getAvailableCategories } from "./categories";
+import { categorizeVideo, categoryUrl, getAvailableCategories } from "./categories";
 import { buildRssFeed } from "./rss";
 import type { Video } from "./youtube";
 import { parseVideosData } from "./youtube";
@@ -102,6 +102,17 @@ describe("buildRssFeed", () => {
     expect(xml).not.toContain("<script>");
   });
 
+  test("pageUrlを渡すと<channel><link>にそのURLを出力する(カテゴリ別フィード用・#240)", () => {
+    const categoryPageUrl = new URL("https://portal.mayabase.workers.dev/videos/category/ai/");
+    const xml = buildRssFeed([], SITE_URL, FEED_URL, CHANNEL, categoryPageUrl);
+    expect(xml).toContain("<link>https://portal.mayabase.workers.dev/videos/category/ai/</link>");
+  });
+
+  test("pageUrlを省略するとsiteUrlを<channel><link>に出力する(全動画版フィード用)", () => {
+    const xml = buildRssFeed([], SITE_URL, FEED_URL, CHANNEL);
+    expect(xml).toContain("<link>https://portal.mayabase.workers.dev/</link>");
+  });
+
   test("空の概要欄はタイトルにフォールバックする", () => {
     const video = makeVideo({ description: "" });
     const xml = buildRssFeed([video], SITE_URL, FEED_URL, CHANNEL);
@@ -121,9 +132,12 @@ describe("buildRssFeed", () => {
       expect(categoryVideos.length).toBeGreaterThan(0);
 
       const feedUrl = new URL(`videos/category/${category}/rss.xml`, SITE_URL);
-      const xml = buildRssFeed(categoryVideos, SITE_URL, feedUrl, CHANNEL);
+      const pageUrl = new URL(categoryUrl(category), SITE_URL);
+      const xml = buildRssFeed(categoryVideos, SITE_URL, feedUrl, CHANNEL, pageUrl);
       const itemCount = xml.match(/<item>/g)?.length ?? 0;
       expect(itemCount).toBeGreaterThan(0);
+      // <channel><link> はカテゴリアーカイブページを指し、サイトルートには固定されない(#240)
+      expect(xml).toContain(`<link>${pageUrl.toString()}</link>`);
 
       // フィードに含まれる動画がすべて対象カテゴリに属することを、他カテゴリ動画のIDが
       // リンクとして出現しないことで確認する

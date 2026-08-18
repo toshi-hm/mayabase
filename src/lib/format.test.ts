@@ -124,6 +124,16 @@ describe("textMatchesKeyword", () => {
     // "#chatgpt" が "#chatgptbot" のような後続文字列の一部にマッチしない
     expect(textMatchesKeyword("check #chatgptbot out", "#chatgpt")).toBe(false);
   });
+
+  test("全角数字を含むタイトルを半角キーワードで検索できる(#241)", () => {
+    const title = "23歳 エンジニア兼大学院生の１日【二足のわらじ】【 #Vlog 】";
+    expect(textMatchesKeyword(title, "1日")).toBe(true);
+    expect(textMatchesKeyword(title, "１日")).toBe(true);
+  });
+
+  test("全角英数字キーワードでも半角英数字を含むテキストを検索できる(#241)", () => {
+    expect(textMatchesKeyword("M4 iPad Airのレビュー", "Ａｉｒ")).toBe(true);
+  });
 });
 
 describe("linkifyText", () => {
@@ -175,5 +185,40 @@ describe("linkifyText", () => {
 
   test("空文字は空文字のまま", () => {
     expect(linkifyText("")).toBe("");
+  });
+
+  test("URL直後にスペースや区切り記号を挟まず日本語が続く場合、日本語部分はURLに含めない(#239)", () => {
+    expect(linkifyText("詳しくはこちらhttps://example.com/pageをご覧ください")).toBe(
+      '詳しくはこちら<a href="https://example.com/page" target="_blank" rel="noopener noreferrer">https://example.com/page</a>をご覧ください',
+    );
+  });
+
+  test("URL直後にCJK記号(全角括弧等)が続く場合もURLに含めない(#239)", () => {
+    expect(linkifyText("参考https://example.com/a【本文】")).toBe(
+      '参考<a href="https://example.com/a" target="_blank" rel="noopener noreferrer">https://example.com/a</a>【本文】',
+    );
+  });
+
+  test("末尾が省略記号「...」で切れた不完全なURLはリンク化しない", () => {
+    // YouTube側の表示省略をそのままコピーしたと見られる、末尾が物理的に切れたURL。
+    // ピリオドを句読点として除去して残りをリンク化すると、存在しないパスへの
+    // 壊れたリンクになってしまうため、プレーンテキストのまま出力する。
+    expect(linkifyText("愛用品はこちら https://www.marshall.com/jp/ja/produc... です")).toBe(
+      "愛用品はこちら https://www.marshall.com/jp/ja/produc... です",
+    );
+  });
+
+  test("末尾の単発のピリオド(通常の文末句点)は従来通り除去してリンク化する", () => {
+    expect(linkifyText("詳細はhttps://example.com/a.")).toBe(
+      '詳細は<a href="https://example.com/a" target="_blank" rel="noopener noreferrer">https://example.com/a</a>.',
+    );
+  });
+
+  test("末尾がUnicode省略記号「…」で切れた不完全なURLはリンク化しない", () => {
+    // 「...」(ピリオド3つ)と同様、YouTube側の表示省略がU+2026の一文字で
+    // コピーされるケースもあるため、こちらもリンク化せずプレーンテキストのまま出力する。
+    expect(linkifyText("愛用品はこちら https://www.marshall.com/jp/ja/produc… です")).toBe(
+      "愛用品はこちら https://www.marshall.com/jp/ja/produc… です",
+    );
   });
 });
