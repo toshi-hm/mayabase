@@ -34,12 +34,15 @@ function sortTime(video: Pick<Video, "publishedAt">): number {
  * 新着動画の RSS 2.0 フィード(XML 文字列)を生成する。
  * 各アイテムのリンク先は動画個別ページ(/videos/{id}/)とし、サイトへの回遊も狙う(#186)。
  * 公開日時が不正な動画(パース不能)はフィードから除外する。
+ * `<channel><link>` にはこのフィードに対応する閲覧用ページ URL(`pageUrl`)を出力する。
+ * 省略時は `siteUrl`(トップページ)を使う(全動画版は siteUrl = トップページで一致するため・#186)。
  */
 export function buildRssFeed(
   videos: readonly Video[],
   siteUrl: URL,
   feedUrl: URL,
   channel: RssChannelInfo,
+  pageUrl: URL = siteUrl,
 ): string {
   const items = videos
     .filter((video) => !Number.isNaN(Date.parse(video.publishedAt)))
@@ -70,7 +73,7 @@ export function buildRssFeed(
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>${escapeXml(channel.title)}</title>
-    <link>${escapeXml(siteUrl.toString())}</link>
+    <link>${escapeXml(pageUrl.toString())}</link>
     <description>${escapeXml(channel.description)}</description>
     <language>ja</language>
     <atom:link href="${escapeXml(feedUrl.toString())}" rel="self" type="application/rss+xml" />

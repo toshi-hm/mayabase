@@ -63,7 +63,11 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
-const URL_PATTERN = /https?:\/\/[^\s<>"'　]+/g;
+// CJK記号(U+3000-303F、全角スペース・【】「」等)・ひらがな(U+3040-309F)・カタカナ(U+30A0-30FF)・
+// CJK統合漢字拡張A(U+3400-4DBF)・CJK統合漢字(U+4E00-9FFF)・全角/半角形(U+FF00-FFEF)は
+// URL本体に現れ得ない文字として除外する。URL直後にスペースや改行を挟まず日本語の地の文が続く
+// 概要欄でも、その日本語部分をURLとして巻き込まないようにするため(#239)。
+const URL_PATTERN = /https?:\/\/[^\s<>"'　-〿぀-ヿ㐀-䶿一-鿿＀-￯]+/g;
 // URL 末尾に付きがちな区切り記号は URL 本体から除外する(文末の句読点・括弧閉じ等が
 // リンクに巻き込まれて意図しないURLになるのを防ぐ)
 const TRAILING_PUNCTUATION_PATTERN = /[)\].,、。」』】]+$/;
@@ -100,19 +104,26 @@ export function linkifyText(text: string): string {
  * 英数字のみのキーワードは単語境界で照合する(例: "AI" が "iPad Air" の "Air" に
  * 誤マッチしないように)。日本語には単語境界の概念が適用できないため、
  * 日本語を含むキーワードは部分一致で照合する。
+ * 全角英数字・半角カナ等は `normalize("NFKC")` で半角/全角の表記ゆれを吸収してから
+ * 照合する(例: タイトル中の全角「１日」が半角キーワード「1日」で検索できるように・#241)。
  * `categories.ts` の動画自動分類・`videos.astro` のキーワード検索で共通して使う。
  */
 export function textMatchesKeyword(text: string, keyword: string): boolean {
   if (keyword === "") return true;
-  if (/^[\x21-\x7e]+$/.test(keyword)) {
+  const normalizedText = text.normalize("NFKC");
+  const normalizedKeyword = keyword.normalize("NFKC");
+  if (/^[\x21-\x7e]+$/.test(normalizedKeyword)) {
     // `\b` はキーワード自身の先頭・末尾が単語構成文字([A-Za-z0-9_])であることを前提に
     // 境界を判定するため、"#chatgpt" や "C++" のように記号で始まる/終わるキーワードでは
     // 常に不一致になってしまう(#126)。前後読みでテキスト側の隣接文字が単語構成文字で
     // ないことを直接判定することで、キーワード自身の先頭・末尾の文字種に依存しないようにする。
-    return new RegExp(`(?<![A-Za-z0-9_])${escapeRegExp(keyword)}(?![A-Za-z0-9_])`, "i").test(text);
+    return new RegExp(
+      `(?<![A-Za-z0-9_])${escapeRegExp(normalizedKeyword)}(?![A-Za-z0-9_])`,
+      "i",
+    ).test(normalizedText);
   }
-  const lowerText = text.toLowerCase();
-  const lowerKeyword = keyword.toLowerCase();
+  const lowerText = normalizedText.toLowerCase();
+  const lowerKeyword = normalizedKeyword.toLowerCase();
   if (!/^[0-9]/.test(lowerKeyword)) {
     return lowerText.includes(lowerKeyword);
   }

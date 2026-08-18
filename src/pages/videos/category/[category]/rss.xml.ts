@@ -4,6 +4,7 @@ import videosJson from "../../../../data/videos.json";
 import {
   CATEGORY_LABELS,
   categorizeVideo,
+  categoryUrl,
   getAvailableCategories,
   type VideoCategory,
 } from "../../../../lib/categories";
@@ -27,10 +28,17 @@ export const GET: APIRoute = ({ params, site: siteUrl }) => {
   const { videos } = parseVideosData(videosJson);
   const categoryVideos = videos.filter((video) => categorizeVideo(video) === category);
   const feedUrl = new URL(`videos/category/${category}/rss.xml`, siteUrl);
-  const body = buildRssFeed(categoryVideos, siteUrl, feedUrl, {
-    title: `${categoryLabel} | ${site.name}`,
-    description: `${site.name} の「${categoryLabel}」カテゴリの新着動画フィード。`,
-  });
+  const pageUrl = new URL(categoryUrl(category), siteUrl);
+  const body = buildRssFeed(
+    categoryVideos,
+    siteUrl,
+    feedUrl,
+    {
+      title: `${categoryLabel} | ${site.name}`,
+      description: `${site.name} の「${categoryLabel}」カテゴリの新着動画フィード。`,
+    },
+    pageUrl,
+  );
   return new Response(body, {
     headers: { "content-type": "application/rss+xml; charset=utf-8" },
   });
