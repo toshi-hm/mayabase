@@ -69,8 +69,9 @@ function escapeHtml(text: string): string {
 // 概要欄でも、その日本語部分をURLとして巻き込まないようにするため(#239)。
 const URL_PATTERN = /https?:\/\/[^\s<>"'　-〿぀-ヿ㐀-䶿一-鿿＀-￯]+/g;
 // URL 末尾に付きがちな区切り記号は URL 本体から除外する(文末の句読点・括弧閉じ等が
-// リンクに巻き込まれて意図しないURLになるのを防ぐ)
-const TRAILING_PUNCTUATION_PATTERN = /[)\].,、。」』】]+$/;
+// リンクに巻き込まれて意図しないURLになるのを防ぐ)。「…」(U+2026)も対象に含めるのは、
+// 直後のピリオド連続判定と合わせて省略記号付きURLを検出するため。
+const TRAILING_PUNCTUATION_PATTERN = /[)\].,、。」』】…]+$/;
 
 /**
  * プレーンテキスト中の http(s) URL をアンカータグに変換する(動画概要欄の表示用)。
@@ -86,11 +87,11 @@ export function linkifyText(text: string): string {
     const start = match.index ?? 0;
     const trailingMatch = rawUrl.match(TRAILING_PUNCTUATION_PATTERN);
     const trailing = trailingMatch ? trailingMatch[0] : "";
-    // 末尾に連続するピリオド(例:「...」)を含む場合、YouTube側の表示省略(長いURLの
-    // 末尾が「...」で切られたもの)をそのままコピーした不完全なURLである可能性が高い。
-    // 通常の文末の句読点と同様にピリオドを取り除いてリンク化すると、存在しないパスへの
-    // 壊れたリンクになってしまうため、この場合はリンク化自体をスキップする。
-    if (/\.\.+/.test(trailing)) continue;
+    // 末尾に連続するピリオド(例:「...」)、または省略記号「…」(U+2026)を含む場合、
+    // YouTube側の表示省略(長いURLの末尾が省略記号で切られたもの)をそのままコピーした
+    // 不完全なURLである可能性が高い。通常の文末の句読点と同様に取り除いてリンク化すると、
+    // 存在しないパスへの壊れたリンクになってしまうため、この場合はリンク化自体をスキップする。
+    if (/\.\.+|…/.test(trailing)) continue;
     const url = trailing ? rawUrl.slice(0, rawUrl.length - trailing.length) : rawUrl;
     if (url === "") continue;
 

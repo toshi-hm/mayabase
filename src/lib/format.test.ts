@@ -213,4 +213,12 @@ describe("linkifyText", () => {
       '詳細は<a href="https://example.com/a" target="_blank" rel="noopener noreferrer">https://example.com/a</a>.',
     );
   });
+
+  test("末尾がUnicode省略記号「…」で切れた不完全なURLはリンク化しない", () => {
+    // 「...」(ピリオド3つ)と同様、YouTube側の表示省略がU+2026の一文字で
+    // コピーされるケースもあるため、こちらもリンク化せずプレーンテキストのまま出力する。
+    expect(linkifyText("愛用品はこちら https://www.marshall.com/jp/ja/produc… です")).toBe(
+      "愛用品はこちら https://www.marshall.com/jp/ja/produc… です",
+    );
+  });
 });
