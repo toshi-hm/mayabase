@@ -20,6 +20,7 @@ const { videoId, title, aspect = "video" } = Astro.props;
   type="button"
   data-lightbox-video-id={videoId}
   data-lightbox-title={title}
+  data-lightbox-aspect={aspect}
   aria-haspopup="dialog"
   aria-label={`プレビュー再生: ${title}`}
   class:list={[

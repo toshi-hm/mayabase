@@ -35,7 +35,7 @@
       </svg>
     </button>
   </div>
-  <div class="aspect-video w-full bg-black">
+  <div id="video-lightbox-player" class="aspect-video w-full bg-black">
     <iframe
       id="video-lightbox-iframe"
       src=""
@@ -47,20 +47,24 @@
 </dialog>
 
 <script>
+  import { getLightboxContainerClass, parseLightboxAspect } from "../lib/lightbox";
   import { embedUrl } from "../lib/youtube";
 
   const dialog = document.getElementById("video-lightbox");
+  const player = document.getElementById("video-lightbox-player");
   const iframe = document.getElementById("video-lightbox-iframe");
   const titleEl = document.getElementById("video-lightbox-title");
   const closeButton = dialog?.querySelector<HTMLButtonElement>("[data-lightbox-close]");
 
   if (
     dialog instanceof HTMLDialogElement &&
+    player &&
     iframe instanceof HTMLIFrameElement &&
     titleEl &&
     closeButton
   ) {
-    const openLightbox = (videoId: string, title: string): void => {
+    const openLightbox = (videoId: string, title: string, aspect: string | undefined): void => {
+      player.className = getLightboxContainerClass(parseLightboxAspect(aspect));
       iframe.src = `${embedUrl(videoId)}?autoplay=1&rel=0`;
       iframe.title = title;
       titleEl.textContent = title;
@@ -91,7 +95,7 @@
       trigger.addEventListener("click", () => {
         const videoId = trigger.dataset.lightboxVideoId;
         if (!videoId) return;
-        openLightbox(videoId, trigger.dataset.lightboxTitle ?? "");
+        openLightbox(videoId, trigger.dataset.lightboxTitle ?? "", trigger.dataset.lightboxAspect);
       });
     }
   }
