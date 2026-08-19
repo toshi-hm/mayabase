@@ -43,6 +43,18 @@ jobs:
         # 素通りしてしまう。ここで直接再生成し、差分があれば videos.json 等と同じコミットに含める。
         run: bun run font:subset
 
+      - name: 取得データの検証(lint / format / 型チェック / test / build)
+        # このワークフローの自動コミット(GITHUB_TOKEN)は ci.yml をトリガーできない(#128)ため、
+        # 取得した動画データに起因する回帰(不正なデータによるテスト失敗・ビルド失敗・
+        # フォーマット崩れ等)が無検証で main に反映されてしまう(#168)。push 前にここで
+        # ci.yml と同等の検証を行い、失敗時はワークフロー自体を失敗させて push を止める。
+        run: |
+          bun run lint
+          bun run format:check
+          bun run check
+          bun test
+          bun run build
+
       - name: 変更があればコミット
         run: |
           if git diff --quiet src/data/videos.json src/data/channel-stats.json public/fonts; then
