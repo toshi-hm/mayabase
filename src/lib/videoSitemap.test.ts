@@ -67,6 +67,14 @@ describe("buildVideoSitemap", () => {
     expect(xml).not.toContain("<url>");
   });
 
+  test("長い概要欄は仕様上限(2048文字)以内に切り詰める", () => {
+    const video = makeVideo({ description: "あ".repeat(3000) });
+    const xml = buildVideoSitemap([video], SITE_URL);
+    const description = xml.match(/<video:description>([\s\S]*?)<\/video:description>/)?.[1] ?? "";
+    expect([...description].length).toBe(2048);
+    expect(description).toEndWith("…");
+  });
+
   test("タイトル・概要欄のXML特殊文字をエスケープする", () => {
     const video = makeVideo({
       title: "タイトル <script> & \"test\" 'quote'",

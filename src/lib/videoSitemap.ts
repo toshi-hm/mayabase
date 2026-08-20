@@ -3,7 +3,7 @@ import { escapeXml } from "./rss";
 import type { Video } from "./youtube";
 import { embedUrl, thumbnailFallbackUrl } from "./youtube";
 
-/** video:description の推奨上限文字数(Google Video Sitemap仕様) */
+/** video:description の上限文字数(Google Video Sitemap仕様) */
 const DESCRIPTION_MAX_LENGTH = 2048;
 
 /**
@@ -20,8 +20,11 @@ export function buildVideoSitemap(videos: readonly Video[], siteUrl: URL): strin
       // video:thumbnail_loc は単一URLしか持てないため、全動画に必ず存在する hqdefault を採用する
       // (動画個別ページの OGP 画像と同じ「確実な表示」優先の判断・#211)。
       const thumbnailLoc = thumbnailFallbackUrl(video.id);
+      // truncate は超過時に末尾へ「…」を1文字加えるため、その分を差し引いて渡し、
+      // 出力が仕様上限(2048文字)を超えないようにする
       const description =
-        truncate(extractSearchableText(video.description), DESCRIPTION_MAX_LENGTH) || video.title;
+        truncate(extractSearchableText(video.description), DESCRIPTION_MAX_LENGTH - 1) ||
+        video.title;
       const publicationDate = new Date(video.publishedAt).toISOString();
       return [
         "  <url>",
