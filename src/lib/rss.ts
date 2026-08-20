@@ -15,7 +15,7 @@ export interface RssChannelInfo {
 }
 
 /** XML への挿入前に特殊文字をエスケープする(属性値・テキストノード両方で安全な最小限のセット) */
-function escapeXml(text: string): string {
+export function escapeXml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
