@@ -51,7 +51,7 @@ describe("formatViewCount", () => {
 });
 
 describe("extractSearchableText", () => {
-  test("最初の「【」より前の本文だけを取り出す", () => {
+  test("定型署名欄「【Profile】」より前の本文だけを取り出す", () => {
     const description = "本文の内容です。\n\n【Profile】\n定型文...";
     expect(extractSearchableText(description)).toBe("本文の内容です。");
   });
@@ -80,6 +80,37 @@ describe("extractSearchableText", () => {
   test("ハッシュタグで始まらない本文はそのまま残る", () => {
     const description = "メガベンチャーで働く1日をお届けします。\n\n【Profile】\n定型文...";
     expect(extractSearchableText(description)).toBe("メガベンチャーで働く1日をお届けします。");
+  });
+
+  test("本文内容の見出し「【もくじ】」「【紹介した商品】」は除外せず残す(#234)", () => {
+    const description =
+      "#anker #ガジェット\n\n【紹介した商品】\n・Anker Prime ドッキングステーション\nhttps://amzn.to/xxx\n\n" +
+      "【もくじ】\n0:00 導入\n1:28 特徴\n\n【Profile】\n定型文...";
+    const text = extractSearchableText(description);
+    expect(text).toContain("紹介した商品");
+    expect(text).toContain("Anker Prime ドッキングステーション");
+    expect(text).toContain("もくじ");
+    expect(text).not.toContain("定型文");
+  });
+
+  test("冒頭ハッシュタグ直後に本文の見出しが来ても本文が空文字にならない(#234, z5O2lQteSQg 相当)", () => {
+    const description =
+      "#anker #dockingstation #ガジェット #8k \n\n【紹介した商品】\n・Anker Prime ドッキングステーション (14-in-1)\nhttps://amzn.to/3LiE6s9\n\n" +
+      "【もくじ】\n0:00 ドッキングステーションについて\n\n【Profile】\n新卒でメガベンチャーにエンジニアとして入社。\n\n" +
+      "【SNS】\nX\nhttps://x.com/MayaBaseJP\n\n【連絡先】\nmayabaseofficial☆gmail.com\n\n" +
+      "【使用ガジェット・デバイス一覧】\n・キーボード：HHKB";
+    expect(extractSearchableText(description)).not.toBe("");
+  });
+
+  test("「使用ガジェット」「ご質問はこちら」「高評価」「チャンネル登録」見出しも定型欄として除外する", () => {
+    expect(extractSearchableText("本文。\n\n【使用ガジェット・デバイス一覧】\n・キーボード")).toBe(
+      "本文。",
+    );
+    expect(extractSearchableText("本文。\n\n【ご質問はこちらから！】\nコメント欄へ")).toBe(
+      "本文。",
+    );
+    expect(extractSearchableText("本文。\n\n【高評価👍】\nお願いします")).toBe("本文。");
+    expect(extractSearchableText("本文。\n\n【チャンネル登録🔔】\nお願いします")).toBe("本文。");
   });
 });
 
