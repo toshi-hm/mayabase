@@ -33,17 +33,23 @@ export function formatViewCount(count: number): string {
   return `${count.toLocaleString("ja-JP")}回`;
 }
 
+// 概要欄末尾の定型署名欄(Profile・SNS・連絡先・使用ガジェット・チャンネル登録案内等)に
+// 使われる見出し語。「【もくじ】」「【紹介した商品】」のような本文内容の見出しは対象に含めない
+// (#234)。実データ(94本)で全動画共通に使われている見出し語から構成している。
+const BOILERPLATE_HEADING_PATTERN =
+  /【\s*(?:Profile|SNS|連絡先|使用ガジェット[^】]*|ご質問はこちら[^】]*|高評価[^】]*|チャンネル登録[^】]*)\s*】/;
+
 /**
  * 動画概要欄から検索対象にすべき本文相当部分を取り出す。
  * 概要欄末尾は全動画共通の定型文(Profile・SNS・連絡先・使用ガジェット等)で、
- * いずれも "【" から始まる見出しを持つため、最初の "【" 以降を除外してノイズを減らす。
+ * `BOILERPLATE_HEADING_PATTERN` に一致する見出し以降を除外してノイズを減らす。
  * 該当箇所が無ければ全文をそのまま返す。
  * さらに概要欄冒頭には全動画共通の署名欄ハッシュタグ行(例: "#chatgpt #vlog #ai ..."）が
  * 置かれているため、これも検索対象から除外する(#79)。ハッシュタグでない冒頭行はそのまま残す。
  */
 export function extractSearchableText(description: string): string {
-  const boilerplateStart = description.indexOf("【");
-  const body = boilerplateStart === -1 ? description : description.slice(0, boilerplateStart);
+  const boilerplateMatch = description.match(BOILERPLATE_HEADING_PATTERN);
+  const body = boilerplateMatch ? description.slice(0, boilerplateMatch.index) : description;
   const withoutLeadingHashtags = body.replace(/^(?:[ \t]*#\S+[ \t]*)+\n*/, "");
   return withoutLeadingHashtags.trim();
 }
