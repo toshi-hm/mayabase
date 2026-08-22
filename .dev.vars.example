@@ -1,0 +1,25 @@
+# wrangler のローカル開発用シークレット(#157: 新着動画プッシュ通知)。
+# `wrangler dev` はこのファイルを `.dev.vars` としてコピーしたものを自動で読み込む。
+#   cp .dev.vars.example .dev.vars
+#
+# 本番デプロイでは worker/index.ts 自体はこれらの値を使わない(購読/解除エンドポイントは
+# PUSH_SUBSCRIPTIONS という名前の KV バインディングのみを参照する。wrangler.jsonc 参照)。
+# ここに書く値は「ローカルの wrangler dev で KV 動作を確認したいとき」のための参考用。
+#
+# 実際に本番でプッシュ通知を送信する scripts/send-push-notifications.ts
+# (.github/workflows/update-videos.yml から実行)は wrangler ではなく
+# GitHub Actions の Secrets から同名の環境変数を読む。GitHub 側の Settings > Secrets and
+# variables > Actions に、以下と同じキー名で値を登録すること:
+#   CLOUDFLARE_ACCOUNT_ID     Cloudflareダッシュボード右側に表示されるアカウントID
+#   CLOUDFLARE_API_TOKEN      Workers KV Storage の Edit 権限を持つAPIトークン
+#   CLOUDFLARE_KV_NAMESPACE_ID  `wrangler kv namespace create PUSH_SUBSCRIPTIONS` の出力(id)
+#   VAPID_PUBLIC_KEY          `bunx web-push generate-vapid-keys` の Public Key
+#                             (.env の PUBLIC_VAPID_PUBLIC_KEY と同じ値にすること)
+#   VAPID_PRIVATE_KEY         同コマンドの Private Key(絶対にコミットしない)
+#   VAPID_SUBJECT             通知送信者の連絡先。"mailto:you@example.com" 形式
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_KV_NAMESPACE_ID=
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:you@example.com

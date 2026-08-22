@@ -1,0 +1,133 @@
+---
+/**
+ * 新着動画公開時のプッシュ通知(#157)の購読/解除トグルボタン。
+ *
+ * ビルド時に `PUBLIC_VAPID_PUBLIC_KEY` が設定されていない場合は何も出力しない
+ * (バックエンド未セットアップの環境でボタンだけが表示され、押しても機能しない状態を避ける)。
+ * 設定されていても、Service Worker / PushManager / Notification API 未対応の
+ * ブラウザではクライアント側で hidden のままにする(SiteHeader.astro に配置)。
+ */
+const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undefined;
+---
+
+{
+  vapidPublicKey && (
+    <button
+      type="button"
+      id="push-notification-toggle"
+      hidden
+      aria-pressed="false"
+      aria-label="新着動画のプッシュ通知を受け取る"
+      data-vapid-public-key={vapidPublicKey}
+      class="inline-flex flex-none cursor-pointer items-center justify-center rounded-full border border-ink-muted p-2 text-ink-muted transition hover:border-ink hover:bg-surface-raised hover:text-ink focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-wait disabled:opacity-60"
+    >
+      {/* 未購読時(デフォルト): アウトラインの鈴アイコン */}
+      <svg
+        data-push-icon="off"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        aria-hidden="true"
+      >
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      </svg>
+      {/* 購読中: 塗りつぶしの鈴アイコン */}
+      <svg
+        data-push-icon="on"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        stroke="currentColor"
+        stroke-width="2"
+        aria-hidden="true"
+        class="hidden"
+      >
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      </svg>
+    </button>
+  )
+}
+
+<script>
+  import { urlBase64ToUint8Array } from "../lib/push";
+
+  const SW_URL = "/sw.js";
+
+  const button = document.getElementById("push-notification-toggle") as HTMLButtonElement | null;
+  const vapidPublicKey = button?.dataset.vapidPublicKey;
+  const supported =
+    "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+
+  function applyState(subscribed: boolean): void {
+    button?.setAttribute("aria-pressed", String(subscribed));
+    button?.setAttribute(
+      "aria-label",
+      subscribed ? "新着動画のプッシュ通知をオフにする" : "新着動画のプッシュ通知を受け取る",
+    );
+    for (const icon of button?.querySelectorAll<SVGElement>("[data-push-icon]") ?? []) {
+      icon.classList.toggle("hidden", icon.dataset.pushIcon !== (subscribed ? "on" : "off"));
+    }
+  }
+
+  async function postJson(path: string, body: unknown): Promise<void> {
+    try {
+      await fetch(path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      // 配信サーバーに未到達でも、ブラウザ側の購読/解除操作自体は完了しているため無視する
+      // (次回起動時にKV側の情報が古いままになるが、失効時はサーバー側で自動削除される)
+    }
+  }
+
+  if (button && supported && vapidPublicKey) {
+    navigator.serviceWorker
+      .register(SW_URL)
+      .then(async (registration) => {
+        const subscription = await registration.pushManager.getSubscription();
+        applyState(Boolean(subscription));
+        button.hidden = false;
+      })
+      .catch(() => {
+        // Service Worker登録に失敗した環境ではボタン自体を出さない
+      });
+
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const existing = await registration.pushManager.getSubscription();
+
+        if (existing) {
+          const endpoint = existing.endpoint;
+          await existing.unsubscribe();
+          applyState(false);
+          await postJson("/api/push/unsubscribe", { endpoint });
+          return;
+        }
+
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
+        });
+        applyState(true);
+        await postJson("/api/push/subscribe", subscription.toJSON());
+      } catch (error) {
+        console.warn("[push] 通知設定の切り替えに失敗しました:", error);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+</script>
