@@ -198,6 +198,7 @@ const video1: Video = {
   publishedAt: "2024-01-01T00:00:00Z",
   isShort: false,
   viewCount: null,
+  duration: null,
 };
 const video2: Video = {
   id: "video2",
@@ -206,6 +207,7 @@ const video2: Video = {
   publishedAt: "2024-01-02T00:00:00Z",
   isShort: true,
   viewCount: null,
+  duration: null,
 };
 
 describe("resolveGearVideos", () => {
