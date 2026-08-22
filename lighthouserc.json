@@ -2,6 +2,17 @@
   "ci": {
     "collect": {
       "staticDistDir": "./dist",
+      "url": [
+        "/index.html",
+        "/videos/index.html",
+        "/videos/category/gadget/index.html",
+        "/videos/series/futatsu-no-waraji/index.html",
+        "/videos/tYlBBW3kkfQ/index.html",
+        "/videos/q-Fnd4vQoHc/index.html",
+        "/gear/index.html",
+        "/faq/index.html",
+        "/404.html"
+      ],
       "numberOfRuns": 5,
       "settings": {
         "chromeFlags": "--no-sandbox --headless=new"
