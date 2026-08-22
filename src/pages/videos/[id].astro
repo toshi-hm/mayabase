@@ -18,6 +18,7 @@ import {
   truncate,
 } from "../../lib/format";
 import { buildVideoGearMap, parseGearData, type GearItem } from "../../lib/gear";
+import { getLightboxContainerClass } from "../../lib/lightbox";
 import { getAdjacentVideos, getRelatedVideos } from "../../lib/relatedVideos";
 import {
   embedUrl,
@@ -177,7 +178,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     {/* サイト内プレビュー再生。個別ページのため直接埋め込みでライトボックス等は用いない(#83) */}
     <section aria-labelledby="preview-heading" class="mt-12">
       <h2 id="preview-heading" class="sr-only">動画プレビュー</h2>
-      <div class="aspect-video w-full overflow-hidden rounded-xl bg-surface-raised">
+      <div
+        class:list={[
+          "overflow-hidden rounded-xl",
+          getLightboxContainerClass(video.isShort ? "short" : "video"),
+        ]}
+      >
         <iframe
           id="video-player-frame"
           src={embedUrl(video.id)}

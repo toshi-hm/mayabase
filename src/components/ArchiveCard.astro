@@ -112,6 +112,10 @@ const viewCountLabel = video.viewCount !== null ? formatViewCount(video.viewCoun
       )
     }
   </div>
-  <PreviewButton videoId={video.id} title={video.title} />
+  <PreviewButton
+    videoId={video.id}
+    title={video.title}
+    aspect={video.isShort ? "short" : "video"}
+  />
   <ShareButton title={video.title} url={videoUrl(video)} />
 </li>
