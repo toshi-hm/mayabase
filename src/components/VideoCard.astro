@@ -81,6 +81,10 @@ const { video, position, total, eager = false, featured = false, viewCountLabel 
       </p>
     </div>
   </a>
-  <PreviewButton videoId={video.id} title={video.title} />
+  <PreviewButton
+    videoId={video.id}
+    title={video.title}
+    aspect={video.isShort ? "short" : "video"}
+  />
   <ShareButton title={video.title} url={videoUrl(video)} />
 </li>
