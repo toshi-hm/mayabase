@@ -1,4 +1,5 @@
 ---
+import ContinueWatchingController from "../components/ContinueWatchingController.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import VideoLightbox from "../components/VideoLightbox.astro";
@@ -143,5 +144,7 @@ const ogImage = new URL(ogImagePath, Astro.site);
     <VideoLightbox />
     {/* 「あとで見る」ローカルブックマークのクリック処理(#216)。DOM は持たずスクリプトのみ */}
     <WatchLaterController />
+    {/* 「前回の続きから」導線の視聴記録(#188)。DOM は持たずスクリプトのみ */}
+    <ContinueWatchingController />
   </body>
 </html>
