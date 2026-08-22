@@ -19,6 +19,13 @@ export interface Video {
    * RSS フィードには再生回数が含まれないため、Data API 経路でのみ取得できる。
    */
   viewCount: number | null;
+  /**
+   * hq720 サムネイル(16:9)がビルド時点で存在確認できたかどうか。存在しない動画があるため、
+   * 未確認・不在時は null/false とし、OGP画像生成時は全動画に存在する hqdefault(4:3)へ
+   * フォールバックする(#211)。isShort と同様、一度確定した値は再判定しない。
+   * 本フィールド導入前の videos.json には存在しないため省略可能(undefined は null 相当)。
+   */
+  hasHqThumbnail?: boolean | null;
 }
 
 /** videos.json 全体の構造 */
@@ -80,6 +87,17 @@ export function parseVideosData(data: unknown): VideosData {
     if (v.viewCount !== undefined && v.viewCount !== null && typeof v.viewCount !== "number") {
       throw new Error(`videos.json: videos[${i}].viewCount は数値か null である必要があります`);
     }
+    // 既存データ(#211 導入前)には hasHqThumbnail フィールド自体が存在しないため、
+    // undefined も null と同様に許容する。
+    if (
+      v.hasHqThumbnail !== undefined &&
+      v.hasHqThumbnail !== null &&
+      typeof v.hasHqThumbnail !== "boolean"
+    ) {
+      throw new Error(
+        `videos.json: videos[${i}].hasHqThumbnail は boolean か null である必要があります`,
+      );
+    }
     return {
       id: v.id,
       title: v.title,
@@ -87,6 +105,7 @@ export function parseVideosData(data: unknown): VideosData {
       publishedAt: v.publishedAt,
       isShort: v.isShort,
       viewCount: typeof v.viewCount === "number" ? v.viewCount : null,
+      hasHqThumbnail: typeof v.hasHqThumbnail === "boolean" ? v.hasHqThumbnail : null,
     };
   });
   return { channelId, fetchedAt, videos: parsed };
@@ -107,6 +126,27 @@ export function thumbnailUrl(videoId: string): string {
 /** フォールバック用サムネイル URL(4:3 だが全動画に存在する) */
 export function thumbnailFallbackUrl(videoId: string): string {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+/** OGP(og:image)/Twitter Card 用のサムネイル URL と、それに対応する画像サイズ */
+export interface OgThumbnail {
+  url: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * OGP/Twitter Card 用のサムネイルを選ぶ。JSON-LD の thumbnailUrl と同じ
+ * 「hq720 優先・hqdefault フォールバック」方針だが、OGP は meta タグ 1 本のみで
+ * JSON-LD のような複数候補の配列を使えないため、ビルド時に hasHqThumbnail で
+ * 存在確認済みの動画だけ高解像度(16:9)を採用する。未確認・不在の動画は、
+ * 存在しない hq720 で画像自体が壊れるのを避けるため、常に存在する
+ * hqdefault(4:3)にフォールバックする(#211)。
+ */
+export function resolveOgThumbnail(video: Pick<Video, "id" | "hasHqThumbnail">): OgThumbnail {
+  return video.hasHqThumbnail
+    ? { url: thumbnailUrl(video.id), width: 1280, height: 720 }
+    : { url: thumbnailFallbackUrl(video.id), width: 480, height: 360 };
 }
 
 /** 埋め込み URL(JSON-LD VideoObject の embedUrl 用) */
@@ -277,6 +317,7 @@ export function mergeVideos(existing: Video[], fetched: FeedEntry[]): Video[] {
       publishedAt: entry.publishedAt,
       isShort: prev ? prev.isShort : null,
       viewCount: prev ? prev.viewCount : null,
+      hasHqThumbnail: prev ? (prev.hasHqThumbnail ?? null) : null,
     });
   }
   return [...byId.values()].sort((a, b) => sortTime(b) - sortTime(a));
@@ -321,6 +362,31 @@ export async function probeIsShort(
         const location = res.headers.get("location") ?? "";
         return location.includes("/watch") ? false : null;
       }
+      // 405 / 501 は GET でリトライ、それ以外の 4xx/5xx は判定不能
+      if (method === "GET" || (res.status !== 405 && res.status !== 501)) return null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * hq720 サムネイル(https://i.ytimg.com/vi/{id}/hq720.jpg)の存在確認(#211)。
+ * 200 なら存在、404 なら不在。それ以外(タイムアウト・5xx 等)は判定不能として null を返し、
+ * 次回ビルドで再判定する(isShort と同じ「一度確定したら再判定しない」設計)。
+ * - HEAD 不許可(405 / 501)の場合は GET にフォールバックする
+ */
+export async function probeHqThumbnail(
+  videoId: string,
+  fetchFn: FetchLike = fetch,
+): Promise<boolean | null> {
+  const url = thumbnailUrl(videoId);
+  for (const method of ["HEAD", "GET"] as const) {
+    try {
+      const res = await fetchFn(url, { method });
+      if (res.status === 200) return true;
+      if (res.status === 404) return false;
       // 405 / 501 は GET でリトライ、それ以外の 4xx/5xx は判定不能
       if (method === "GET" || (res.status !== 405 && res.status !== 501)) return null;
     } catch {

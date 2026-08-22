@@ -10,7 +10,9 @@ import {
   parsePlaylistItemsPage,
   parseVideoStatisticsResponse,
   parseVideosData,
+  probeHqThumbnail,
   probeIsShort,
+  resolveOgThumbnail,
   thumbnailFallbackUrl,
   thumbnailUrl,
   uploadsPlaylistId,
@@ -327,6 +329,18 @@ describe("mergeVideos", () => {
     expect(created?.viewCount).toBeNull();
   });
 
+  test("新規動画は hasHqThumbnail: null(未確認)で追加される(#211)", () => {
+    const merged = mergeVideos(existing, parseFeed(FEED_XML));
+    const created = merged.find((v) => v.id === "xyz789GHI01");
+    expect(created?.hasHqThumbnail).toBeNull();
+  });
+
+  test("既存動画の hasHqThumbnail 確定値は維持する(#211)", () => {
+    const withHqThumbnail: Video[] = [{ ...(existing[1] as Video), hasHqThumbnail: true }];
+    const merged = mergeVideos(withHqThumbnail, parseFeed(FEED_XML));
+    expect(merged.find((v) => v.id === "abc123DEF45")?.hasHqThumbnail).toBe(true);
+  });
+
   test("公開日時の降順に整列される", () => {
     const merged = mergeVideos(existing, parseFeed(FEED_XML));
     const times = merged.map((v) => Date.parse(v.publishedAt));
@@ -360,6 +374,25 @@ describe("URL ヘルパー", () => {
     expect(thumbnailUrl("abc")).toBe("https://i.ytimg.com/vi/abc/hq720.jpg");
     expect(thumbnailFallbackUrl("abc")).toBe("https://i.ytimg.com/vi/abc/hqdefault.jpg");
     expect(embedUrl("abc")).toBe("https://www.youtube.com/embed/abc");
+  });
+
+  test("resolveOgThumbnail は hasHqThumbnail: true のときのみ hq720(16:9)を採用する(#211)", () => {
+    expect(resolveOgThumbnail({ id: "abc", hasHqThumbnail: true })).toEqual({
+      url: "https://i.ytimg.com/vi/abc/hq720.jpg",
+      width: 1280,
+      height: 720,
+    });
+  });
+
+  test("resolveOgThumbnail は未確認(null)・不在(false)・省略(undefined)時は hqdefault(4:3)にフォールバックする(#211)", () => {
+    const fallback = {
+      url: "https://i.ytimg.com/vi/abc/hqdefault.jpg",
+      width: 480,
+      height: 360,
+    };
+    expect(resolveOgThumbnail({ id: "abc", hasHqThumbnail: null })).toEqual(fallback);
+    expect(resolveOgThumbnail({ id: "abc", hasHqThumbnail: false })).toEqual(fallback);
+    expect(resolveOgThumbnail({ id: "abc" })).toEqual(fallback);
   });
 
   test("videoUrlAtTime は videoUrl に t= パラメータを付与する(#154)", () => {
@@ -456,6 +489,60 @@ describe("probeIsShort", () => {
   });
 });
 
+describe("probeHqThumbnail(#211)", () => {
+  test("200 なら存在する", async () => {
+    const fetchFn: FetchLike = async () => new Response(null, { status: 200 });
+    expect(await probeHqThumbnail("abc", fetchFn)).toBe(true);
+  });
+
+  test("404 なら存在しない", async () => {
+    const fetchFn: FetchLike = async () => new Response(null, { status: 404 });
+    expect(await probeHqThumbnail("abc", fetchFn)).toBe(false);
+  });
+
+  test("それ以外のエラー応答は判定不能(null)", async () => {
+    const fetchFn: FetchLike = async () => new Response(null, { status: 500 });
+    expect(await probeHqThumbnail("abc", fetchFn)).toBeNull();
+  });
+
+  test.each([405, 501])("HEAD が %d なら GET にフォールバックする", async (status) => {
+    const calls: string[] = [];
+    const fetchFn: FetchLike = async (_url, init) => {
+      calls.push(init?.method ?? "GET");
+      return new Response(null, { status: calls.length === 1 ? status : 200 });
+    };
+    expect(await probeHqThumbnail("abc", fetchFn)).toBe(true);
+    expect(calls).toEqual(["HEAD", "GET"]);
+  });
+
+  test("HEAD が 500 のときは GET へフォールバックせず判定不能(null)", async () => {
+    const calls: string[] = [];
+    const fetchFn: FetchLike = async (_url, init) => {
+      calls.push(init?.method ?? "GET");
+      return new Response(null, { status: 500 });
+    };
+    expect(await probeHqThumbnail("abc", fetchFn)).toBeNull();
+    expect(calls).toEqual(["HEAD"]);
+  });
+
+  test("リクエスト URL は thumbnailUrl(hq720)と一致する", async () => {
+    let requestedUrl = "";
+    const fetchFn: FetchLike = async (url) => {
+      requestedUrl = url;
+      return new Response(null, { status: 200 });
+    };
+    await probeHqThumbnail("abc", fetchFn);
+    expect(requestedUrl).toBe(thumbnailUrl("abc"));
+  });
+
+  test("ネットワークエラーは判定不能(null)", async () => {
+    const fetchFn: FetchLike = async () => {
+      throw new Error("network error");
+    };
+    expect(await probeHqThumbnail("abc", fetchFn)).toBeNull();
+  });
+});
+
 describe("mapWithConcurrency", () => {
   test("全要素を順序を保って処理する", async () => {
     const result = await mapWithConcurrency([1, 2, 3, 4, 5], 2, async (n) => n * 10);
@@ -497,6 +584,34 @@ describe("parseVideosData / createEmptyVideosData", () => {
     });
     expect(data.videos).toHaveLength(1);
     expect(data.videos[0]?.isShort).toBeNull();
+  });
+
+  test("hasHqThumbnail フィールドが無い既存データ(#211 導入前)も null として扱う", () => {
+    const data = parseVideosData({
+      channelId: "",
+      fetchedAt: null,
+      videos: [validVideo],
+    });
+    expect(data.videos[0]?.hasHqThumbnail).toBeNull();
+  });
+
+  test("hasHqThumbnail: true/false をパースできる", () => {
+    const data = parseVideosData({
+      channelId: "",
+      fetchedAt: null,
+      videos: [{ ...validVideo, hasHqThumbnail: true }],
+    });
+    expect(data.videos[0]?.hasHqThumbnail).toBe(true);
+  });
+
+  test("hasHqThumbnail が数値などの不正値ならエラー", () => {
+    expect(() =>
+      parseVideosData({
+        channelId: "",
+        fetchedAt: null,
+        videos: [{ ...validVideo, hasHqThumbnail: 1 }],
+      }),
+    ).toThrow("hasHqThumbnail");
   });
 
   test("fetchedAt は null を許容する", () => {

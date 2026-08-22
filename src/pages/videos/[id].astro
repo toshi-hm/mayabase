@@ -24,6 +24,7 @@ import { getAdjacentVideos, getRelatedVideos } from "../../lib/relatedVideos";
 import {
   embedUrl,
   parseVideosData,
+  resolveOgThumbnail,
   thumbnailFallbackUrl,
   thumbnailUrl,
   type Video,
@@ -61,6 +62,10 @@ const viewCountText = video.viewCount !== null ? formatViewCount(video.viewCount
 const descriptionParagraphs = video.description.split("\n");
 // 概要欄にYouTubeのチャプター記法(0:00 見出し)があれば目次として表示する(#154)
 const chapters = parseChapters(video.description);
+
+// OGP画像は JSON-LD の thumbnailUrl と同じ「hq720優先・hqdefaultフォールバック」方針だが、
+// meta タグ1本のみで配列を使えないため、ビルド時に存在確認済みの動画だけ高解像度を採用する(#211)
+const ogThumbnail = resolveOgThumbnail(video);
 
 const pageTitle = `${video.title} | ${site.name}`;
 // meta description はハッシュタグ等を含む概要欄をそのまま出すと読みづらいため、
@@ -112,10 +117,10 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 <Base
   title={pageTitle}
   description={pageDescription}
-  ogImagePath={thumbnailFallbackUrl(video.id)}
+  ogImagePath={ogThumbnail.url}
   ogImageAlt={video.title}
-  ogImageWidth={480}
-  ogImageHeight={360}
+  ogImageWidth={ogThumbnail.width}
+  ogImageHeight={ogThumbnail.height}
 >
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
   <main id="main" class="mx-auto max-w-4xl px-4 pt-12 pb-24">
