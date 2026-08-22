@@ -3,13 +3,26 @@
   // 既存の Worker(https://portal.mayabase.workers.dev)を更新するため name は "portal"
   "name": "portal",
   "compatibility_date": "2026-07-12",
-  // 完全静的サイトのため Worker スクリプト(main)は持たず、静的アセット配信のみを使う
+  // プッシュ通知の購読/解除エンドポイント(#157)を提供するため worker/index.ts を追加した。
+  // このエンドポイント以外の全リクエストは、これまで通り静的アセット配信に委譲する(挙動は変えない)。
+  "main": "worker/index.ts",
   "assets": {
     "directory": "./dist",
+    // worker/index.ts から env.ASSETS.fetch() で参照するためのバインディング名
+    "binding": "ASSETS",
     // 未マッチのURLで src/pages/404.astro 由来の dist/404.html を返す(#102)
     "not_found_handling": "404-page"
   },
   "observability": {
     "enabled": true
-  }
+  },
+  // プッシュ通知の購読情報を永続化するKV(#157)。デプロイ前に手動セットアップが必要:
+  // `wrangler kv namespace create PUSH_SUBSCRIPTIONS` を実行し、返却された id を
+  // 下記の "id" に設定すること(このリポジトリのコードだけでは完結しない)。
+  "kv_namespaces": [
+    {
+      "binding": "PUSH_SUBSCRIPTIONS",
+      "id": "REPLACE_WITH_KV_NAMESPACE_ID"
+    }
+  ]
 }

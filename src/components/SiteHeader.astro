@@ -1,4 +1,5 @@
 ---
+import PushNotificationController from "./PushNotificationController.astro";
 import ThemeToggle from "./ThemeToggle.astro";
 import { site } from "../config/site";
 import { isNavCurrent } from "../lib/navigation";
@@ -48,6 +49,7 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
         ))
       }
     </ul>
+    <PushNotificationController />
     <ThemeToggle />
   </nav>
 </header>
