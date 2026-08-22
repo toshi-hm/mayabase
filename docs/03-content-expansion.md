@@ -50,9 +50,12 @@
 ### 2.3 非機能要件
 
 - 既存方針を踏襲: 静的生成・JS 最小限・`lang="ja"`・WCAG 配慮(キーボード操作・aria 属性・コントラスト)。
-- Lighthouse CI のゲート(Performance 0.80 / Accessibility 0.95 / Best Practices 0.95 / SEO 1.0)を
-  全ページで満たす。Performance は共有 CI ランナーの負荷でスコアが変動するため、
-  `numberOfRuns: 5` で複数回計測し、既定の楽観的集計(実行のうち最良値)で判定する(#29)。
+- Lighthouse CI のゲート(Performance 0.80 / Accessibility 0.95 / Best Practices 0.95 / SEO 1.0)を、
+  ページ種別ごとの代表URL(トップ・動画一覧・カテゴリ・シリーズ・動画詳細(通常/Shorts各1本)・
+  gear・faq・404、`lighthouserc.json` の `collect.url` で明示指定)で満たす。94本の動画詳細ページ
+  全件を毎回計測するとCI時間が膨らむため、代表サンプルに限定している(#248)。Performance は
+  共有 CI ランナーの負荷でスコアが変動するため、`numberOfRuns: 5` で複数回計測し、
+  既定の楽観的集計(実行のうち最良値)で判定する(#29)。
 - データ層は既存の `parseVideosData` と同様、スキーマ検証付きパーサを設けテストする。
 
 ### 2.4 スコープ外(将来拡張)

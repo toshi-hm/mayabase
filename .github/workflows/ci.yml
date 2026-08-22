@@ -61,7 +61,9 @@ jobs:
 
   lighthouse:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 代表URLをトップ/一覧のみから9ページ(カテゴリ・動画詳細・シリーズ含む)に拡張したため、
+    # numberOfRuns: 5 を維持したまま計測しても収まるよう猶予を広げる(#248)。
+    timeout-minutes: 15
     needs: ci
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
