@@ -1,0 +1,42 @@
+---
+interface Props {
+  /** YouTube video ID(あとで見るリストへの保存対象) */
+  videoId: string;
+  /** アクセシブルラベルに使う動画タイトル */
+  title: string;
+  /** サムネイルのアスペクト比。Shorts の縦型サムネイル(ShortCard)は "short" を指定する */
+  aspect?: "video" | "short";
+}
+
+const { videoId, title, aspect = "video" } = Astro.props;
+---
+
+{
+  /* 親要素(カード全体)は YouTube へのリンク <a> のため、入れ子のインタラクティブ要素(a > button)を
+  避けて兄弟要素として同じ位置に重ねる(ShareButton.astro と同じ方針)。
+  外側の div はサムネイルと同じ大きさの当たり判定を持たないよう pointer-events-none にし、
+  実際にクリックできる範囲は右下の丸いボタンのみに絞る(PreviewButton の全面クリック領域と競合しないため)。
+  保存状態は WatchLaterController.astro が一元管理し、aria-pressed の値に応じて
+  Tailwind の aria-pressed: バリアントで見た目を切り替える。 */
+}
+<div
+  class:list={[
+    "pointer-events-none absolute inset-x-0 top-0 z-10 flex items-end justify-end p-2",
+    aspect === "short" ? "aspect-[9/16]" : "aspect-video",
+  ]}
+>
+  <button
+    type="button"
+    data-watch-later-id={videoId}
+    data-watch-later-title={title}
+    aria-pressed="false"
+    aria-label={`「${title}」をあとで見るに追加`}
+    class="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-black/75 text-white backdrop-blur transition hover:bg-black/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-pressed:bg-brand aria-pressed:hover:bg-brand-strong"
+  >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path
+        d="M6 2.75A1.75 1.75 0 0 1 7.75 1h8.5A1.75 1.75 0 0 1 18 2.75v19.5a.75.75 0 0 1-1.175.617L12 19.06l-4.825 3.808A.75.75 0 0 1 6 22.25V2.75Z"
+      ></path>
+    </svg>
+  </button>
+</div>

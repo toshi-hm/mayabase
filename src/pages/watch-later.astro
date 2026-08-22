@@ -1,0 +1,148 @@
+---
+import ArchiveCard from "../components/ArchiveCard.astro";
+import Breadcrumb from "../components/Breadcrumb.astro";
+import { site, subscribeUrl } from "../config/site";
+import gearJson from "../data/gear.json";
+import videosJson from "../data/videos.json";
+import Base from "../layouts/Base.astro";
+import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
+import { categorizeVideo } from "../lib/categories";
+import { buildVideoGearMap, parseGearData } from "../lib/gear";
+import { parseVideosData } from "../lib/youtube";
+
+// 「あとで見る」(#216)は localStorage にのみ保存され、どの動画が対象かはブラウザ側でしか
+// わからない。そのためビルド時には全動画をカードとして初期非表示(inline style)で埋め込み、
+// クライアントスクリプトが保存済みIDと突き合わせて表示を切り替える(videos.astro の
+// クライアントサイド絞り込みと同じ「全件静的生成 + 表示/非表示の切替のみ」の方針を踏襲)。
+const { videos } = parseVideosData(videosJson);
+const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
+const { items: gearItems } = parseGearData(gearJson);
+const videoGearMap = buildVideoGearMap(gearItems);
+
+const pageTitle = `あとで見る | ${site.name}`;
+const pageDescription = `${site.name} で「あとで見る」に保存した動画の一覧です。この端末のブラウザにのみ保存されます。`;
+
+if (!Astro.site) {
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
+}
+const siteUrl = Astro.site.toString();
+const breadcrumbItems: BreadcrumbItem[] = [
+  { name: "ホーム", href: "/" },
+  { name: "あとで見る", href: "/watch-later/" },
+];
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: buildBreadcrumbJsonLd(breadcrumbItems, siteUrl),
+    },
+  ],
+};
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+---
+
+<Base title={pageTitle} description={pageDescription} robots="noindex">
+  {
+    /* 内容が訪問者ごとの localStorage に依存し、検索結果に出しても意味のあるコンテンツを
+    示せないため 404.astro と同じ方針で noindex にする(サイトマップからも除外、astro.config.mjs)。 */
+  }
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
+    <Breadcrumb items={breadcrumbItems} />
+    <h1 class="text-3xl font-bold sm:text-4xl">あとで見る</h1>
+    <p class="mt-3 max-w-2xl text-ink-muted">
+      各動画カードの保存ボタンで追加した「あとで見る」リストです。この端末のブラウザ内にのみ保存され、他の端末とは共有されません。
+    </p>
+
+    <p
+      id="watch-later-empty"
+      class="mt-10 rounded-xl bg-surface-raised p-8 text-center text-ink-muted"
+    >
+      保存された動画はまだありません。動画カードの<span aria-hidden="true">🔖</span
+      >ボタンから追加できます(この一覧の表示にはJavaScriptが必要です)。
+    </p>
+
+    <h2 class="sr-only">保存した動画一覧</h2>
+    <ul id="watch-later-grid" role="list" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        categorized.map(({ video, category }) => (
+          <ArchiveCard
+            video={video}
+            category={category}
+            initiallyHidden={true}
+            gearItems={videoGearMap.get(video.id) ?? []}
+          />
+        ))
+      }
+    </ul>
+
+    <section aria-labelledby="watch-later-cta-heading" class="pt-16">
+      <div class="rounded-2xl bg-surface-raised p-8 text-center">
+        <h2 id="watch-later-cta-heading" class="text-xl font-bold">
+          もっと{site.name}の動画を見たい方は
+        </h2>
+        <p class="mx-auto mt-2 max-w-xl text-ink-muted">
+          チャンネル登録すると、新着動画の通知を受け取れます。
+        </p>
+        <div class="mt-5 flex flex-wrap justify-center gap-4">
+          <a
+            href={subscribeUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-strong"
+          >
+            チャンネル登録する <span aria-hidden="true">↗</span>
+            <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+          </a>
+          <a
+            href={site.youtube.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface"
+          >
+            YouTube チャンネルへ <span aria-hidden="true">↗</span>
+            <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<script>
+  import { parseStoredWatchLaterIds, WATCH_LATER_STORAGE_KEY } from "../lib/watchLater";
+
+  const grid = document.getElementById("watch-later-grid");
+  const empty = document.getElementById("watch-later-empty");
+  const cards = grid ? [...grid.querySelectorAll<HTMLLIElement>(":scope > li[data-video-id]")] : [];
+
+  function readStoredIds(): string[] {
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(WATCH_LATER_STORAGE_KEY);
+    } catch {
+      // プライベートモード等で localStorage が使えない場合は空扱い
+    }
+    return parseStoredWatchLaterIds(raw);
+  }
+
+  // 保存済みID一覧に照らして各カードの表示/非表示を切り替える。
+  // 上限まで保存されても高々 WATCH_LATER_MAX_ITEMS 件・全カード94件程度のため、
+  // 毎回全カードを走査する単純な実装で十分(videos.astro のような段階表示は不要)。
+  function render(): void {
+    const ids = new Set(readStoredIds());
+    let visibleCount = 0;
+    for (const card of cards) {
+      const id = card.dataset.videoId;
+      const saved = id ? ids.has(id) : false;
+      card.style.display = saved ? "" : "none";
+      if (saved) visibleCount += 1;
+    }
+    if (empty) empty.hidden = visibleCount > 0;
+  }
+
+  render();
+  // カード側の保存ボタン(WatchLaterController.astro)からの変更をこのページにも反映する
+  window.addEventListener("watch-later-change", render);
+</script>

@@ -2,6 +2,7 @@
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import VideoLightbox from "../components/VideoLightbox.astro";
+import WatchLaterController from "../components/WatchLaterController.astro";
 import { site } from "../config/site";
 import { THEME_STORAGE_KEY } from "../lib/theme";
 import "../styles/global.css";
@@ -140,5 +141,7 @@ const ogImage = new URL(ogImagePath, Astro.site);
       /* 全ページ共通のオンサイト・プレビュー再生ライトボックス(#69)。カード側は data 属性で連携する */
     }
     <VideoLightbox />
+    {/* 「あとで見る」ローカルブックマークのクリック処理(#216)。DOM は持たずスクリプトのみ */}
+    <WatchLaterController />
   </body>
 </html>
