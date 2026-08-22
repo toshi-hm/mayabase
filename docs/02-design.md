@@ -125,7 +125,7 @@ interface Video {
 ## 5. SEO 設計
 
 - **メタ情報**: `Base.astro` に title / description / canonical / OGP を集約。`og:type=website`、`og:locale=ja_JP`、`twitter:card=summary_large_image`、`twitter:site=@MayaBaseJP`、`og:image` は絶対 URL。
-- **JSON-LD**: `WebSite` + `Person`(運営者)+ `ItemList`(動画一覧、`VideoObject`)を出力。`VideoObject` は Google 必須の `name` / `description` / `thumbnailUrl` / `uploadDate` を必ず含め、推奨の `embedUrl`(`https://www.youtube.com/embed/{id}`)も付与する。`duration` は RSS から取得不能のため出力しない。
+- **JSON-LD**: `WebSite` + `Person`(運営者)+ `ItemList`(動画一覧、`VideoObject`)を出力。`VideoObject` は Google 必須の `name` / `description` / `thumbnailUrl` / `uploadDate` を必ず含め、推奨の `embedUrl`(`https://www.youtube.com/embed/{id}`)も付与する。`duration`(ISO 8601、例: `PT4M13S`)は `YOUTUBE_API_KEY` 設定時のみ `videos.list`(`contentDetails`)経由で取得でき、取得できた動画のみ付与する(RSS のみの環境では省略・#173)。
 - **サイトマップ**: `@astrojs/sitemap`。`robots.txt` から参照。
 - **パフォーマンス**:
   - ファーストビューの主要画像(ヒーロー・先頭サムネイル)は `loading="eager"` + `fetchpriority="high"`、それ以外は `loading="lazy"`(LCP 対策)

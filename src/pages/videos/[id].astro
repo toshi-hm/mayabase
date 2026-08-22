@@ -94,6 +94,9 @@ const jsonLd = {
       uploadDate: video.publishedAt,
       embedUrl: embedUrl(video.id),
       url: videoUrl(video),
+      // Google 推奨プロパティ。ISO 8601 のまま出力できる(#173)。取得できない動画は省略する
+      // (viewCount と同じ「取得できたものだけ表示」方針)。
+      ...(video.duration !== null && { duration: video.duration }),
       // 検索結果でのキーモーメント表示を狙い、チャプターを Clip として構造化する(#154)
       ...(chapters.length > 0 && {
         hasPart: chapters.map((chapter) => ({

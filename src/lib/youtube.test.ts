@@ -4,10 +4,13 @@ import {
   embedUrl,
   extractChannelId,
   type FetchLike,
+  formatDurationLabel,
   mapWithConcurrency,
   mergeVideos,
   parseFeed,
+  parseIso8601Duration,
   parsePlaylistItemsPage,
+  parseVideoDurationsResponse,
   parseVideoStatisticsResponse,
   parseVideosData,
   probeIsShort,
@@ -282,6 +285,82 @@ describe("parseVideoStatisticsResponse", () => {
   });
 });
 
+describe("parseVideoDurationsResponse", () => {
+  test("videos.list(part=contentDetails) のレスポンスから id→再生時間のマップを取り出す(#173)", () => {
+    const data = {
+      items: [
+        { id: "vid00000001", contentDetails: { duration: "PT4M13S" } },
+        { id: "vid00000002", contentDetails: { duration: "PT1H2M10S" } },
+      ],
+    };
+    const result = parseVideoDurationsResponse(data);
+    expect(result.get("vid00000001")).toBe("PT4M13S");
+    expect(result.get("vid00000002")).toBe("PT1H2M10S");
+    expect(result.size).toBe(2);
+  });
+
+  test("contentDetails や duration が欠けているアイテムはマップに含めない", () => {
+    const data = {
+      items: [{ id: "vid00000001" }, { id: "vid00000002", contentDetails: {} }],
+    };
+    expect(parseVideoDurationsResponse(data).size).toBe(0);
+  });
+
+  test("duration が ISO 8601 として不正な形式なら無視する", () => {
+    const data = { items: [{ id: "vid00000001", contentDetails: { duration: "not-a-duration" } }] };
+    expect(parseVideoDurationsResponse(data).size).toBe(0);
+  });
+
+  test("items が無い・不正・null でも例外を投げず空マップ", () => {
+    expect(parseVideoDurationsResponse({}).size).toBe(0);
+    expect(parseVideoDurationsResponse(null).size).toBe(0);
+    expect(parseVideoDurationsResponse({ items: "not-an-array" }).size).toBe(0);
+  });
+});
+
+describe("parseIso8601Duration", () => {
+  test("時分秒を含む形式を総秒数に変換する", () => {
+    expect(parseIso8601Duration("PT4M13S")).toBe(253);
+    expect(parseIso8601Duration("PT1H2M10S")).toBe(3730);
+    expect(parseIso8601Duration("PT45S")).toBe(45);
+    expect(parseIso8601Duration("PT1H")).toBe(3600);
+  });
+
+  test("0 秒(PT0S)は 0 を返す(null ではない)", () => {
+    expect(parseIso8601Duration("PT0S")).toBe(0);
+  });
+
+  test("小数秒は切り捨てる", () => {
+    expect(parseIso8601Duration("PT1M30.5S")).toBe(90);
+  });
+
+  test("不正な形式は null", () => {
+    expect(parseIso8601Duration("")).toBeNull();
+    expect(parseIso8601Duration("PT")).toBeNull();
+    expect(parseIso8601Duration("12:34")).toBeNull();
+    expect(parseIso8601Duration("P1Y2M")).toBeNull(); // 年/月単位は未対応
+  });
+});
+
+describe("formatDurationLabel", () => {
+  test("1時間未満は m:ss 形式", () => {
+    expect(formatDurationLabel("PT4M13S")).toBe("4:13");
+    expect(formatDurationLabel("PT0M5S")).toBe("0:05");
+  });
+
+  test("1時間以上は h:mm:ss 形式", () => {
+    expect(formatDurationLabel("PT1H2M10S")).toBe("1:02:10");
+  });
+
+  test("null は null", () => {
+    expect(formatDurationLabel(null)).toBeNull();
+  });
+
+  test("パースできない値は null", () => {
+    expect(formatDurationLabel("invalid")).toBeNull();
+  });
+});
+
 describe("mergeVideos", () => {
   const existing: Video[] = [
     {
@@ -291,6 +370,7 @@ describe("mergeVideos", () => {
       publishedAt: "2025-01-01T00:00:00+00:00",
       isShort: false,
       viewCount: 100,
+      duration: "PT3M0S",
     },
     {
       id: "abc123DEF45",
@@ -299,6 +379,7 @@ describe("mergeVideos", () => {
       publishedAt: "2026-07-01T12:00:00+00:00",
       isShort: true,
       viewCount: 200,
+      duration: "PT1M30S",
     },
   ];
 
@@ -315,16 +396,19 @@ describe("mergeVideos", () => {
     expect(updated?.isShort).toBe(true);
   });
 
-  test("既存動画の viewCount は維持する(#35: viewCount は videos.list 経由の別ステップで更新するため)", () => {
+  test("既存動画の viewCount / duration は維持する(#35, #173: どちらも videos.list 経由の別ステップで更新するため)", () => {
     const merged = mergeVideos(existing, parseFeed(FEED_XML));
-    expect(merged.find((v) => v.id === "abc123DEF45")?.viewCount).toBe(200);
+    const updated = merged.find((v) => v.id === "abc123DEF45");
+    expect(updated?.viewCount).toBe(200);
+    expect(updated?.duration).toBe("PT1M30S");
   });
 
-  test("新規動画は isShort: null(未判定)・viewCount: null で追加される", () => {
+  test("新規動画は isShort: null(未判定)・viewCount: null・duration: null で追加される", () => {
     const merged = mergeVideos(existing, parseFeed(FEED_XML));
     const created = merged.find((v) => v.id === "xyz789GHI01");
     expect(created?.isShort).toBeNull();
     expect(created?.viewCount).toBeNull();
+    expect(created?.duration).toBeNull();
   });
 
   test("公開日時の降順に整列される", () => {
@@ -342,6 +426,7 @@ describe("mergeVideos", () => {
         publishedAt: "not-a-date",
         isShort: false,
         viewCount: null,
+        duration: null,
       },
     ];
     const merged = mergeVideos(broken, parseFeed(FEED_XML));
@@ -497,6 +582,34 @@ describe("parseVideosData / createEmptyVideosData", () => {
     });
     expect(data.videos).toHaveLength(1);
     expect(data.videos[0]?.isShort).toBeNull();
+  });
+
+  test("duration フィールドが無い既存データ(#173 導入前)も null として扱う", () => {
+    const data = parseVideosData({
+      channelId: "",
+      fetchedAt: null,
+      videos: [validVideo],
+    });
+    expect(data.videos[0]?.duration).toBeNull();
+  });
+
+  test("duration は ISO 8601 文字列を保持する", () => {
+    const data = parseVideosData({
+      channelId: "",
+      fetchedAt: null,
+      videos: [{ ...validVideo, duration: "PT4M13S" }],
+    });
+    expect(data.videos[0]?.duration).toBe("PT4M13S");
+  });
+
+  test("duration が数値などの不正値ならエラー", () => {
+    expect(() =>
+      parseVideosData({
+        channelId: "",
+        fetchedAt: null,
+        videos: [{ ...validVideo, duration: 123 }],
+      }),
+    ).toThrow("duration");
   });
 
   test("fetchedAt は null を許容する", () => {

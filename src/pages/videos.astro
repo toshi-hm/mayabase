@@ -75,6 +75,8 @@ const jsonLd = {
           uploadDate: video.publishedAt,
           embedUrl: embedUrl(video.id),
           url: videoUrl(video),
+          // Google 推奨プロパティ。取得できない動画は省略する(#173)
+          ...(video.duration !== null && { duration: video.duration }),
         },
       })),
     },
