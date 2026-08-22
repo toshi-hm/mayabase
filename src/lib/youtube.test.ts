@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildPlayerCardMeta,
   createEmptyVideosData,
   embedUrl,
   extractChannelId,
@@ -373,6 +374,28 @@ describe("URL ヘルパー", () => {
     expect(videoUrlAtTime({ id: "abc", isShort: true }, 5)).toBe(
       "https://www.youtube.com/shorts/abc?t=5s",
     );
+  });
+});
+
+describe("buildPlayerCardMeta(#243)", () => {
+  test("横動画は埋め込み URL と 16:9 の既定サイズを返す", () => {
+    expect(buildPlayerCardMeta({ id: "abc", isShort: false })).toEqual({
+      playerUrl: "https://www.youtube.com/embed/abc",
+      width: 1280,
+      height: 720,
+    });
+  });
+
+  test("isShort が null(未判定)の場合も横動画として扱う", () => {
+    expect(buildPlayerCardMeta({ id: "abc", isShort: null })).toEqual({
+      playerUrl: "https://www.youtube.com/embed/abc",
+      width: 1280,
+      height: 720,
+    });
+  });
+
+  test("Shorts は X Player Card が縦動画を扱えない可能性があるため null を返す", () => {
+    expect(buildPlayerCardMeta({ id: "abc", isShort: true })).toBeNull();
   });
 });
 
