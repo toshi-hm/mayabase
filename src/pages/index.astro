@@ -91,6 +91,20 @@ const milestoneRemainingText =
 // リアルタイム取得ではないため、取得日時を併記する
 const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt) : null;
 
+// 「前回の続きから」導線(#188)。どの動画を前回見ていたかは訪問者の localStorage にしか
+// わからないため、ビルド時には「表示に必要な最小限の情報(id/title/isShort)」のみを
+// JSON として埋め込み、クライアントスクリプトが記録済みIDと突き合わせて該当動画があれば
+// バナーを表示する。該当動画が削除・非公開等でここに存在しなければバナー自体を出さない。
+const continueWatchingCandidates = videos.map((v) => ({
+  id: v.id,
+  title: v.title,
+  isShort: v.isShort,
+}));
+const continueWatchingCandidatesSafe = JSON.stringify(continueWatchingCandidates).replace(
+  /</g,
+  "\\u003c",
+);
+
 // 更新頻度の目安(#187)。初回訪問者が登録を判断する材料として提示する。
 // データ不足・ペースが低すぎる・間隔が不規則、のいずれかの場合は算出結果を出さない
 // (subscriberCount 等と同じ「取得できなければ非表示」の方針)。
@@ -239,6 +253,53 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             </nav>
           </div>
         </div>
+
+        {
+          /* 「前回の続きから」導線(#188)。localStorage を確認できるまで対象動画は
+          わからないため、初期状態は hidden にしておき、クライアントスクリプトが
+          該当動画を見つけられた場合のみ表示する(JS無効時は常に非表示のまま)。 */
+        }
+        <section
+          id="continue-watching"
+          aria-labelledby="continue-watching-heading"
+          hidden
+          class="mb-8 border-t border-line pt-6"
+        >
+          <p id="continue-watching-heading" class="mb-3 text-sm font-bold text-brand-accent">
+            前回の続きから
+          </p>
+          <a
+            id="continue-watching-link"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="group/continue flex items-center gap-4 rounded-lg border border-line bg-surface-raised p-3 transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            <img
+              id="continue-watching-thumbnail"
+              src=""
+              alt=""
+              width="160"
+              height="90"
+              loading="lazy"
+              decoding="async"
+              class="aspect-video w-28 shrink-0 rounded-md object-cover sm:w-40"
+            />
+            <span class="min-w-0">
+              <span
+                id="continue-watching-title"
+                class="line-clamp-2 font-semibold group-hover/continue:text-brand-accent"></span>
+              <span class="sr-only">(YouTube・新しいタブで開きます)</span>
+            </span>
+          </a>
+        </section>
+        <script
+          is:inline
+          type="application/json"
+          id="continue-watching-video-data"
+          set:html={continueWatchingCandidatesSafe}
+        />
+
         <div class="mb-5 flex items-end justify-between gap-4 border-t border-line pt-5">
           <h2 id="videos-heading" class="text-xl font-black sm:text-2xl">最新動画</h2>
           <p class="hidden text-sm text-ink-muted sm:block">NEW RELEASES</p>
@@ -487,5 +548,52 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         button.click();
       }
     });
+  }
+</script>
+
+<script>
+  // 「前回の続きから」導線(#188)。視聴記録は ContinueWatchingController.astro が
+  // クリック時に localStorage へ書き込む。ここでは記録済みIDと #continue-watching-video-data
+  // に埋め込まれた候補動画一覧を突き合わせ、該当する動画があればバナーを表示する。
+  import {
+    CONTINUE_WATCHING_STORAGE_KEY,
+    parseContinueWatchingCandidates,
+    parseStoredContinueWatchingIds,
+    selectContinueWatchingVideo,
+  } from "../lib/continueWatching";
+  import { thumbnailFallbackUrl, videoUrl } from "../lib/youtube";
+
+  const section = document.getElementById("continue-watching");
+  const link = document.getElementById("continue-watching-link");
+  const thumbnail = document.getElementById("continue-watching-thumbnail");
+  const titleEl = document.getElementById("continue-watching-title");
+  const dataScript = document.getElementById("continue-watching-video-data");
+
+  if (
+    section &&
+    link instanceof HTMLAnchorElement &&
+    thumbnail instanceof HTMLImageElement &&
+    titleEl &&
+    dataScript
+  ) {
+    let storedIds: string[] = [];
+    try {
+      storedIds = parseStoredContinueWatchingIds(
+        localStorage.getItem(CONTINUE_WATCHING_STORAGE_KEY),
+      );
+    } catch {
+      // プライベートモード等で localStorage が使えない場合は何も表示しない
+    }
+
+    if (storedIds.length > 0) {
+      const candidates = parseContinueWatchingCandidates(dataScript.textContent);
+      const video = selectContinueWatchingVideo(storedIds, candidates);
+      if (video) {
+        link.href = videoUrl(video);
+        thumbnail.src = thumbnailFallbackUrl(video.id);
+        titleEl.textContent = video.title;
+        section.hidden = false;
+      }
+    }
   }
 </script>
