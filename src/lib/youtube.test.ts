@@ -10,6 +10,7 @@ import {
   parsePlaylistItemsPage,
   parseVideoStatisticsResponse,
   parseVideosData,
+  playerEmbedUrl,
   probeIsShort,
   thumbnailFallbackUrl,
   thumbnailUrl,
@@ -360,6 +361,12 @@ describe("URL ヘルパー", () => {
     expect(thumbnailUrl("abc")).toBe("https://i.ytimg.com/vi/abc/hq720.jpg");
     expect(thumbnailFallbackUrl("abc")).toBe("https://i.ytimg.com/vi/abc/hqdefault.jpg");
     expect(embedUrl("abc")).toBe("https://www.youtube.com/embed/abc");
+  });
+
+  test("playerEmbedUrl は IFrame Player API 用のパラメータを付与する(#175)", () => {
+    expect(playerEmbedUrl("abc", "https://example.com")).toBe(
+      "https://www.youtube.com/embed/abc?enablejsapi=1&origin=https%3A%2F%2Fexample.com",
+    );
   });
 
   test("videoUrlAtTime は videoUrl に t= パラメータを付与する(#154)", () => {

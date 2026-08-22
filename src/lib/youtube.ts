@@ -114,6 +114,20 @@ export function embedUrl(videoId: string): string {
   return `https://www.youtube.com/embed/${videoId}`;
 }
 
+/**
+ * 動画詳細ページのプレイヤー用埋め込み URL(#175)。
+ * IFrame Player API(onStateChange で再生終了を検知し「次の動画」を提示する)を
+ * 有効化するため enablejsapi=1 を付与する。origin は API 側のセキュリティ要件
+ * (postMessage の送信元検証)として公式に付与が推奨されているパラメータ。
+ * JSON-LD 等には不要なため embedUrl とは別関数にしている。
+ */
+export function playerEmbedUrl(videoId: string, origin: string): string {
+  const url = new URL(embedUrl(videoId));
+  url.searchParams.set("enablejsapi", "1");
+  url.searchParams.set("origin", origin);
+  return url.toString();
+}
+
 /** 指定秒数から再生開始する視聴 URL(チャプター一覧のリンク先。#154) */
 export function videoUrlAtTime(video: Pick<Video, "id" | "isShort">, seconds: number): string {
   const base = videoUrl(video);
