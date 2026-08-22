@@ -3,6 +3,7 @@ import Breadcrumb from "../../components/Breadcrumb.astro";
 import GearMiniCard from "../../components/GearMiniCard.astro";
 import RelatedVideoCard from "../../components/RelatedVideoCard.astro";
 import ShareButton from "../../components/ShareButton.astro";
+import WatchLaterButton from "../../components/WatchLaterButton.astro";
 import { site, subscribeUrl } from "../../config/site";
 import gearJson from "../../data/gear.json";
 import videosJson from "../../data/videos.json";
@@ -143,6 +144,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         )
       }
       <ShareButton title={video.title} url={videoUrl(video)} />
+      <WatchLaterButton videoId={video.id} title={video.title} />
     </div>
 
     <h1 class="mt-6 text-2xl font-bold sm:text-3xl">{video.title}</h1>

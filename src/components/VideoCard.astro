@@ -3,6 +3,7 @@ import { formatDateJa } from "../lib/format";
 import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
 import PreviewButton from "./PreviewButton.astro";
 import ShareButton from "./ShareButton.astro";
+import WatchLaterButton from "./WatchLaterButton.astro";
 
 interface Props {
   video: Video;
@@ -87,4 +88,9 @@ const { video, position, total, eager = false, featured = false, viewCountLabel 
     aspect={video.isShort ? "short" : "video"}
   />
   <ShareButton title={video.title} url={videoUrl(video)} />
+  <WatchLaterButton
+    videoId={video.id}
+    title={video.title}
+    aspect={video.isShort ? "short" : "video"}
+  />
 </li>
