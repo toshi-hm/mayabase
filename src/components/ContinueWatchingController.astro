@@ -1,0 +1,48 @@
+---
+/**
+ * 「前回の続きから」導線(#188)のクリック記録を一元管理するコントローラー。
+ * WatchLaterController.astro と同じ方針で Base.astro に 1 つだけ配置し、ページ内の
+ * 動画カードの視聴リンク(data-watch-track-id 属性。VideoCard/ShortCard/ArchiveCard)と
+ * オンサイトプレビュー再生(data-lightbox-video-id 属性。PreviewButton.astro が既に持つ)の
+ * クリックをイベント委譲で拾って localStorage に記録する。DOM 要素自体は持たない(スクリプトのみ)。
+ * 表示側(トップページのバナー)は index.astro が担当する。
+ */
+---
+
+<script>
+  import {
+    CONTINUE_WATCHING_STORAGE_KEY,
+    parseStoredContinueWatchingIds,
+    recordContinueWatchingId,
+  } from "../lib/continueWatching";
+
+  function readStoredIds(): string[] {
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(CONTINUE_WATCHING_STORAGE_KEY);
+    } catch {
+      // プライベートモード等で localStorage が使えない場合は空扱い
+    }
+    return parseStoredContinueWatchingIds(raw);
+  }
+
+  function writeStoredIds(ids: string[]): void {
+    try {
+      localStorage.setItem(CONTINUE_WATCHING_STORAGE_KEY, JSON.stringify(ids));
+    } catch {
+      // 保存に失敗しても当該セッション内の遷移自体は継続する
+    }
+  }
+
+  // イベント委譲: ページ内に何百枚カードがあってもリスナーは1つで済む(WatchLaterController と同じ方針)
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const trigger = target.closest<HTMLElement>("[data-watch-track-id], [data-lightbox-video-id]");
+    if (!trigger) return;
+    const id = trigger.dataset.watchTrackId ?? trigger.dataset.lightboxVideoId;
+    if (!id) return;
+
+    writeStoredIds(recordContinueWatchingId(readStoredIds(), id));
+  });
+</script>

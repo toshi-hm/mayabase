@@ -21,6 +21,7 @@ import {
   thumbnailUrl,
   uploadsPlaylistId,
   type Video,
+  videoLengthFilterValue,
   videoUrl,
   videoUrlAtTime,
 } from "./youtube";
@@ -454,6 +455,12 @@ describe("URL ヘルパー", () => {
     expect(videoUrl({ id: "abc", isShort: true })).toBe("https://www.youtube.com/shorts/abc");
     expect(videoUrl({ id: "abc", isShort: false })).toBe("https://www.youtube.com/watch?v=abc");
     expect(videoUrl({ id: "abc", isShort: null })).toBe("https://www.youtube.com/watch?v=abc");
+  });
+
+  test("videoLengthFilterValue は isShort が true の場合のみ short を返す(未判定は通常動画扱い)", () => {
+    expect(videoLengthFilterValue({ isShort: true })).toBe("short");
+    expect(videoLengthFilterValue({ isShort: false })).toBe("video");
+    expect(videoLengthFilterValue({ isShort: null })).toBe("video");
   });
 
   test("サムネイル・埋め込み URL", () => {
