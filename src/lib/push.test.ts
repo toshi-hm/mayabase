@@ -16,6 +16,7 @@ function makeVideo(overrides: Partial<Video> = {}): Video {
     publishedAt: "2026-08-01T00:00:00Z",
     isShort: false,
     viewCount: null,
+    duration: null,
     ...overrides,
   };
 }

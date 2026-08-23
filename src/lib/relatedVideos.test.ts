@@ -11,6 +11,7 @@ const video = (id: string, title: string, publishedAt: string): Video => ({
   publishedAt,
   isShort: false,
   viewCount: null,
+  duration: null,
 });
 
 describe("getRelatedVideos", () => {

@@ -20,6 +20,13 @@ export interface Video {
    */
   viewCount: number | null;
   /**
+   * 再生時間(ISO 8601、例: "PT12M34S")。YOUTUBE_API_KEY 未設定時(RSSのみ)・取得失敗時は
+   * null(viewCount と同じ方針・#173)。RSS フィードには含まれないため、Data API 経路
+   * (videos.list の contentDetails)でのみ取得できる。JSON-LD VideoObject.duration には
+   * この値をそのまま使える(schema.org も ISO 8601 duration を要求するため)。
+   */
+  duration: string | null;
+  /**
    * hq720 サムネイル(16:9)がビルド時点で存在確認できたかどうか。存在しない動画があるため、
    * 未確認・不在時は null/false とし、OGP画像生成時は全動画に存在する hqdefault(4:3)へ
    * フォールバックする(#211)。isShort と同様、一度確定した値は再判定しない。
@@ -87,6 +94,11 @@ export function parseVideosData(data: unknown): VideosData {
     if (v.viewCount !== undefined && v.viewCount !== null && typeof v.viewCount !== "number") {
       throw new Error(`videos.json: videos[${i}].viewCount は数値か null である必要があります`);
     }
+    // 既存データ(#173 導入前)には duration フィールド自体が存在しないため、
+    // viewCount と同様に undefined も null と同様に許容する。
+    if (v.duration !== undefined && v.duration !== null && typeof v.duration !== "string") {
+      throw new Error(`videos.json: videos[${i}].duration は文字列か null である必要があります`);
+    }
     // 既存データ(#211 導入前)には hasHqThumbnail フィールド自体が存在しないため、
     // undefined も null と同様に許容する。
     if (
@@ -105,6 +117,7 @@ export function parseVideosData(data: unknown): VideosData {
       publishedAt: v.publishedAt,
       isShort: v.isShort,
       viewCount: typeof v.viewCount === "number" ? v.viewCount : null,
+      duration: typeof v.duration === "string" ? v.duration : null,
       hasHqThumbnail: typeof v.hasHqThumbnail === "boolean" ? v.hasHqThumbnail : null,
     };
   });
@@ -349,6 +362,61 @@ export function parseVideoStatisticsResponse(data: unknown): Map<string, number>
 }
 
 /**
+ * YouTube Data API v3 `videos.list`(part=contentDetails)のレスポンスから
+ * 動画ID→再生時間(ISO 8601、例: "PT12M34S")のマップを取り出す(#173)。
+ * 再生回数(parseVideoStatisticsResponse)と同じレスポンス JSON から取り出せるため、
+ * `videos.list` の `part` に `contentDetails` を加えるだけで追加コストなく取得できる。
+ * duration が欠損・不正な形式の動画はマップに含めない(呼び出し側で既存値へフォールバックする)。
+ */
+export function parseVideoDurationsResponse(data: unknown): Map<string, string> {
+  const result = new Map<string, string>();
+  if (typeof data !== "object" || data === null) return result;
+  const items = (data as { items?: unknown }).items;
+  if (!Array.isArray(items)) return result;
+  for (const raw of items) {
+    const item = raw as { id?: unknown; contentDetails?: { duration?: unknown } };
+    if (typeof item.id !== "string") continue;
+    const duration = item.contentDetails?.duration;
+    if (typeof duration === "string" && parseIso8601Duration(duration) !== null) {
+      result.set(item.id, duration);
+    }
+  }
+  return result;
+}
+
+/**
+ * ISO 8601 duration(YouTube Data API の `contentDetails.duration`。例: "PT12M34S")を
+ * 総秒数に変換する(#173)。年/月単位(P1Y, P1M 等)は動画の長さとして現実的でないため
+ * 未対応とし、不正な形式として null を返す。"PT" のみ(数値部分を一切含まない)も不正扱い。
+ */
+export function parseIso8601Duration(duration: string): number | null {
+  const match = duration.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
+  if (!match) return null;
+  const [, hoursStr, minutesStr, secondsStr] = match;
+  if (hoursStr === undefined && minutesStr === undefined && secondsStr === undefined) return null;
+  const hours = Number(hoursStr ?? 0);
+  const minutes = Number(minutesStr ?? 0);
+  const seconds = Number(secondsStr ?? 0);
+  return hours * 3600 + minutes * 60 + Math.floor(seconds);
+}
+
+/**
+ * 動画の再生時間バッジ用ラベルを生成する(例: 754 秒 → "12:34"、1 時間以上は "1:02:34")。
+ * duration が null、または ISO 8601 としてパースできない場合は null を返し、
+ * 呼び出し側で非表示にする(viewCount と同じ「取得できたものだけ表示」方針・#173)。
+ */
+export function formatDurationLabel(duration: string | null): string | null {
+  if (duration === null) return null;
+  const totalSeconds = parseIso8601Duration(duration);
+  if (totalSeconds === null) return null;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
+}
+
+/**
  * 既存データと RSS の取得結果をマージする。
  * - RSS に存在する動画: タイトル・説明・公開日時を更新(isShort の確定値は維持)
  * - RSS から溢れた過去動画: そのまま保持(RSS は最新 15 件のみのため)
@@ -365,6 +433,7 @@ export function mergeVideos(existing: Video[], fetched: FeedEntry[]): Video[] {
       publishedAt: entry.publishedAt,
       isShort: prev ? prev.isShort : null,
       viewCount: prev ? prev.viewCount : null,
+      duration: prev ? prev.duration : null,
       hasHqThumbnail: prev ? (prev.hasHqThumbnail ?? null) : null,
     });
   }

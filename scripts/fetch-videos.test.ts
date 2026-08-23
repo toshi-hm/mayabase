@@ -4,7 +4,7 @@ import { site } from "../src/config/site";
 import type { FetchLike } from "../src/lib/youtube";
 import {
   fetchAllViaApi,
-  fetchViewCounts,
+  fetchVideoDetails,
   main,
   resolveChannelId,
   updateChannelStats,
@@ -204,20 +204,52 @@ describe("updateChannelStats", () => {
   });
 });
 
-describe("fetchViewCounts", () => {
+describe("fetchVideoDetails", () => {
   test("50 件を超える ID は複数バッチ(50 件区切り)に分割してリクエストする", async () => {
     const ids = Array.from({ length: 60 }, (_, i) => `vid${String(i).padStart(8, "0")}`);
     const requestedBatches: string[][] = [];
     const fetchFn: FetchLike = async (url) => {
       const batchIds = (new URL(url).searchParams.get("id") ?? "").split(",");
       requestedBatches.push(batchIds);
-      const items = batchIds.map((id) => ({ id, statistics: { viewCount: "1" } }));
+      const items = batchIds.map((id) => ({
+        id,
+        statistics: { viewCount: "1" },
+        contentDetails: { duration: "PT1M0S" },
+      }));
       return new Response(JSON.stringify({ items }), { status: 200 });
     };
-    const result = await fetchViewCounts(ids, "dummy-key", fetchFn);
+    const result = await fetchVideoDetails(ids, "dummy-key", fetchFn);
     expect(requestedBatches).toHaveLength(2);
     expect(requestedBatches.map((b) => b.length).sort()).toEqual([10, 50]);
-    expect(result.size).toBe(60);
+    expect(result.viewCounts.size).toBe(60);
+    expect(result.durations.size).toBe(60);
+  });
+
+  test("part クエリに statistics と contentDetails の両方を指定する(#173)", async () => {
+    const fetchFn: FetchLike = async (url) => {
+      expect(new URL(url).searchParams.get("part")).toBe("statistics,contentDetails");
+      return new Response(JSON.stringify({ items: [] }), { status: 200 });
+    };
+    await fetchVideoDetails(["vid00000001"], "dummy-key", fetchFn);
+  });
+
+  test("再生回数と再生時間を同じレスポンスから取り出す", async () => {
+    const fetchFn: FetchLike = async () =>
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "vid00000001",
+              statistics: { viewCount: "12345" },
+              contentDetails: { duration: "PT4M13S" },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    const result = await fetchVideoDetails(["vid00000001"], "dummy-key", fetchFn);
+    expect(result.viewCounts.get("vid00000001")).toBe(12345);
+    expect(result.durations.get("vid00000001")).toBe("PT4M13S");
   });
 
   test("個別バッチが失敗しても他のバッチの結果は失われない", async () => {
@@ -228,13 +260,20 @@ describe("fetchViewCounts", () => {
         // 最初のバッチのみ失敗させる
         return new Response(null, { status: 500 });
       }
-      const items = batchIds.map((id) => ({ id, statistics: { viewCount: "42" } }));
+      const items = batchIds.map((id) => ({
+        id,
+        statistics: { viewCount: "42" },
+        contentDetails: { duration: "PT2M0S" },
+      }));
       return new Response(JSON.stringify({ items }), { status: 200 });
     };
-    const result = await fetchViewCounts(ids, "dummy-key", fetchFn);
-    expect(result.has(ids[0] as string)).toBe(false);
-    expect(result.get(ids[59] as string)).toBe(42);
-    expect(result.size).toBe(10);
+    const result = await fetchVideoDetails(ids, "dummy-key", fetchFn);
+    expect(result.viewCounts.has(ids[0] as string)).toBe(false);
+    expect(result.viewCounts.get(ids[59] as string)).toBe(42);
+    expect(result.viewCounts.size).toBe(10);
+    expect(result.durations.has(ids[0] as string)).toBe(false);
+    expect(result.durations.get(ids[59] as string)).toBe("PT2M0S");
+    expect(result.durations.size).toBe(10);
   });
 
   test("ネットワークエラー(例外)も個別バッチの失敗として扱う", async () => {
@@ -242,13 +281,15 @@ describe("fetchViewCounts", () => {
     const fetchFn: FetchLike = async () => {
       throw new Error("network error");
     };
-    const result = await fetchViewCounts(ids, "dummy-key", fetchFn);
-    expect(result.size).toBe(0);
+    const result = await fetchVideoDetails(ids, "dummy-key", fetchFn);
+    expect(result.viewCounts.size).toBe(0);
+    expect(result.durations.size).toBe(0);
   });
 
   test("0 件なら fetch を呼ばず空の Map を返す", async () => {
-    const result = await fetchViewCounts([], "dummy-key", unreachableFetch);
-    expect(result.size).toBe(0);
+    const result = await fetchVideoDetails([], "dummy-key", unreachableFetch);
+    expect(result.viewCounts.size).toBe(0);
+    expect(result.durations.size).toBe(0);
   });
 });
 
@@ -334,5 +375,68 @@ describe("main", () => {
     const updated = videosAfter.videos.find((v: { id: string }) => v.id === knownVideoId);
     expect(updated?.title).toBe("RSS フォールバックで更新されたタイトル");
     expect(updated?.hasHqThumbnail).toBe(true);
+  });
+
+  test("API 経由の取得が成功すると再生時間・再生回数も videos.json に保存される(#173)", async () => {
+    process.env.YOUTUBE_API_KEY = "dummy-key";
+
+    // isShort 確定済みの実在動画 ID を使い、probeShorts() 内の実ネットワークアクセスを避ける
+    // (上のテストと同じ方針)。
+    const existingIdMatch = originalVideosJson.match(/"id":\s*"([^"]+)"/);
+    const knownVideoId = existingIdMatch?.[1];
+    expect(knownVideoId).toBeTruthy();
+
+    const fetchFn: FetchLike = async (url) => {
+      const u = new URL(url);
+      if (u.pathname === "/youtube/v3/playlistItems") {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                contentDetails: {
+                  videoId: knownVideoId,
+                  videoPublishedAt: "2026-01-01T00:00:00Z",
+                },
+                snippet: { title: "API 経由のタイトル", description: "API 経由の説明" },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      if (u.pathname === "/youtube/v3/channels") {
+        // channel-stats 更新は本テストの対象外のため失敗させる
+        return new Response(null, { status: 500 });
+      }
+      if (u.hostname === "i.ytimg.com") {
+        // 既存 videos.json には hasHqThumbnail が無く全件未確認扱いのため、
+        // probeHqThumbnails(#211)がここで全件を確認しにいく。存在する扱いにして
+        // main() の分岐ロジックだけを検証する(実際の判定ロジックは youtube.test.ts で検証)。
+        return new Response(null, { status: 200 });
+      }
+      if (u.pathname === "/youtube/v3/videos") {
+        expect(u.searchParams.get("part")).toBe("statistics,contentDetails");
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: knownVideoId,
+                statistics: { viewCount: "999" },
+                contentDetails: { duration: "PT4M13S" },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      throw new Error(`想定外の fetch: ${url}`);
+    };
+
+    await main(fetchFn);
+
+    const videosAfter = JSON.parse(await Bun.file(VIDEOS_JSON_PATH).text());
+    const updated = videosAfter.videos.find((v: { id: string }) => v.id === knownVideoId);
+    expect(updated?.viewCount).toBe(999);
+    expect(updated?.duration).toBe("PT4M13S");
   });
 });
