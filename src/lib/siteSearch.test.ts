@@ -20,6 +20,7 @@ const videos = [
     publishedAt: "2026-01-01T00:00:00Z",
     isShort: false,
     viewCount: 100,
+    duration: null,
   },
   {
     id: "def12345678",
@@ -28,6 +29,7 @@ const videos = [
     publishedAt: "2026-01-02T00:00:00Z",
     isShort: false,
     viewCount: 200,
+    duration: null,
   },
 ];
 
@@ -149,6 +151,7 @@ describe("searchSiteIndex", () => {
       publishedAt: "2026-01-01T00:00:00Z",
       isShort: false,
       viewCount: null,
+      duration: null,
     }));
     const bigIndex = buildSiteSearchIndex(manyVideos, [], []);
     const results = searchSiteIndex(bigIndex, "AI", 3);
