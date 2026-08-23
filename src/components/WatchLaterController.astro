@@ -41,12 +41,24 @@
     );
   }
 
-  // ページ内の全ボタンを、保存済みID一覧に照らして初期状態に同期する
-  const savedIds = readStoredIds();
-  for (const button of document.querySelectorAll<HTMLElement>("[data-watch-later-id]")) {
-    const id = button.dataset.watchLaterId;
-    if (id) applyButtonState(button, savedIds.includes(id));
+  // root 配下のボタンを、保存済みID一覧に照らして初期状態に同期する
+  function syncButtonsIn(root: ParentNode): void {
+    const savedIds = readStoredIds();
+    for (const button of root.querySelectorAll<HTMLElement>("[data-watch-later-id]")) {
+      const id = button.dataset.watchLaterId;
+      if (id) applyButtonState(button, savedIds.includes(id));
+    }
   }
+
+  // ページ内の全ボタンを初期状態に同期する
+  syncButtonsIn(document);
+
+  // videos.astro 等、DOM 肥大化対策(#177)で <template> の中身をクライアント側で
+  // 後から実体化するページ向けのフック。新しく挿入された DOM にも保存済み状態を反映する。
+  document.addEventListener("mayabase:card-materialized", (event) => {
+    const root = (event as CustomEvent<{ root?: ParentNode }>).detail?.root;
+    if (root) syncButtonsIn(root);
+  });
 
   // イベント委譲: ページ内に何百枚カードがあってもリスナーは1つで済む
   document.addEventListener("click", (event) => {

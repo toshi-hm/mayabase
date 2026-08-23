@@ -22,6 +22,7 @@ import { buildVideoGearMap, parseGearData, type GearItem } from "../../lib/gear"
 import { getLightboxContainerClass } from "../../lib/lightbox";
 import { getAdjacentVideos, getRelatedVideos } from "../../lib/relatedVideos";
 import {
+  buildPlayerCardMeta,
   embedUrl,
   parseVideosData,
   thumbnailFallbackUrl,
@@ -66,6 +67,8 @@ const pageTitle = `${video.title} | ${site.name}`;
 // meta description はハッシュタグ等を含む概要欄をそのまま出すと読みづらいため、
 // 冒頭の署名欄ハッシュタグ・末尾の定型文を除いた本文相当部分を要約する(#125)
 const pageDescription = truncate(extractSearchableText(video.description), 140) || video.title;
+// X(Twitter) Player Card / og:video 用メタ。Shorts では null(#243)
+const playerCardMeta = buildPlayerCardMeta(video);
 
 if (!Astro.site) {
   throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
@@ -116,6 +119,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   ogImageAlt={video.title}
   ogImageWidth={480}
   ogImageHeight={360}
+  videoPlayerUrl={playerCardMeta?.playerUrl}
+  videoPlayerWidth={playerCardMeta?.width}
+  videoPlayerHeight={playerCardMeta?.height}
 >
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
   <main id="main" class="mx-auto max-w-4xl px-4 pt-12 pb-24">

@@ -24,6 +24,15 @@ interface Props {
   ogImageHeight?: number;
   /** `<meta name="robots">` の content。404ページ等、検索結果に出したくないページで指定する。 */
   robots?: string;
+  /**
+   * X(Twitter) Player Card / og:video 用の埋め込みプレイヤー URL(動画個別ページ限定・#243)。
+   * 指定時のみ `twitter:card` を `player` に切り替え、`og:video` 系メタを追加出力する。
+   * 未指定時は従来どおり `summary_large_image` カードのまま。
+   */
+  videoPlayerUrl?: string;
+  /** videoPlayerUrl 指定時のプレイヤー幅・高さ(px)。未指定時は 16:9 埋め込みの標準サイズ(1280x720)。 */
+  videoPlayerWidth?: number;
+  videoPlayerHeight?: number;
 }
 
 const {
@@ -34,6 +43,9 @@ const {
   ogImageWidth = 1200,
   ogImageHeight = 630,
   robots,
+  videoPlayerUrl,
+  videoPlayerWidth = 1280,
+  videoPlayerHeight = 720,
 } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const ogImage = new URL(ogImagePath, Astro.site);
@@ -117,14 +129,37 @@ const ogImage = new URL(ogImagePath, Astro.site);
     <meta property="og:image:width" content={String(ogImageWidth)} />
     <meta property="og:image:height" content={String(ogImageHeight)} />
     <meta property="og:image:alt" content={ogImageAlt} />
+    {
+      /* 動画個別ページ限定: SNSシェア時にタイムライン内で直接再生できるようにする(#243)。
+      Shorts は縦動画で X Player Card が正しく扱えない可能性があるため呼び出し側で除外している */
+      videoPlayerUrl && (
+        <>
+          <meta property="og:video" content={videoPlayerUrl} />
+          <meta property="og:video:url" content={videoPlayerUrl} />
+          <meta property="og:video:secure_url" content={videoPlayerUrl} />
+          <meta property="og:video:type" content="text/html" />
+          <meta property="og:video:width" content={String(videoPlayerWidth)} />
+          <meta property="og:video:height" content={String(videoPlayerHeight)} />
+        </>
+      )
+    }
 
     {/* X (Twitter) Card */}
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:card" content={videoPlayerUrl ? "player" : "summary_large_image"} />
     <meta name="twitter:site" content={`@${site.x.account}`} />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
     <meta name="twitter:image:alt" content={ogImageAlt} />
+    {
+      videoPlayerUrl && (
+        <>
+          <meta name="twitter:player" content={videoPlayerUrl} />
+          <meta name="twitter:player:width" content={String(videoPlayerWidth)} />
+          <meta name="twitter:player:height" content={String(videoPlayerHeight)} />
+        </>
+      )
+    }
 
     <slot name="head" />
   </head>

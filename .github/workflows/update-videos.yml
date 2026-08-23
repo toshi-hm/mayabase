@@ -18,6 +18,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      # 沈黙的な取得失敗の検知時に Issue を起票/クローズするため(#201)
+      issues: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -34,6 +36,89 @@ jobs:
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: bun run fetch
+
+      - name: 動画データの鮮度チェック
+        # fetch-videos.ts は取得に失敗しても既存 videos.json を残して exit 0 する設計(意図的)。
+        # そのため取得が何日連続で失敗し続けても、このワークフロー自体は「成功」であり続け、
+        # 誰にも気づかれない(#201)。videos.json の fetchedAt を見て沈黙的な停滞を検知する。
+        id: freshness
+        run: bun run fetch:check-freshness
+
+      - name: 取得停滞時の Issue 通知(#201)
+        # 鮮度チェックが stale(閾値超過)を検知した場合に Issue を起票して通知する。
+        # 既にアラート Issue が open であれば重複作成せず、逆に復旧を検知したら自動クローズする
+        # (Issue #201 の検討事項: 放置 Issue が溜まるリスクへの対応)。
+        # ワークフロー自体はこれまで通り exit 0 を維持する(既存方針を壊さない)ため、
+        # この通知処理自体が失敗してもワークフローは失敗させない(try/catch で握りつぶす)。
+        uses: actions/github-script@v7
+        env:
+          FRESHNESS_STALE: ${{ steps.freshness.outputs.stale }}
+          FRESHNESS_SUMMARY: ${{ steps.freshness.outputs.summary }}
+        with:
+          script: |
+            try {
+              const marker = "<!-- fetch-freshness-alert (#201) -->";
+              const label = "video-fetch-alert";
+              const title = "⚠️ 動画データの自動取得が沈黙的に失敗している可能性があります";
+              const stale = process.env.FRESHNESS_STALE === "true";
+              const summary = process.env.FRESHNESS_SUMMARY || "(詳細不明)";
+              const runUrl =
+                `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+                `/actions/runs/${context.runId}`;
+
+              const { data: openIssues } = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: "open",
+                labels: label,
+                per_page: 100,
+              });
+              const existing = openIssues.find((issue) => issue.body?.includes(marker));
+
+              if (stale) {
+                if (existing) {
+                  console.log(
+                    `既存のアラート Issue #${existing.number} が既に open のため、新規作成せず終了します(重複防止)。`,
+                  );
+                  return;
+                }
+                const body = [
+                  marker,
+                  summary,
+                  "",
+                  `直近の実行: ${runUrl}`,
+                  "",
+                  "RSS/YouTube Data API の仕様変更、YOUTUBE_API_KEY の失効など、",
+                  "動画データが更新されなくなった原因を調査してください。",
+                  "取得が復旧すると、このIssueは次回実行時に自動的にクローズされます。",
+                ].join("\n");
+                const created = await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title,
+                  body,
+                  labels: [label],
+                });
+                console.log(`アラート Issue #${created.data.number} を作成しました。`);
+              } else if (existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body: `✅ 動画データの取得が復旧しました。${summary}`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  state: "closed",
+                  state_reason: "completed",
+                });
+                console.log(`復旧を確認したため Issue #${existing.number} をクローズしました。`);
+              }
+            } catch (error) {
+              console.warn(`Fetch freshness alert step failed non-fatally: ${error}`);
+            }
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
 
