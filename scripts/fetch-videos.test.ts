@@ -354,6 +354,12 @@ describe("main", () => {
         // 再生回数の取得も失敗させる(既存値を維持させる)
         return new Response(null, { status: 500 });
       }
+      if (u.hostname === "i.ytimg.com") {
+        // 既存 videos.json には hasHqThumbnail が無く全件未確認扱いのため、
+        // probeHqThumbnails(#211)がここで全件を確認しにいく。存在する扱いにして
+        // main() の分岐ロジックだけを検証する(実際の判定ロジックは youtube.test.ts で検証)。
+        return new Response(null, { status: 200 });
+      }
       throw new Error(`想定外の fetch: ${url}`);
     };
 
@@ -368,6 +374,7 @@ describe("main", () => {
     const videosAfter = JSON.parse(await Bun.file(VIDEOS_JSON_PATH).text());
     const updated = videosAfter.videos.find((v: { id: string }) => v.id === knownVideoId);
     expect(updated?.title).toBe("RSS フォールバックで更新されたタイトル");
+    expect(updated?.hasHqThumbnail).toBe(true);
   });
 
   test("API 経由の取得が成功すると再生時間・再生回数も videos.json に保存される(#173)", async () => {

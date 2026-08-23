@@ -64,8 +64,9 @@ const xPosts = posts.slice(0, maxItems);
 // 役割が重複しないよう、ここでは各カテゴリの上位動画のみを紹介し、全件は
 // /videos/category/{category}/ へ誘導する(入口の分岐に留める)。
 // "other" は「気になるテーマ」として提示する分類ではないため対象外とする。
-// 4テーマ分をあらかじめ全件DOMに描画する(初期非表示分は #videos-grid と同じ方針)ため、
-// 他セクションの maxItems(6)より少ない件数に絞り、ページ全体のDOMサイズ増加を抑える。
+// 各テーマのカードは <template> に格納し、クリック時にのみ実体化する(#217)ため
+// ページの初期DOMサイズは増えないが、実体化後の一覧が間延びしないよう
+// 他セクションの maxItems(6)より少ない件数に絞る。
 const TOPIC_PANEL_LIMIT = 4;
 const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
 const topicPanels = CATEGORY_ORDER.filter((category) => category !== "other")
@@ -301,7 +302,15 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             </div>
             <div id="topic-picker-results" class="mt-6" hidden>
               <p id="topic-picker-count" aria-live="polite" class="mb-4 text-sm text-ink-muted" />
-              {topicPanels.map(({ category, videos: panelVideos }) => (
+            </div>
+            {/* 各テーマのカードは <template> の中身として描画する(#217)。<template> の子要素は
+              メインドキュメントの DOM ツリーに属さないため、テーマボタンが実際にクリックされて
+              表示が必要になるまで Lighthouse の DOM サイズ計測やスタイル計算・レイアウトの対象に
+              ならない(/videos/ の DOM 肥大化対策・#177 と同じ方針)。テーマボタン自体は
+              /videos/category/{category}/ への実リンクを兼ねる(JS 無効時・クローラーはそのまま
+              遷移/到達できるため、この <template> は no-JS フォールバックを別途用意しなくてよい)。 */}
+            {topicPanels.map(({ category, videos: panelVideos }) => (
+              <template data-topic-panel-template={category}>
                 <div data-topic-panel={category} hidden>
                   <ul role="list" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {panelVideos.map((video) => (
@@ -315,8 +324,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                     {CATEGORY_LABELS[category]}の動画をすべて見る
                   </a>
                 </div>
-              ))}
-            </div>
+              </template>
+            ))}
           </div>
         </section>
       )
@@ -450,17 +459,43 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   const buttons = document.querySelectorAll<HTMLAnchorElement>("[data-topic-category]");
   const results = document.getElementById("topic-picker-results");
   const countLabel = document.getElementById("topic-picker-count");
-  const panels = document.querySelectorAll<HTMLDivElement>("[data-topic-panel]");
+
+  // 各テーマのカードは <template> として描画されている(#217)。クリックで初めて表示が
+  // 必要になった時点で template.content を複製・挿入する(実体化)。一度実体化したパネルは
+  // 再利用し、以降は表示/非表示の切り替えのみ行う。
+  const templatesByCategory = new Map<string, HTMLTemplateElement>();
+  for (const template of document.querySelectorAll<HTMLTemplateElement>(
+    "[data-topic-panel-template]",
+  )) {
+    const category = template.dataset.topicPanelTemplate;
+    if (category) templatesByCategory.set(category, template);
+  }
+  const realizedPanels = new Map<string, HTMLElement>();
+
+  function materializePanel(category: string): HTMLElement | null {
+    const existing = realizedPanels.get(category);
+    if (existing) return existing;
+    const template = templatesByCategory.get(category);
+    if (!template || !results) return null;
+    const fragment = template.content.cloneNode(true) as DocumentFragment;
+    const panel = fragment.querySelector<HTMLElement>("[data-topic-panel]");
+    if (!panel) return null;
+    results.appendChild(panel);
+    realizedPanels.set(category, panel);
+    // WatchLaterController.astro 等、実体化後の DOM にも保存済み状態の反映が必要なリスナーへ通知する
+    document.dispatchEvent(
+      new CustomEvent("mayabase:card-materialized", { detail: { root: panel } }),
+    );
+    return panel;
+  }
 
   function selectTopic(category: string, label: string): void {
     for (const button of buttons) {
       button.setAttribute("aria-pressed", String(button.dataset.topicCategory === category));
     }
-    let selectedPanel: HTMLDivElement | null = null;
-    for (const panel of panels) {
-      const isMatch = panel.dataset.topicPanel === category;
-      panel.hidden = !isMatch;
-      if (isMatch) selectedPanel = panel;
+    const selectedPanel = materializePanel(category);
+    for (const panel of realizedPanels.values()) {
+      panel.hidden = panel !== selectedPanel;
     }
     if (results) results.hidden = false;
     if (countLabel) {
