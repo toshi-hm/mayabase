@@ -92,8 +92,9 @@
     });
 
     // イベント委譲: WatchLaterController.astro と同じ方針で、ページ内に何百枚カードがあっても
-    // リスナーは1つで済む。<template> から後からカードを実体化するページ(index.astro の
-    // 「気になるテーマは?」導線・#217)でも、個別に登録し直す必要がなくそのまま動作する。
+    // リスナーは1つで済む。videos.astro(#177)や index.astro の「気になるテーマは?」導線(#217)
+    // のように <template> から後からカードを実体化するページでも、個別に登録し直す必要がなく
+    // そのまま動作する。
     document.addEventListener("click", (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
