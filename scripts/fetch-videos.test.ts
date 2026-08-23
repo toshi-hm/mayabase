@@ -408,6 +408,12 @@ describe("main", () => {
         // channel-stats 更新は本テストの対象外のため失敗させる
         return new Response(null, { status: 500 });
       }
+      if (u.hostname === "i.ytimg.com") {
+        // 既存 videos.json には hasHqThumbnail が無く全件未確認扱いのため、
+        // probeHqThumbnails(#211)がここで全件を確認しにいく。存在する扱いにして
+        // main() の分岐ロジックだけを検証する(実際の判定ロジックは youtube.test.ts で検証)。
+        return new Response(null, { status: 200 });
+      }
       if (u.pathname === "/youtube/v3/videos") {
         expect(u.searchParams.get("part")).toBe("statistics,contentDetails");
         return new Response(
