@@ -168,6 +168,14 @@ export function playerEmbedUrl(videoId: string, origin: string): string {
   return url.toString();
 }
 
+/** 動画の長さ区分(通常動画/Shorts)。/videos/ の絞り込みフィルターで使う(#257) */
+export type VideoLengthFilter = "video" | "short";
+
+/** isShort が null(未判定)の場合は通常動画として扱う(videoUrl 等の既存の isShort 真偽判定と同じ方針) */
+export function videoLengthFilterValue(video: Pick<Video, "isShort">): VideoLengthFilter {
+  return video.isShort ? "short" : "video";
+}
+
 /** X(Twitter) Player Card / og:video 用のメタ情報(Base.astro に渡す) */
 export interface PlayerCardMeta {
   /** 埋め込みプレイヤーの URL(twitter:player / og:video 系に使う) */

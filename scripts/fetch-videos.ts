@@ -15,6 +15,7 @@ import { rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
 import { type ChannelStats, parseChannelStatsApiResponse } from "../src/lib/channelStats";
+import { newlyPublishedVideos } from "../src/lib/push";
 import {
   createEmptyVideosData,
   extractChannelId,
@@ -32,6 +33,7 @@ import {
   type Video,
   type VideosData,
 } from "../src/lib/youtube";
+import { sendNewVideoNotifications } from "./send-push-notifications";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
 const CHANNEL_STATS_JSON_PATH = fileURLToPath(
@@ -374,6 +376,24 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   console.log(
     `[fetch-videos] ${merged.length} 件を保存しました(Shorts: ${shorts} 件、未判定: ${merged.filter((v) => v.isShort === null).length} 件)`,
   );
+
+  // 新着動画のプッシュ通知(#157)。既存データが空(初回実行等)の場合は全件が「新着」扱いに
+  // なってしまい通知が乱発するため、既存データがある場合のみ差分を計算して送信を試みる。
+  // 必要な環境変数(Cloudflare/VAPID)が未設定の環境では sendNewVideoNotifications 内で
+  // 何もせず正常終了する。失敗しても動画データ更新フロー自体は止めない。
+  if (existing.videos.length > 0) {
+    const newlyPublished = newlyPublishedVideos(existing.videos, merged);
+    if (newlyPublished.length > 0) {
+      try {
+        await sendNewVideoNotifications(newlyPublished);
+      } catch (error) {
+        console.warn(
+          "[fetch-videos] 新着動画のプッシュ通知送信でエラーが発生しました:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    }
+  }
 }
 
 // import.meta.main は直接実行時(bun run scripts/fetch-videos.ts)のみ true になり、
