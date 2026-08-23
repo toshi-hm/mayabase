@@ -154,6 +154,32 @@ export function embedUrl(videoId: string): string {
   return `https://www.youtube.com/embed/${videoId}`;
 }
 
+/** X(Twitter) Player Card / og:video 用のメタ情報(Base.astro に渡す) */
+export interface PlayerCardMeta {
+  /** 埋め込みプレイヤーの URL(twitter:player / og:video 系に使う) */
+  playerUrl: string;
+  width: number;
+  height: number;
+}
+
+/** YouTube 標準の 16:9 埋め込みサイズ(X Player Card / og:video の width・height に使う既定値) */
+const PLAYER_CARD_WIDTH = 1280;
+const PLAYER_CARD_HEIGHT = 720;
+
+/**
+ * 動画個別ページ用の X(Twitter) Player Card / og:video メタ情報を組み立てる(#243)。
+ * Shorts(縦動画)は X Player Card が正しく扱えない可能性があるため対象外とし、null を返す
+ * (呼び出し側は null なら従来どおり summary_large_image カードにフォールバックする)。
+ */
+export function buildPlayerCardMeta(video: Pick<Video, "id" | "isShort">): PlayerCardMeta | null {
+  if (video.isShort) return null;
+  return {
+    playerUrl: embedUrl(video.id),
+    width: PLAYER_CARD_WIDTH,
+    height: PLAYER_CARD_HEIGHT,
+  };
+}
+
 /** 指定秒数から再生開始する視聴 URL(チャプター一覧のリンク先。#154) */
 export function videoUrlAtTime(video: Pick<Video, "id" | "isShort">, seconds: number): string {
   const base = videoUrl(video);

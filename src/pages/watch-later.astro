@@ -11,9 +11,10 @@ import { buildVideoGearMap, parseGearData } from "../lib/gear";
 import { parseVideosData } from "../lib/youtube";
 
 // 「あとで見る」(#216)は localStorage にのみ保存され、どの動画が対象かはブラウザ側でしか
-// わからない。そのためビルド時には全動画をカードとして初期非表示(inline style)で埋め込み、
-// クライアントスクリプトが保存済みIDと突き合わせて表示を切り替える(videos.astro の
-// クライアントサイド絞り込みと同じ「全件静的生成 + 表示/非表示の切替のみ」の方針を踏襲)。
+// わからない。そのためビルド時には全動画をカードとして初期非表示(hidden 属性)で埋め込み、
+// クライアントスクリプトが保存済みIDと突き合わせて表示を切り替える。
+// このページは元々 JavaScript 前提(保存状態自体が localStorage 依存)のため、videos.astro
+// (#177)のような <template> 遅延実体化までは行わない。
 const { videos } = parseVideosData(videosJson);
 const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
 const { items: gearItems } = parseGearData(gearJson);
@@ -70,7 +71,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <ArchiveCard
             video={video}
             category={category}
-            initiallyHidden={true}
+            hidden={true}
             gearItems={videoGearMap.get(video.id) ?? []}
           />
         ))
@@ -136,7 +137,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     for (const card of cards) {
       const id = card.dataset.videoId;
       const saved = id ? ids.has(id) : false;
-      card.style.display = saved ? "" : "none";
+      card.hidden = !saved;
       if (saved) visibleCount += 1;
     }
     if (empty) empty.hidden = visibleCount > 0;

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "astro dev",
     "fetch": "bun run scripts/fetch-videos.ts",
+    "fetch:check-freshness": "bun run scripts/check-fetch-freshness.ts",
     "build": "astro build",
     "build:full": "bun run fetch && astro build",
     "preview": "astro preview",
