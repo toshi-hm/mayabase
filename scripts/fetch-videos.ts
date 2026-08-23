@@ -27,6 +27,7 @@ import {
   parsePlaylistItemsPage,
   parseVideoStatisticsResponse,
   parseVideosData,
+  probeHqThumbnail,
   probeIsShort,
   uploadsPlaylistId,
   type Video,
@@ -223,6 +224,36 @@ async function probeShorts(videos: Video[]): Promise<Video[]> {
 }
 
 /**
+ * OGP画像の高解像度化のため、hq720 サムネイルの存在を確認する(#211)。
+ * probeShorts と同じ「未確認(null/undefined)の動画だけ確認し、確定値は再判定しない」設計だが、
+ * fetchFn を注入できるようにしてテスト容易性を確保している(probeShorts の fetchWithTimeout
+ * 直呼びとは異なる)。
+ */
+async function probeHqThumbnails(
+  videos: Video[],
+  fetchFn: FetchLike = fetchWithTimeout,
+): Promise<Video[]> {
+  const unknowns = videos.filter((v) => v.hasHqThumbnail == null);
+  if (unknowns.length === 0) return videos;
+
+  console.log(`[fetch-videos] hq720 サムネイル存在確認: ${unknowns.length} 件`);
+  const results = await mapWithConcurrency(unknowns, PROBE_CONCURRENCY, async (video) => {
+    let result = await probeHqThumbnail(video.id, fetchFn);
+    if (result === null) {
+      // 一時的な失敗に備えて 300ms 後に 1 回だけリトライ
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      result = await probeHqThumbnail(video.id, fetchFn);
+    }
+    return { id: video.id, hasHqThumbnail: result };
+  });
+
+  const byId = new Map(results.map((r) => [r.id, r.hasHqThumbnail]));
+  return videos.map((video) =>
+    video.hasHqThumbnail == null ? { ...video, hasHqThumbnail: byId.get(video.id) ?? null } : video,
+  );
+}
+
+/**
  * YouTube Data API v3 `videos.list`(part=statistics)で全動画の再生回数を取得する(#35)。
  * `id` パラメータは1リクエストあたり最大50件のため、動画IDを50件ずつのバッチに分けて取得する。
  * 個別バッチの失敗は無視し(取得できた分だけ反映)、既存の viewCount は失敗時にも維持される
@@ -309,6 +340,7 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   }
 
   let merged = await probeShorts(mergeVideos(existing.videos, entries));
+  merged = await probeHqThumbnails(merged, fetchFn);
 
   if (apiKey) {
     const viewCounts = await fetchViewCounts(
@@ -323,6 +355,7 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
         description: video.description,
         publishedAt: video.publishedAt,
         isShort: video.isShort,
+        hasHqThumbnail: video.hasHqThumbnail,
         viewCount: viewCounts.get(video.id) ?? video.viewCount,
       }));
       console.log(`[fetch-videos] 再生回数を ${viewCounts.size} 件取得しました`);

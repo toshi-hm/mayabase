@@ -2,7 +2,14 @@
 import PushNotificationController from "./PushNotificationController.astro";
 import ThemeToggle from "./ThemeToggle.astro";
 import { site } from "../config/site";
+import faqJson from "../data/faq.json";
+import gearJson from "../data/gear.json";
+import videosJson from "../data/videos.json";
+import { parseFaqData } from "../lib/faq";
+import { parseGearData } from "../lib/gear";
 import { isNavCurrent } from "../lib/navigation";
+import { buildSiteSearchIndex } from "../lib/siteSearch";
+import { parseVideosData } from "../lib/youtube";
 
 const NAV_ITEMS = [
   { href: "/videos/", label: "動画ライブラリ" },
@@ -14,6 +21,14 @@ const NAV_ITEMS = [
 // 末尾スラッシュの有無に依存しないよう正規化して現在ページを判定する
 const currentPath = Astro.url.pathname.replace(/\/+$/, "") || "/";
 const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
+
+// ヘッダー横断検索(#155)。動画タイトル・FAQ・ガジェット名をビルド時に1つのインデックスへまとめ、
+// クライアントスクリプトへ JSON として埋め込む(videos.astro の video-search-descriptions と同じ方針)。
+const { videos } = parseVideosData(videosJson);
+const { categories: faqCategories } = parseFaqData(faqJson);
+const { items: gearItems } = parseGearData(gearJson);
+const siteSearchIndex = buildSiteSearchIndex(videos, faqCategories, gearItems);
+const siteSearchIndexSafe = JSON.stringify(siteSearchIndex).replace(/</g, "\\u003c");
 ---
 
 <header class="sticky top-0 z-40 border-b border-line bg-surface/92 backdrop-blur-lg">
@@ -49,7 +64,255 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
         ))
       }
     </ul>
+    <button
+      type="button"
+      id="site-search-toggle"
+      aria-expanded="false"
+      aria-controls="site-search-panel"
+      class="flex-none cursor-pointer rounded-full border border-ink-muted p-2 text-ink-muted transition hover:border-ink hover:bg-surface-raised hover:text-ink focus-visible:outline-2 focus-visible:outline-brand"
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        aria-hidden="true"
+      >
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m21 21-4.35-4.35"></path>
+      </svg>
+      <span class="sr-only">サイト内検索(動画・FAQ・ガジェット)</span>
+    </button>
     <PushNotificationController />
     <ThemeToggle />
   </nav>
+  {
+    /*
+    検索パネル。トグルボタンで開閉する(#155)。ヘッダーはほぼ全ページに表示されるため、
+    ナビ行のレイアウトはモバイル/デスクトップ共通のまま変えず、パネルの開閉のみで
+    検索UIを出し分ける(モバイル専用の別レイアウトを持たない=崩れの温床を減らす)。
+    JS 無効時はトグルボタン自体を隠す(下記 <noscript>)ため、パネルは常に非表示のままでよい。
+  */
+  }
+  <div id="site-search-panel" hidden class="border-t border-line bg-surface">
+    <div class="relative mx-auto max-w-6xl px-4 py-3">
+      <form
+        id="site-search-form"
+        role="search"
+        aria-label="サイト内検索(動画・FAQ・ガジェット)"
+        class="relative max-w-md"
+        autocomplete="off"
+      >
+        <label for="site-search-input" class="sr-only">動画・FAQ・ガジェットを検索</label>
+        <input
+          id="site-search-input"
+          type="search"
+          placeholder="動画・FAQ・ガジェットを検索"
+          role="combobox"
+          aria-expanded="false"
+          aria-controls="site-search-listbox"
+          aria-autocomplete="list"
+          class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
+        />
+        <ul
+          id="site-search-listbox"
+          role="listbox"
+          aria-label="検索候補"
+          hidden
+          class="absolute z-50 mt-2 w-full max-w-md overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-lg max-h-[70vh]"
+        >
+        </ul>
+        <p id="site-search-empty" hidden class="mt-2 text-sm text-ink-muted">
+          該当する候補が見つかりませんでした。
+        </p>
+      </form>
+    </div>
+  </div>
+  <noscript>
+    <style>
+      /* インクリメンタルサーチは JS 前提の機能のため、JS 無効時はトグルボタン自体を隠す */
+      #site-search-toggle {
+        display: none !important;
+      }
+    </style>
+  </noscript>
 </header>
+
+<script is:inline type="application/json" id="site-search-index" set:html={siteSearchIndexSafe} />
+
+<script>
+  // ヘッダー横断検索(#155)。トグルボタンでパネルを開閉し、インクリメンタルサーチの候補プレビューを
+  // 表示する。候補選択時は各コンテンツページ(videos.astro / faq.astro / gear.astro)へ
+  // ?q= 付きで遷移し、既存の syncUrl / restoreStateFromUrl による絞り込みをそのまま再利用する。
+  import { searchSiteIndex, siteSearchResultUrl, siteSearchTypeLabel } from "../lib/siteSearch";
+  import type { SiteSearchItem } from "../lib/siteSearch";
+
+  // 種別ごとの候補数の上限(searchSiteIndex 側の頭打ち件数)。3種別 × 4件 = 最大12件を候補に表示する。
+  const RESULT_LIMIT_PER_TYPE = 4;
+
+  const toggle = document.getElementById("site-search-toggle");
+  const panel = document.getElementById("site-search-panel");
+  const form = document.getElementById("site-search-form");
+  const input = document.getElementById("site-search-input") as HTMLInputElement | null;
+  const listbox = document.getElementById("site-search-listbox");
+  const empty = document.getElementById("site-search-empty");
+  const indexElement = document.getElementById("site-search-index");
+
+  const index: SiteSearchItem[] = indexElement?.textContent
+    ? JSON.parse(indexElement.textContent)
+    : [];
+
+  let results: SiteSearchItem[] = [];
+  // ハイライト中(キーボード操作)の候補インデックス。未選択は -1
+  let activeIndex = -1;
+
+  function optionId(i: number): string {
+    return `site-search-option-${i}`;
+  }
+
+  function setActiveIndex(next: number): void {
+    if (results.length === 0) {
+      activeIndex = -1;
+      input?.removeAttribute("aria-activedescendant");
+      return;
+    }
+    // Arrow キーで先頭/末尾を超えたら反対側へ循環する
+    activeIndex = ((next % results.length) + results.length) % results.length;
+    for (const option of listbox?.querySelectorAll<HTMLElement>('[role="option"]') ?? []) {
+      option.setAttribute("aria-selected", String(option.id === optionId(activeIndex)));
+    }
+    input?.setAttribute("aria-activedescendant", optionId(activeIndex));
+  }
+
+  function renderResults(): void {
+    if (!listbox) return;
+    listbox.replaceChildren();
+    results.forEach((item, i) => {
+      const option = document.createElement("a");
+      option.id = optionId(i);
+      option.href = siteSearchResultUrl(item);
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", String(i === activeIndex));
+      option.className =
+        "flex items-start gap-2 px-3 py-2 text-sm transition hover:bg-surface-raised aria-selected:bg-surface-raised";
+
+      const badge = document.createElement("span");
+      badge.className =
+        "mt-0.5 flex-none rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand-accent";
+      badge.textContent = siteSearchTypeLabel(item.type);
+
+      const textWrap = document.createElement("span");
+      textWrap.className = "min-w-0 flex-1";
+      const title = document.createElement("span");
+      title.className = "block truncate font-medium text-ink";
+      title.textContent = item.title;
+      const subtitle = document.createElement("span");
+      subtitle.className = "block truncate text-xs text-ink-muted";
+      subtitle.textContent = item.subtitle;
+      textWrap.append(title, subtitle);
+
+      option.append(badge, textWrap);
+
+      const li = document.createElement("li");
+      li.setAttribute("role", "presentation");
+      li.append(option);
+      listbox.append(li);
+    });
+    listbox.hidden = results.length === 0;
+  }
+
+  function applySearch(): void {
+    const query = input?.value ?? "";
+    results = searchSiteIndex(index, query, RESULT_LIMIT_PER_TYPE);
+    activeIndex = -1;
+    renderResults();
+    input?.removeAttribute("aria-activedescendant");
+    input?.setAttribute("aria-expanded", String(results.length > 0));
+    if (empty) empty.hidden = query.trim() === "" || results.length > 0;
+  }
+
+  function closeSuggestions(): void {
+    results = [];
+    activeIndex = -1;
+    if (listbox) {
+      listbox.hidden = true;
+      listbox.replaceChildren();
+    }
+    if (empty) empty.hidden = true;
+    input?.setAttribute("aria-expanded", "false");
+    input?.removeAttribute("aria-activedescendant");
+  }
+
+  function openPanel(): void {
+    if (!panel) return;
+    panel.hidden = false;
+    toggle?.setAttribute("aria-expanded", "true");
+    input?.focus();
+  }
+
+  function closePanel(): void {
+    if (!panel) return;
+    panel.hidden = true;
+    toggle?.setAttribute("aria-expanded", "false");
+    closeSuggestions();
+  }
+
+  toggle?.addEventListener("click", () => {
+    if (panel && !panel.hidden) {
+      closePanel();
+    } else {
+      openPanel();
+    }
+  });
+
+  input?.addEventListener("input", applySearch);
+
+  input?.addEventListener("keydown", (event) => {
+    // IME 変換確定の Enter を候補選択として誤爆させない
+    if (event.isComposing) return;
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closePanel();
+      toggle?.focus();
+      return;
+    }
+    if (results.length === 0) return;
+
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        setActiveIndex(activeIndex + 1);
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        setActiveIndex(activeIndex - 1);
+        break;
+      case "Enter": {
+        event.preventDefault();
+        const target = results[activeIndex] ?? results[0];
+        if (target) location.href = siteSearchResultUrl(target);
+        break;
+      }
+      default:
+        break;
+    }
+  });
+
+  // Enter キーは上記 keydown で処理済みだが、フォームの既定送信(ページの空遷移)自体は
+  // 常に防いでおく(keydown ハンドラより先にブラウザの submit が走るケースを避ける保険)。
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+  });
+
+  // パネル外(検索フォーム・トグルボタン以外)をクリックしたら閉じる
+  document.addEventListener("click", (event) => {
+    if (!panel || panel.hidden) return;
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (panel.contains(target) || toggle?.contains(target)) return;
+    closePanel();
+  });
+</script>

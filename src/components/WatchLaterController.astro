@@ -53,8 +53,9 @@
   // ページ内の全ボタンを初期状態に同期する
   syncButtonsIn(document);
 
-  // videos.astro 等、DOM 肥大化対策(#177)で <template> の中身をクライアント側で
-  // 後から実体化するページ向けのフック。新しく挿入された DOM にも保存済み状態を反映する。
+  // videos.astro(#177)や index.astro の「気になるテーマは?」導線(#217)等、DOM 肥大化対策で
+  // <template> の中身をクライアント側で後から実体化するページ向けのフック。
+  // 新しく挿入された DOM にも保存済み状態を反映する。
   document.addEventListener("mayabase:card-materialized", (event) => {
     const root = (event as CustomEvent<{ root?: ParentNode }>).detail?.root;
     if (root) syncButtonsIn(root);
