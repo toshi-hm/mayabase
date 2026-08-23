@@ -53,10 +53,15 @@ const viewCountLabel = video.viewCount !== null ? formatViewCount(video.viewCoun
   <div
     class="group/card flex h-full flex-col overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg"
   >
+    {
+      /* data-watch-track-id は「前回の続きから」導線(#188)向け。クリックを
+      ContinueWatchingController.astro が拾い、localStorage に視聴履歴として記録する。 */
+    }
     <a
       href={videoUrl(video)}
       target="_blank"
       rel="noopener noreferrer"
+      data-watch-track-id={video.id}
       class="focus-visible:outline-2 focus-visible:outline-brand"
     >
       <div class="relative">

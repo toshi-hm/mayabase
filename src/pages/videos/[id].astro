@@ -172,6 +172,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         href={videoUrl(video)}
         target="_blank"
         rel="noopener noreferrer"
+        data-watch-track-id={video.id}
         class="rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-strong"
       >
         YouTube で見る <span aria-hidden="true">↗</span>
