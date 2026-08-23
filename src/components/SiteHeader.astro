@@ -1,4 +1,5 @@
 ---
+import PushNotificationController from "./PushNotificationController.astro";
 import ThemeToggle from "./ThemeToggle.astro";
 import { site } from "../config/site";
 import faqJson from "../data/faq.json";
@@ -84,6 +85,7 @@ const siteSearchIndexSafe = JSON.stringify(siteSearchIndex).replace(/</g, "\\u00
       </svg>
       <span class="sr-only">サイト内検索(動画・FAQ・ガジェット)</span>
     </button>
+    <PushNotificationController />
     <ThemeToggle />
   </nav>
   {

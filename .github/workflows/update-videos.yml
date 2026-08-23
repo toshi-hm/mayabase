@@ -33,8 +33,18 @@ jobs:
       - name: YouTube 動画データの取得
         # YOUTUBE_API_KEY(リポジトリ Secrets)を設定すると Data API で全動画を取得する。
         # 未設定でも RSS(最新 15 件)で動作する(段階的に過去動画が蓄積される)。
+        #
+        # 新着動画のプッシュ通知(#157): CLOUDFLARE_*/VAPID_* の Secrets が未設定の場合、
+        # scripts/send-push-notifications.ts は何もせずスキップする(このステップ自体は失敗しない)。
+        # セットアップ手順は .dev.vars.example を参照。
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
         run: bun run fetch
 
       - name: 動画データの鮮度チェック
