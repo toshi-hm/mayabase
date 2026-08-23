@@ -2,7 +2,13 @@
 import { CATEGORY_LABELS, type VideoCategory } from "../lib/categories";
 import { formatDateJa, formatViewCount } from "../lib/format";
 import { gearDisplayName, type GearItem } from "../lib/gear";
-import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
+import {
+  thumbnailFallbackUrl,
+  thumbnailUrl,
+  type Video,
+  videoLengthFilterValue,
+  videoUrl,
+} from "../lib/youtube";
 import PreviewButton from "./PreviewButton.astro";
 import ShareButton from "./ShareButton.astro";
 import WatchLaterButton from "./WatchLaterButton.astro";
@@ -47,6 +53,7 @@ const viewCountLabel = video.viewCount !== null ? formatViewCount(video.viewCoun
 <li
   class="relative"
   data-category={category}
+  data-length={videoLengthFilterValue(video)}
   data-title={video.title.toLowerCase()}
   data-video-id={video.id}
   data-view-count={video.viewCount ?? ""}

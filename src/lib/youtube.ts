@@ -114,6 +114,14 @@ export function embedUrl(videoId: string): string {
   return `https://www.youtube.com/embed/${videoId}`;
 }
 
+/** 動画の長さ区分(通常動画/Shorts)。/videos/ の絞り込みフィルターで使う(#257) */
+export type VideoLengthFilter = "video" | "short";
+
+/** isShort が null(未判定)の場合は通常動画として扱う(videoUrl 等の既存の isShort 真偽判定と同じ方針) */
+export function videoLengthFilterValue(video: Pick<Video, "isShort">): VideoLengthFilter {
+  return video.isShort ? "short" : "video";
+}
+
 /** 指定秒数から再生開始する視聴 URL(チャプター一覧のリンク先。#154) */
 export function videoUrlAtTime(video: Pick<Video, "id" | "isShort">, seconds: number): string {
   const base = videoUrl(video);

@@ -146,6 +146,32 @@ const searchableDescriptionsSafe = JSON.stringify(
           ))
         }
       </div>
+      <div role="group" aria-label="動画の長さで絞り込み" class="flex flex-wrap gap-2">
+        <button
+          type="button"
+          data-filter-length="all"
+          aria-pressed="true"
+          class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+        >
+          すべて
+        </button>
+        <button
+          type="button"
+          data-filter-length="video"
+          aria-pressed="false"
+          class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+        >
+          通常動画
+        </button>
+        <button
+          type="button"
+          data-filter-length="short"
+          aria-pressed="false"
+          class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+        >
+          Shorts
+        </button>
+      </div>
       {
         hasViewCounts && (
           <div role="group" aria-label="並び替え" class="flex flex-wrap gap-2">
@@ -288,6 +314,7 @@ const searchableDescriptionsSafe = JSON.stringify(
   const buttons = document.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>(
     "[data-filter-category]",
   );
+  const lengthButtons = document.querySelectorAll<HTMLButtonElement>("[data-filter-length]");
   const sortButtons = document.querySelectorAll<HTMLButtonElement>("[data-sort-order]");
   const search = document.getElementById("video-search") as HTMLInputElement | null;
   // 「新しい順」に戻す際に再利用する元の DOM 順(= videos.json の公開日時降順)を保持しておく。
@@ -303,6 +330,8 @@ const searchableDescriptionsSafe = JSON.stringify(
   const empty = document.getElementById("videos-empty");
   const moreButton = document.getElementById("videos-more") as HTMLButtonElement | null;
   let category = "all";
+  // 動画の長さ絞り込み状態(#257: category/q と同じくURLに同期する)
+  let length: "all" | "video" | "short" = "all";
   // 並び替え状態(#152: category/q と同じくURLに同期する)
   let sortOrder: "newest" | "popular" = "newest";
   // 一度展開したら以降は全件表示のまま(ボタンは二度と出さない)
@@ -319,12 +348,25 @@ const searchableDescriptionsSafe = JSON.stringify(
   const validCategories = new Set(
     [...buttons].map((button) => button.dataset.filterCategory ?? "all"),
   );
+  // URL 経由で受け取ってよい長さ値(同上)
+  const validLengths = new Set(
+    [...lengthButtons].map((button) => button.dataset.filterLength ?? "all"),
+  );
 
   function setPressedCategory(nextCategory: string): void {
     for (const button of buttons) {
       button.setAttribute(
         "aria-pressed",
         String((button.dataset.filterCategory ?? "all") === nextCategory),
+      );
+    }
+  }
+
+  function setPressedLength(nextLength: string): void {
+    for (const button of lengthButtons) {
+      button.setAttribute(
+        "aria-pressed",
+        String((button.dataset.filterLength ?? "all") === nextLength),
       );
     }
   }
@@ -346,6 +388,10 @@ const searchableDescriptionsSafe = JSON.stringify(
     const urlCategory = params.get("category");
     category = urlCategory && validCategories.has(urlCategory) ? urlCategory : "all";
     setPressedCategory(category);
+    const urlLength = params.get("length");
+    length =
+      urlLength && validLengths.has(urlLength) ? (urlLength as "all" | "video" | "short") : "all";
+    setPressedLength(length);
     if (search) search.value = params.get("q") ?? "";
 
     // 並び替えトグル自体が無い環境(viewCount 未取得)では order パラメータを無視する
@@ -363,6 +409,7 @@ const searchableDescriptionsSafe = JSON.stringify(
   function syncUrl(mode: "push" | "replace"): void {
     const params = new URLSearchParams();
     if (category !== "all") params.set("category", category);
+    if (length !== "all") params.set("length", length);
     const query = (search?.value ?? "").trim();
     if (query) params.set("q", query);
     if (sortOrder !== "newest") params.set("order", sortOrder);
@@ -378,6 +425,7 @@ const searchableDescriptionsSafe = JSON.stringify(
   function cardMatches(card: HTMLLIElement, query: string): boolean {
     return (
       (category === "all" || card.dataset.category === category) &&
+      (length === "all" || card.dataset.length === length) &&
       (textMatchesKeyword(card.dataset.title ?? "", query) ||
         textMatchesKeyword(descriptions[card.dataset.videoId ?? ""] ?? "", query))
     );
@@ -442,6 +490,16 @@ const searchableDescriptionsSafe = JSON.stringify(
         event.preventDefault();
         button.click();
       }
+    });
+  }
+  for (const button of lengthButtons) {
+    button.addEventListener("click", () => {
+      const value = button.dataset.filterLength;
+      length = value === "video" || value === "short" ? value : "all";
+      setPressedLength(length);
+      applyFilter();
+      // カテゴリと同様、独立した絞り込み状態とみなし履歴を1件積む
+      syncUrl("push");
     });
   }
   search?.addEventListener("input", () => {
