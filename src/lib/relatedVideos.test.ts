@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getAdjacentVideos, getRelatedVideos } from "./relatedVideos";
+import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "./relatedVideos";
 import type { Video } from "./youtube";
 
 // カテゴリ判定はタイトルに依存する(categorizeVideo)ため、テスト用動画のタイトルは
@@ -94,5 +94,22 @@ describe("getAdjacentVideos", () => {
     const adjacent = getAdjacentVideos(target, [newer, older]);
     expect(adjacent.older).toBeNull();
     expect(adjacent.newer).toBeNull();
+  });
+});
+
+describe("pickNextVideo", () => {
+  const newer = video("newer", "GPT-5 レビュー", "2026-07-01T00:00:00+09:00");
+  const related = video("related", "OpenAI の新発表", "2026-01-01T00:00:00+09:00");
+
+  test("公開日が1つ新しい動画(adjacentVideos.newer)を優先する", () => {
+    expect(pickNextVideo({ newer }, [related])).toBe(newer);
+  });
+
+  test("newer が無ければ関連動画の先頭で代替する(最新動画向け・#175)", () => {
+    expect(pickNextVideo({ newer: null }, [related])).toBe(related);
+  });
+
+  test("どちらも無ければ null(提示UI自体を出さない)", () => {
+    expect(pickNextVideo({ newer: null }, [])).toBeNull();
   });
 });

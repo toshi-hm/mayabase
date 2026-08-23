@@ -20,11 +20,12 @@ import {
 } from "../../lib/format";
 import { buildVideoGearMap, parseGearData, type GearItem } from "../../lib/gear";
 import { getLightboxContainerClass } from "../../lib/lightbox";
-import { getAdjacentVideos, getRelatedVideos } from "../../lib/relatedVideos";
+import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "../../lib/relatedVideos";
 import {
   buildPlayerCardMeta,
   embedUrl,
   parseVideosData,
+  playerEmbedUrl,
   resolveOgThumbnail,
   thumbnailFallbackUrl,
   thumbnailUrl,
@@ -58,6 +59,8 @@ const RELATED_LIMIT = 6;
 const relatedVideos = getRelatedVideos(video, videos, category, RELATED_LIMIT);
 // 公開日時順の前後ナビゲーション(#106)。関連動画(同カテゴリ)とは別軸の発見導線。
 const adjacentVideos = getAdjacentVideos(video, videos);
+// 再生終了後に提示する「次の動画」(#175)。無ければ提示UI自体を出さない。
+const nextVideo = pickNextVideo(adjacentVideos, relatedVideos);
 const viewCountText = video.viewCount !== null ? formatViewCount(video.viewCount) : null;
 // 概要欄の段落(空行区切り)を保持したまま表示するため行単位に分割する
 const descriptionParagraphs = video.description.split("\n");
@@ -79,6 +82,8 @@ if (!Astro.site) {
   throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
 }
 const siteUrl = Astro.site.toString();
+// IFrame Player API の origin パラメータ用(#175)。パスを含まないオリジンのみ渡す。
+const playerOrigin = new URL(siteUrl).origin;
 const breadcrumbItems: BreadcrumbItem[] = [
   { name: "ホーム", href: "/" },
   { name: "動画ライブラリ", href: "/videos/" },
@@ -194,18 +199,56 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       <h2 id="preview-heading" class="sr-only">動画プレビュー</h2>
       <div
         class:list={[
-          "overflow-hidden rounded-xl",
+          "relative overflow-hidden rounded-xl",
           getLightboxContainerClass(video.isShort ? "short" : "video"),
         ]}
       >
         <iframe
           id="video-player-frame"
-          src={embedUrl(video.id)}
+          src={playerEmbedUrl(video.id, playerOrigin)}
           title={video.title}
           loading="lazy"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowfullscreen
           class="h-full w-full"></iframe>
+        {
+          /* 再生終了(YouTube IFrame Player API の ENDED イベント)後に表示する「次の動画」提示(#175)。
+          サードパーティスクリプト(iframe_api)の読み込みは、提示先が存在する場合のみ script 側で行う。 */
+          nextVideo && (
+            <div
+              id="next-video-overlay"
+              class="pointer-events-none absolute inset-0 z-10 hidden items-center justify-center bg-black/80 p-4"
+            >
+              <div class="pointer-events-auto w-full max-w-xs rounded-xl bg-surface p-4 text-ink shadow-xl">
+                <p class="text-xs text-ink-muted">次の動画</p>
+                <a
+                  href={`/videos/${nextVideo.id}/`}
+                  class="group/next mt-2 flex gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                  <img
+                    src={thumbnailFallbackUrl(nextVideo.id)}
+                    alt=""
+                    width="160"
+                    height="90"
+                    loading="lazy"
+                    decoding="async"
+                    class="aspect-video w-28 shrink-0 rounded-lg object-cover"
+                  />
+                  <span class="line-clamp-3 text-sm font-semibold group-hover/next:text-brand-accent">
+                    {nextVideo.title}
+                  </span>
+                </a>
+                <button
+                  type="button"
+                  id="next-video-dismiss"
+                  class="mt-3 cursor-pointer text-xs text-ink-muted underline hover:text-ink"
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
+          )
+        }
       </div>
     </section>
 
@@ -367,6 +410,28 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 </Base>
 
 <script>
+  // YouTube IFrame Player API の最小限の型(公式 @types パッケージは導入していないため自前で宣言)。
+  // 使用箇所(onStateChange の ENDED 検知)に必要なメンバーのみに絞る。
+  interface YouTubePlayerStateChangeEvent {
+    data: number;
+  }
+  interface YouTubePlayer {
+    destroy: () => void;
+  }
+  interface YouTubeIframeApi {
+    Player: new (
+      element: HTMLIFrameElement,
+      options: { events: { onStateChange: (event: YouTubePlayerStateChangeEvent) => void } },
+    ) => YouTubePlayer;
+    PlayerState: { ENDED: number };
+  }
+  declare global {
+    interface Window {
+      YT?: YouTubeIframeApi;
+      onYouTubeIframeAPIReady?: () => void;
+    }
+  }
+
   // チャプターリンクは通常のYouTube視聴URLへのリンク(JS無効環境・クローラー向けフォールバック)。
   // JS有効時はページ遷移せず、埋め込みプレイヤーのiframeを該当秒数から再生し直す(#154)
   const frame = document.getElementById("video-player-frame");
@@ -387,5 +452,41 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         frame.scrollIntoView({ behavior: "smooth", block: "center" });
       });
     }
+  }
+
+  // 再生終了後の「次の動画」提示(#175)。
+  // next-video-overlay が存在する(= 提示できる次の動画がある)場合のみ、
+  // YouTube IFrame API スクリプトを動的に読み込む。このサイトは方針としてサードパーティ
+  // スクリプトを追加しない(JS最小限)ため、提示先が無い動画では一切読み込ませない。
+  const nextVideoOverlay = document.getElementById("next-video-overlay");
+  const nextVideoDismiss = document.getElementById("next-video-dismiss");
+  if (frame instanceof HTMLIFrameElement && nextVideoOverlay) {
+    const showNextVideo = (): void => {
+      nextVideoOverlay.classList.remove("hidden");
+      nextVideoOverlay.classList.add("flex");
+    };
+
+    nextVideoDismiss?.addEventListener("click", () => {
+      nextVideoOverlay.classList.add("hidden");
+      nextVideoOverlay.classList.remove("flex");
+    });
+
+    window.onYouTubeIframeAPIReady = () => {
+      const YT = window.YT;
+      if (!YT) return;
+      // frame は iframe_api 読み込み前後で不変(このスクリプトが差し替えるのは src のみ)。
+      // 既存の iframe を渡すことで API 側が enablejsapi=1 のプレイヤーとして認識する(公式仕様)。
+      new YT.Player(frame, {
+        events: {
+          onStateChange: (event) => {
+            if (event.data === YT.PlayerState.ENDED) showNextVideo();
+          },
+        },
+      });
+    };
+
+    const apiScript = document.createElement("script");
+    apiScript.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(apiScript);
   }
 </script>
