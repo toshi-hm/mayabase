@@ -1,0 +1,113 @@
+name: 外部リンクの死活監視
+
+on:
+  schedule:
+    # 毎週月曜 21:00 UTC(日本時間 火曜 6:00)
+    # 監視対象サイトへの負荷・レート制限のリスクを避けるため週次とする(#254)
+    - cron: "0 21 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: check-links
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # リンク切れ検知時に Issue を起票/クローズするため(#201 と同じパターン)
+      issues: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.11
+
+      - name: 依存関係のインストール
+        run: bun install --frozen-lockfile
+
+      - name: 愛用ガジェット・FAQ の外部リンクを確認
+        # gear.json / faq.json の全外部リンクに HEAD(405/501 時は GET)リクエストを行う。
+        id: check
+        run: bun run check:links
+
+      - name: リンク切れ検知時の Issue 通知(#254)
+        # update-videos.yml の取得停滞アラート(#201)と同じ「サイレント障害を Issue 通知で
+        # 顕在化する」パターンを踏襲する。既にアラート Issue が open であれば重複作成せず、
+        # 逆に全リンクの復旧を検知したら自動クローズする。
+        uses: actions/github-script@v7
+        env:
+          HAS_BROKEN: ${{ steps.check.outputs.has_broken }}
+          BROKEN_COUNT: ${{ steps.check.outputs.broken_count }}
+          TOTAL_COUNT: ${{ steps.check.outputs.total_count }}
+          CHECK_SUMMARY: ${{ steps.check.outputs.summary }}
+        with:
+          script: |
+            const marker = "<!-- check-links-alert (#254) -->";
+            const label = "broken-link-alert";
+            const title = "⚠️ 愛用ガジェット・FAQ の外部リンクに異常を検知しました";
+            const hasBroken = process.env.HAS_BROKEN === "true";
+            const summary = process.env.CHECK_SUMMARY || "(詳細不明)";
+            const runUrl =
+              `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+              `/actions/runs/${context.runId}`;
+
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: label,
+              per_page: 100,
+            });
+            const existing = openIssues.find((issue) => issue.body?.includes(marker));
+
+            if (hasBroken) {
+              if (existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body: `🔁 再検知しました(${process.env.BROKEN_COUNT}/${process.env.TOTAL_COUNT} 件)。\n\n${summary}\n\n直近の実行: ${runUrl}`,
+                });
+                console.log(
+                  `既存のアラート Issue #${existing.number} が既に open のため、新規作成せずコメントのみ追加しました。`,
+                );
+                return;
+              }
+              const body = [
+                marker,
+                summary,
+                "",
+                `直近の実行: ${runUrl}`,
+                "",
+                "上記リンクの遷移先(商品ページ・メーカー公式サイト等)が削除・変更されていないか確認し、",
+                "gear.json / faq.json の該当 URL を更新してください。",
+                "全リンクの復旧を確認すると、このIssueは次回実行時に自動的にクローズされます。",
+              ].join("\n");
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: [label],
+              });
+              console.log(`アラート Issue #${created.data.number} を作成しました。`);
+            } else if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `✅ 全リンクの復旧を確認しました。${summary}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                state: "closed",
+                state_reason: "completed",
+              });
+              console.log(`復旧を確認したため Issue #${existing.number} をクローズしました。`);
+            }
