@@ -1,16 +1,18 @@
 import type { FaqCategory } from "./faq";
 import { textMatchesKeyword } from "./format";
 import { type GearItem, gearDisplayName } from "./gear";
+import type { GlossaryItem } from "./glossary";
 import type { Video } from "./youtube";
 
 /** ヘッダー横断検索の対象コンテンツ種別 */
-export type SiteSearchItemType = "video" | "faq" | "gear";
+export type SiteSearchItemType = "video" | "faq" | "gear" | "glossary";
 
 /** 種別ごとの表示ラベル(候補プレビューのバッジに使う) */
 const SITE_SEARCH_TYPE_LABELS: Record<SiteSearchItemType, string> = {
   video: "動画",
   faq: "FAQ",
   gear: "ガジェット",
+  glossary: "用語集",
 };
 
 export function siteSearchTypeLabel(type: SiteSearchItemType): string {
@@ -37,14 +39,16 @@ export interface SiteSearchItem {
 }
 
 /**
- * 動画・FAQ・ガジェットのデータからヘッダー横断検索インデックスを組み立てる(#155)。
+ * 動画・FAQ・ガジェット・用語集のデータからヘッダー横断検索インデックスを組み立てる(#155、#255)。
  * ヘッダーはほぼ全ページに表示されるため、動画の概要欄全文のような重いテキストは含めず、
- * 「動画タイトル・FAQ(質問+回答)・ガジェット名(+ブランド+ひとことコメント)」に絞って軽量に保つ。
+ * 「動画タイトル・FAQ(質問+回答)・ガジェット名(+ブランド+ひとことコメント)・用語集(用語+解説)」
+ * に絞って軽量に保つ。
  */
 export function buildSiteSearchIndex(
   videos: readonly Video[],
   faqCategories: readonly FaqCategory[],
   gearItems: readonly GearItem[],
+  glossaryItems: readonly GlossaryItem[],
 ): SiteSearchItem[] {
   const videoItems: SiteSearchItem[] = videos.map((video) => ({
     type: "video",
@@ -75,7 +79,16 @@ export function buildSiteSearchIndex(
     searchText: `${item.name} ${item.brand} ${item.note ?? ""}`,
   }));
 
-  return [...videoItems, ...faqItems, ...gearSearchItems];
+  const glossarySearchItems: SiteSearchItem[] = glossaryItems.map((item) => ({
+    type: "glossary",
+    title: item.term,
+    subtitle: "用語集",
+    href: "/glossary/",
+    query: item.term,
+    searchText: `${item.term} ${item.definition}`,
+  }));
+
+  return [...videoItems, ...faqItems, ...gearSearchItems, ...glossarySearchItems];
 }
 
 /**
@@ -83,7 +96,7 @@ export function buildSiteSearchIndex(
  * `textMatchesKeyword`(format.ts、動画ライブラリ・FAQ・ガジェット検索と共通)を使い、
  * 同じ照合ルール(英数字キーワードは単語境界照合等)で判定する。
  * 動画が94件と件数が多いため、種別ごとに `limitPerType` 件で頭打ちにして
- * 特定の種別だけが候補を占有しないようにする(3種別 × limitPerType 件が候補の上限)。
+ * 特定の種別だけが候補を占有しないようにする(4種別 × limitPerType 件が候補の上限)。
  * 空クエリでは候補を返さない(サジェストを毎回全件出さないようにするため)。
  */
 export function searchSiteIndex(
@@ -94,7 +107,7 @@ export function searchSiteIndex(
   const trimmed = query.trim();
   if (trimmed === "") return [];
 
-  const counts: Record<SiteSearchItemType, number> = { video: 0, faq: 0, gear: 0 };
+  const counts: Record<SiteSearchItemType, number> = { video: 0, faq: 0, gear: 0, glossary: 0 };
   const matched: SiteSearchItem[] = [];
   for (const item of index) {
     if (counts[item.type] >= limitPerType) continue;
