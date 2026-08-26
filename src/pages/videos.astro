@@ -3,6 +3,7 @@ import ArchiveCard from "../components/ArchiveCard.astro";
 import Breadcrumb from "../components/Breadcrumb.astro";
 import { site, subscribeUrl } from "../config/site";
 import gearJson from "../data/gear.json";
+import seriesJson from "../data/series.json";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
@@ -14,6 +15,7 @@ import {
 } from "../lib/categories";
 import { extractSearchableText, truncate } from "../lib/format";
 import { buildVideoGearMap, parseGearData } from "../lib/gear";
+import { parseSeriesData, seriesUrl } from "../lib/series";
 import {
   embedUrl,
   parseVideosData,
@@ -42,6 +44,17 @@ const firstThumbnailSrc = videos[0] ? thumbnailFallbackUrl(videos[0].id) : undef
 
 // 動画が 1 件以上あるカテゴリだけをフィルタ UI に出す(カテゴリ別静的ページと同じ方針・#121)
 const availableCategories = getAvailableCategories(categorized);
+
+// トップの「一気見」導線で紹介する featured シリーズ(#250)。
+// series.json 側で slug が変わった/削除された場合に、リンク切れのまま気付かず公開されるのを防ぐため
+// ビルド時に存在チェックする(series.ts の parseSeriesData と同じ、不正データはビルドを落とす方針)。
+const FEATURED_SERIES_SLUG = "futatsu-no-waraji";
+const { series } = parseSeriesData(seriesJson);
+if (!series.some((item) => item.slug === FEATURED_SERIES_SLUG)) {
+  throw new Error(
+    `videos.astro: series.json に FEATURED_SERIES_SLUG "${FEATURED_SERIES_SLUG}" が見つかりません`,
+  );
+}
 
 // 再生回数ソートのトグル(#48)。RSS のみ(YOUTUBE_API_KEY 未設定)の環境では
 // 全動画の viewCount が null になるため、1 件も取得できていなければトグル自体を非表示にする
@@ -220,7 +233,7 @@ const searchableDescriptionsSafe = JSON.stringify(
 
     <p class="mt-4 text-sm">
       <a
-        href="/videos/series/futatsu-no-waraji/"
+        href={seriesUrl(FEATURED_SERIES_SLUG)}
         class="font-semibold text-brand-accent hover:underline focus-visible:outline-2 focus-visible:outline-brand"
       >
         「二足のわらじ」シリーズを一気見する<span aria-hidden="true">→</span>
