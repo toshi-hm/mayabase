@@ -48,3 +48,16 @@ export function getAdjacentVideos(
     newer: index > 0 ? (sorted[index - 1] ?? null) : null,
   };
 }
+
+/**
+ * 再生終了後に提示する「次の動画」を選ぶ(#175)。
+ * 公開日順ナビゲーションの adjacentVideos.newer(1つ新しい動画)を優先し、
+ * 最新動画で newer が無ければ同カテゴリの関連動画(relatedVideos)の先頭で代替する。
+ * どちらも無ければ null を返し、呼び出し元は提示UI自体を出さない。
+ */
+export function pickNextVideo(
+  adjacent: Pick<AdjacentVideos, "newer">,
+  related: readonly Video[],
+): Video | null {
+  return adjacent.newer ?? related[0] ?? null;
+}

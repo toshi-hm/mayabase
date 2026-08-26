@@ -18,6 +18,7 @@ function makeVideo(overrides: Partial<Video> & { id: string }): Video {
     description: "",
     isShort: false,
     viewCount: null,
+    duration: null,
     ...overrides,
   };
 }

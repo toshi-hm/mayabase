@@ -70,8 +70,9 @@ const xPosts = posts.slice(0, maxItems);
 // 役割が重複しないよう、ここでは各カテゴリの上位動画のみを紹介し、全件は
 // /videos/category/{category}/ へ誘導する(入口の分岐に留める)。
 // "other" は「気になるテーマ」として提示する分類ではないため対象外とする。
-// 4テーマ分をあらかじめ全件DOMに描画する(初期非表示分は #videos-grid と同じ方針)ため、
-// 他セクションの maxItems(6)より少ない件数に絞り、ページ全体のDOMサイズ増加を抑える。
+// 各テーマのカードは <template> に格納し、クリック時にのみ実体化する(#217)ため
+// ページの初期DOMサイズは増えないが、実体化後の一覧が間延びしないよう
+// 他セクションの maxItems(6)より少ない件数に絞る。
 const TOPIC_PANEL_LIMIT = 4;
 const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
 const topicPanels = CATEGORY_ORDER.filter((category) => category !== "other")
@@ -108,6 +109,20 @@ const sparklinePoints = buildSparklinePoints(
   SPARKLINE_HEIGHT,
 );
 const sparklinePolyline = sparklinePoints ? sparklinePointsToPolyline(sparklinePoints) : null;
+
+// 「前回の続きから」導線(#188)。どの動画を前回見ていたかは訪問者の localStorage にしか
+// わからないため、ビルド時には「表示に必要な最小限の情報(id/title/isShort)」のみを
+// JSON として埋め込み、クライアントスクリプトが記録済みIDと突き合わせて該当動画があれば
+// バナーを表示する。該当動画が削除・非公開等でここに存在しなければバナー自体を出さない。
+const continueWatchingCandidates = videos.map((v) => ({
+  id: v.id,
+  title: v.title,
+  isShort: v.isShort,
+}));
+const continueWatchingCandidatesSafe = JSON.stringify(continueWatchingCandidates).replace(
+  /</g,
+  "\\u003c",
+);
 
 // 更新頻度の目安(#187)。初回訪問者が登録を判断する材料として提示する。
 // データ不足・ペースが低すぎる・間隔が不規則、のいずれかの場合は算出結果を出さない
@@ -170,6 +185,8 @@ const jsonLd = {
                 uploadDate: video.publishedAt,
                 embedUrl: embedUrl(video.id),
                 url: videoUrl(video),
+                // Google 推奨プロパティ。取得できない動画は省略する(#173)
+                ...(video.duration !== null && { duration: video.duration }),
               },
             })),
           },
@@ -276,6 +293,53 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             </nav>
           </div>
         </div>
+
+        {
+          /* 「前回の続きから」導線(#188)。localStorage を確認できるまで対象動画は
+          わからないため、初期状態は hidden にしておき、クライアントスクリプトが
+          該当動画を見つけられた場合のみ表示する(JS無効時は常に非表示のまま)。 */
+        }
+        <section
+          id="continue-watching"
+          aria-labelledby="continue-watching-heading"
+          hidden
+          class="mb-8 border-t border-line pt-6"
+        >
+          <p id="continue-watching-heading" class="mb-3 text-sm font-bold text-brand-accent">
+            前回の続きから
+          </p>
+          <a
+            id="continue-watching-link"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="group/continue flex items-center gap-4 rounded-lg border border-line bg-surface-raised p-3 transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            <img
+              id="continue-watching-thumbnail"
+              src=""
+              alt=""
+              width="160"
+              height="90"
+              loading="lazy"
+              decoding="async"
+              class="aspect-video w-28 shrink-0 rounded-md object-cover sm:w-40"
+            />
+            <span class="min-w-0">
+              <span
+                id="continue-watching-title"
+                class="line-clamp-2 font-semibold group-hover/continue:text-brand-accent"></span>
+              <span class="sr-only">(YouTube・新しいタブで開きます)</span>
+            </span>
+          </a>
+        </section>
+        <script
+          is:inline
+          type="application/json"
+          id="continue-watching-video-data"
+          set:html={continueWatchingCandidatesSafe}
+        />
+
         <div class="mb-5 flex items-end justify-between gap-4 border-t border-line pt-5">
           <h2 id="videos-heading" class="text-xl font-black sm:text-2xl">最新動画</h2>
           <p class="hidden text-sm text-ink-muted sm:block">NEW RELEASES</p>
@@ -336,7 +400,15 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             </div>
             <div id="topic-picker-results" class="mt-6" hidden>
               <p id="topic-picker-count" aria-live="polite" class="mb-4 text-sm text-ink-muted" />
-              {topicPanels.map(({ category, videos: panelVideos }) => (
+            </div>
+            {/* 各テーマのカードは <template> の中身として描画する(#217)。<template> の子要素は
+              メインドキュメントの DOM ツリーに属さないため、テーマボタンが実際にクリックされて
+              表示が必要になるまで Lighthouse の DOM サイズ計測やスタイル計算・レイアウトの対象に
+              ならない(/videos/ の DOM 肥大化対策・#177 と同じ方針)。テーマボタン自体は
+              /videos/category/{category}/ への実リンクを兼ねる(JS 無効時・クローラーはそのまま
+              遷移/到達できるため、この <template> は no-JS フォールバックを別途用意しなくてよい)。 */}
+            {topicPanels.map(({ category, videos: panelVideos }) => (
+              <template data-topic-panel-template={category}>
                 <div data-topic-panel={category} hidden>
                   <ul role="list" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {panelVideos.map((video) => (
@@ -350,8 +422,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                     {CATEGORY_LABELS[category]}の動画をすべて見る
                   </a>
                 </div>
-              ))}
-            </div>
+              </template>
+            ))}
           </div>
         </section>
       )
@@ -485,17 +557,43 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   const buttons = document.querySelectorAll<HTMLAnchorElement>("[data-topic-category]");
   const results = document.getElementById("topic-picker-results");
   const countLabel = document.getElementById("topic-picker-count");
-  const panels = document.querySelectorAll<HTMLDivElement>("[data-topic-panel]");
+
+  // 各テーマのカードは <template> として描画されている(#217)。クリックで初めて表示が
+  // 必要になった時点で template.content を複製・挿入する(実体化)。一度実体化したパネルは
+  // 再利用し、以降は表示/非表示の切り替えのみ行う。
+  const templatesByCategory = new Map<string, HTMLTemplateElement>();
+  for (const template of document.querySelectorAll<HTMLTemplateElement>(
+    "[data-topic-panel-template]",
+  )) {
+    const category = template.dataset.topicPanelTemplate;
+    if (category) templatesByCategory.set(category, template);
+  }
+  const realizedPanels = new Map<string, HTMLElement>();
+
+  function materializePanel(category: string): HTMLElement | null {
+    const existing = realizedPanels.get(category);
+    if (existing) return existing;
+    const template = templatesByCategory.get(category);
+    if (!template || !results) return null;
+    const fragment = template.content.cloneNode(true) as DocumentFragment;
+    const panel = fragment.querySelector<HTMLElement>("[data-topic-panel]");
+    if (!panel) return null;
+    results.appendChild(panel);
+    realizedPanels.set(category, panel);
+    // WatchLaterController.astro 等、実体化後の DOM にも保存済み状態の反映が必要なリスナーへ通知する
+    document.dispatchEvent(
+      new CustomEvent("mayabase:card-materialized", { detail: { root: panel } }),
+    );
+    return panel;
+  }
 
   function selectTopic(category: string, label: string): void {
     for (const button of buttons) {
       button.setAttribute("aria-pressed", String(button.dataset.topicCategory === category));
     }
-    let selectedPanel: HTMLDivElement | null = null;
-    for (const panel of panels) {
-      const isMatch = panel.dataset.topicPanel === category;
-      panel.hidden = !isMatch;
-      if (isMatch) selectedPanel = panel;
+    const selectedPanel = materializePanel(category);
+    for (const panel of realizedPanels.values()) {
+      panel.hidden = panel !== selectedPanel;
     }
     if (results) results.hidden = false;
     if (countLabel) {
@@ -524,5 +622,52 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         button.click();
       }
     });
+  }
+</script>
+
+<script>
+  // 「前回の続きから」導線(#188)。視聴記録は ContinueWatchingController.astro が
+  // クリック時に localStorage へ書き込む。ここでは記録済みIDと #continue-watching-video-data
+  // に埋め込まれた候補動画一覧を突き合わせ、該当する動画があればバナーを表示する。
+  import {
+    CONTINUE_WATCHING_STORAGE_KEY,
+    parseContinueWatchingCandidates,
+    parseStoredContinueWatchingIds,
+    selectContinueWatchingVideo,
+  } from "../lib/continueWatching";
+  import { thumbnailFallbackUrl, videoUrl } from "../lib/youtube";
+
+  const section = document.getElementById("continue-watching");
+  const link = document.getElementById("continue-watching-link");
+  const thumbnail = document.getElementById("continue-watching-thumbnail");
+  const titleEl = document.getElementById("continue-watching-title");
+  const dataScript = document.getElementById("continue-watching-video-data");
+
+  if (
+    section &&
+    link instanceof HTMLAnchorElement &&
+    thumbnail instanceof HTMLImageElement &&
+    titleEl &&
+    dataScript
+  ) {
+    let storedIds: string[] = [];
+    try {
+      storedIds = parseStoredContinueWatchingIds(
+        localStorage.getItem(CONTINUE_WATCHING_STORAGE_KEY),
+      );
+    } catch {
+      // プライベートモード等で localStorage が使えない場合は何も表示しない
+    }
+
+    if (storedIds.length > 0) {
+      const candidates = parseContinueWatchingCandidates(dataScript.textContent);
+      const video = selectContinueWatchingVideo(storedIds, candidates);
+      if (video) {
+        link.href = videoUrl(video);
+        thumbnail.src = thumbnailFallbackUrl(video.id);
+        titleEl.textContent = video.title;
+        section.hidden = false;
+      }
+    }
   }
 </script>

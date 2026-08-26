@@ -19,6 +19,20 @@ export interface Video {
    * RSS フィードには再生回数が含まれないため、Data API 経路でのみ取得できる。
    */
   viewCount: number | null;
+  /**
+   * 再生時間(ISO 8601、例: "PT12M34S")。YOUTUBE_API_KEY 未設定時(RSSのみ)・取得失敗時は
+   * null(viewCount と同じ方針・#173)。RSS フィードには含まれないため、Data API 経路
+   * (videos.list の contentDetails)でのみ取得できる。JSON-LD VideoObject.duration には
+   * この値をそのまま使える(schema.org も ISO 8601 duration を要求するため)。
+   */
+  duration: string | null;
+  /**
+   * hq720 サムネイル(16:9)がビルド時点で存在確認できたかどうか。存在しない動画があるため、
+   * 未確認・不在時は null/false とし、OGP画像生成時は全動画に存在する hqdefault(4:3)へ
+   * フォールバックする(#211)。isShort と同様、一度確定した値は再判定しない。
+   * 本フィールド導入前の videos.json には存在しないため省略可能(undefined は null 相当)。
+   */
+  hasHqThumbnail?: boolean | null;
 }
 
 /** videos.json 全体の構造 */
@@ -80,6 +94,22 @@ export function parseVideosData(data: unknown): VideosData {
     if (v.viewCount !== undefined && v.viewCount !== null && typeof v.viewCount !== "number") {
       throw new Error(`videos.json: videos[${i}].viewCount は数値か null である必要があります`);
     }
+    // 既存データ(#173 導入前)には duration フィールド自体が存在しないため、
+    // viewCount と同様に undefined も null と同様に許容する。
+    if (v.duration !== undefined && v.duration !== null && typeof v.duration !== "string") {
+      throw new Error(`videos.json: videos[${i}].duration は文字列か null である必要があります`);
+    }
+    // 既存データ(#211 導入前)には hasHqThumbnail フィールド自体が存在しないため、
+    // undefined も null と同様に許容する。
+    if (
+      v.hasHqThumbnail !== undefined &&
+      v.hasHqThumbnail !== null &&
+      typeof v.hasHqThumbnail !== "boolean"
+    ) {
+      throw new Error(
+        `videos.json: videos[${i}].hasHqThumbnail は boolean か null である必要があります`,
+      );
+    }
     return {
       id: v.id,
       title: v.title,
@@ -87,6 +117,8 @@ export function parseVideosData(data: unknown): VideosData {
       publishedAt: v.publishedAt,
       isShort: v.isShort,
       viewCount: typeof v.viewCount === "number" ? v.viewCount : null,
+      duration: typeof v.duration === "string" ? v.duration : null,
+      hasHqThumbnail: typeof v.hasHqThumbnail === "boolean" ? v.hasHqThumbnail : null,
     };
   });
   return { channelId, fetchedAt, videos: parsed };
@@ -109,9 +141,78 @@ export function thumbnailFallbackUrl(videoId: string): string {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 }
 
+/** OGP(og:image)/Twitter Card 用のサムネイル URL と、それに対応する画像サイズ */
+export interface OgThumbnail {
+  url: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * OGP/Twitter Card 用のサムネイルを選ぶ。JSON-LD の thumbnailUrl と同じ
+ * 「hq720 優先・hqdefault フォールバック」方針だが、OGP は meta タグ 1 本のみで
+ * JSON-LD のような複数候補の配列を使えないため、ビルド時に hasHqThumbnail で
+ * 存在確認済みの動画だけ高解像度(16:9)を採用する。未確認・不在の動画は、
+ * 存在しない hq720 で画像自体が壊れるのを避けるため、常に存在する
+ * hqdefault(4:3)にフォールバックする(#211)。
+ */
+export function resolveOgThumbnail(video: Pick<Video, "id" | "hasHqThumbnail">): OgThumbnail {
+  return video.hasHqThumbnail
+    ? { url: thumbnailUrl(video.id), width: 1280, height: 720 }
+    : { url: thumbnailFallbackUrl(video.id), width: 480, height: 360 };
+}
+
 /** 埋め込み URL(JSON-LD VideoObject の embedUrl 用) */
 export function embedUrl(videoId: string): string {
   return `https://www.youtube.com/embed/${videoId}`;
+}
+
+/**
+ * 動画詳細ページのプレイヤー用埋め込み URL(#175)。
+ * IFrame Player API(onStateChange で再生終了を検知し「次の動画」を提示する)を
+ * 有効化するため enablejsapi=1 を付与する。origin は API 側のセキュリティ要件
+ * (postMessage の送信元検証)として公式に付与が推奨されているパラメータ。
+ * JSON-LD 等には不要なため embedUrl とは別関数にしている。
+ */
+export function playerEmbedUrl(videoId: string, origin: string): string {
+  const url = new URL(embedUrl(videoId));
+  url.searchParams.set("enablejsapi", "1");
+  url.searchParams.set("origin", origin);
+  return url.toString();
+}
+
+/** 動画の長さ区分(通常動画/Shorts)。/videos/ の絞り込みフィルターで使う(#257) */
+export type VideoLengthFilter = "video" | "short";
+
+/** isShort が null(未判定)の場合は通常動画として扱う(videoUrl 等の既存の isShort 真偽判定と同じ方針) */
+export function videoLengthFilterValue(video: Pick<Video, "isShort">): VideoLengthFilter {
+  return video.isShort ? "short" : "video";
+}
+
+/** X(Twitter) Player Card / og:video 用のメタ情報(Base.astro に渡す) */
+export interface PlayerCardMeta {
+  /** 埋め込みプレイヤーの URL(twitter:player / og:video 系に使う) */
+  playerUrl: string;
+  width: number;
+  height: number;
+}
+
+/** YouTube 標準の 16:9 埋め込みサイズ(X Player Card / og:video の width・height に使う既定値) */
+const PLAYER_CARD_WIDTH = 1280;
+const PLAYER_CARD_HEIGHT = 720;
+
+/**
+ * 動画個別ページ用の X(Twitter) Player Card / og:video メタ情報を組み立てる(#243)。
+ * Shorts(縦動画)は X Player Card が正しく扱えない可能性があるため対象外とし、null を返す
+ * (呼び出し側は null なら従来どおり summary_large_image カードにフォールバックする)。
+ */
+export function buildPlayerCardMeta(video: Pick<Video, "id" | "isShort">): PlayerCardMeta | null {
+  if (video.isShort) return null;
+  return {
+    playerUrl: embedUrl(video.id),
+    width: PLAYER_CARD_WIDTH,
+    height: PLAYER_CARD_HEIGHT,
+  };
 }
 
 /** 指定秒数から再生開始する視聴 URL(チャプター一覧のリンク先。#154) */
@@ -261,6 +362,61 @@ export function parseVideoStatisticsResponse(data: unknown): Map<string, number>
 }
 
 /**
+ * YouTube Data API v3 `videos.list`(part=contentDetails)のレスポンスから
+ * 動画ID→再生時間(ISO 8601、例: "PT12M34S")のマップを取り出す(#173)。
+ * 再生回数(parseVideoStatisticsResponse)と同じレスポンス JSON から取り出せるため、
+ * `videos.list` の `part` に `contentDetails` を加えるだけで追加コストなく取得できる。
+ * duration が欠損・不正な形式の動画はマップに含めない(呼び出し側で既存値へフォールバックする)。
+ */
+export function parseVideoDurationsResponse(data: unknown): Map<string, string> {
+  const result = new Map<string, string>();
+  if (typeof data !== "object" || data === null) return result;
+  const items = (data as { items?: unknown }).items;
+  if (!Array.isArray(items)) return result;
+  for (const raw of items) {
+    const item = raw as { id?: unknown; contentDetails?: { duration?: unknown } };
+    if (typeof item.id !== "string") continue;
+    const duration = item.contentDetails?.duration;
+    if (typeof duration === "string" && parseIso8601Duration(duration) !== null) {
+      result.set(item.id, duration);
+    }
+  }
+  return result;
+}
+
+/**
+ * ISO 8601 duration(YouTube Data API の `contentDetails.duration`。例: "PT12M34S")を
+ * 総秒数に変換する(#173)。年/月単位(P1Y, P1M 等)は動画の長さとして現実的でないため
+ * 未対応とし、不正な形式として null を返す。"PT" のみ(数値部分を一切含まない)も不正扱い。
+ */
+export function parseIso8601Duration(duration: string): number | null {
+  const match = duration.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
+  if (!match) return null;
+  const [, hoursStr, minutesStr, secondsStr] = match;
+  if (hoursStr === undefined && minutesStr === undefined && secondsStr === undefined) return null;
+  const hours = Number(hoursStr ?? 0);
+  const minutes = Number(minutesStr ?? 0);
+  const seconds = Number(secondsStr ?? 0);
+  return hours * 3600 + minutes * 60 + Math.floor(seconds);
+}
+
+/**
+ * 動画の再生時間バッジ用ラベルを生成する(例: 754 秒 → "12:34"、1 時間以上は "1:02:34")。
+ * duration が null、または ISO 8601 としてパースできない場合は null を返し、
+ * 呼び出し側で非表示にする(viewCount と同じ「取得できたものだけ表示」方針・#173)。
+ */
+export function formatDurationLabel(duration: string | null): string | null {
+  if (duration === null) return null;
+  const totalSeconds = parseIso8601Duration(duration);
+  if (totalSeconds === null) return null;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
+}
+
+/**
  * 既存データと RSS の取得結果をマージする。
  * - RSS に存在する動画: タイトル・説明・公開日時を更新(isShort の確定値は維持)
  * - RSS から溢れた過去動画: そのまま保持(RSS は最新 15 件のみのため)
@@ -277,6 +433,8 @@ export function mergeVideos(existing: Video[], fetched: FeedEntry[]): Video[] {
       publishedAt: entry.publishedAt,
       isShort: prev ? prev.isShort : null,
       viewCount: prev ? prev.viewCount : null,
+      duration: prev ? prev.duration : null,
+      hasHqThumbnail: prev ? (prev.hasHqThumbnail ?? null) : null,
     });
   }
   return [...byId.values()].sort((a, b) => sortTime(b) - sortTime(a));
@@ -321,6 +479,31 @@ export async function probeIsShort(
         const location = res.headers.get("location") ?? "";
         return location.includes("/watch") ? false : null;
       }
+      // 405 / 501 は GET でリトライ、それ以外の 4xx/5xx は判定不能
+      if (method === "GET" || (res.status !== 405 && res.status !== 501)) return null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * hq720 サムネイル(https://i.ytimg.com/vi/{id}/hq720.jpg)の存在確認(#211)。
+ * 200 なら存在、404 なら不在。それ以外(タイムアウト・5xx 等)は判定不能として null を返し、
+ * 次回ビルドで再判定する(isShort と同じ「一度確定したら再判定しない」設計)。
+ * - HEAD 不許可(405 / 501)の場合は GET にフォールバックする
+ */
+export async function probeHqThumbnail(
+  videoId: string,
+  fetchFn: FetchLike = fetch,
+): Promise<boolean | null> {
+  const url = thumbnailUrl(videoId);
+  for (const method of ["HEAD", "GET"] as const) {
+    try {
+      const res = await fetchFn(url, { method });
+      if (res.status === 200) return true;
+      if (res.status === 404) return false;
       // 405 / 501 は GET でリトライ、それ以外の 4xx/5xx は判定不能
       if (method === "GET" || (res.status !== 405 && res.status !== 501)) return null;
     } catch {

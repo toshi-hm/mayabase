@@ -2,7 +2,14 @@
 import { CATEGORY_LABELS, type VideoCategory } from "../lib/categories";
 import { formatDateJa, formatViewCount } from "../lib/format";
 import { gearDisplayName, type GearItem } from "../lib/gear";
-import { thumbnailFallbackUrl, thumbnailUrl, type Video, videoUrl } from "../lib/youtube";
+import {
+  formatDurationLabel,
+  thumbnailFallbackUrl,
+  thumbnailUrl,
+  type Video,
+  videoLengthFilterValue,
+  videoUrl,
+} from "../lib/youtube";
 import PreviewButton from "./PreviewButton.astro";
 import ShareButton from "./ShareButton.astro";
 import WatchLaterButton from "./WatchLaterButton.astro";
@@ -14,10 +21,10 @@ interface Props {
   eager?: boolean;
   /** LCP 対象など、ローカル配信するサムネイルがある場合に指定する */
   thumbnailSrc?: string;
-  /** 初期表示件数を超えるカードは、クライアント処理前からレイアウト対象外にする */
-  initiallyHidden?: boolean;
   /** この動画で紹介されているガジェット(愛用ガジェットとの相互リンク用・#70) */
   gearItems?: GearItem[];
+  /** 初期表示時から `hidden` 属性で隠しておきたい場合に指定する(例: watch-later.astro) */
+  hidden?: boolean;
 }
 
 const {
@@ -25,41 +32,45 @@ const {
   category,
   eager = false,
   thumbnailSrc,
-  initiallyHidden = false,
   gearItems = [],
+  hidden = false,
 } = Astro.props;
 // RSS のみ(YOUTUBE_API_KEY 未設定)の環境では取得できず null になる(#35 と同じフォールバック方針)
 const viewCountLabel = video.viewCount !== null ? formatViewCount(video.viewCount) : null;
+const durationLabel = formatDurationLabel(video.duration);
 ---
 
 {
   /* data-* はクライアントサイドの絞り込み・検索・並び替えで参照する(videos.astro)。
-  初期非表示は `hidden` 属性ではなく inline style + data-initial-hidden で表現する。
-  Tailwind の preflight が `[hidden]{display:none!important}` を @layer base 内(レイヤー付き)
-  で定義しており、レイヤー付き !important はレイヤーなしの !important より優先されるため、
-  `<noscript>` 側で `[hidden]` を !important で上書きしようとしても効かない(CSS Cascade Layers の
-  仕様上、非レイヤーの !important は最も優先度が低い)。`hidden` 属性を使わなければこの問題を回避できる。
-  クライアントスクリプトは初期化時に inline style を除去し、以降は `hidden` 属性(DOM の `.hidden`)で
-  一元的に表示状態を制御する(videos.astro 参照)。
+  表示・非表示は `hidden` 属性(DOM の `.hidden`)で一元的に制御する。
   data-view-count は「人気順」ソートの並び替えキー。未取得(null)の動画は空文字にし、
-  クライアント側でソート時に最下位扱いにする。 */
+  クライアント側でソート時に最下位扱いにする。
+  この <li> は videos.astro から直接描画される場合と、DOM 肥大化対策で <template> の中身として
+  描画され、必要になった時点でのみクライアント側で複製・挿入される場合がある(#177)。
+  後者のケースでも同じ data-* を <template> 自体にも付与しておくことで、実体化前でも
+  絞り込み・並び替えの判定に使えるようにしている。 */
 }
 <li
   class="relative"
   data-category={category}
+  data-length={videoLengthFilterValue(video)}
   data-title={video.title.toLowerCase()}
   data-video-id={video.id}
   data-view-count={video.viewCount ?? ""}
-  data-initial-hidden={initiallyHidden ? "true" : undefined}
-  style={initiallyHidden ? "display:none" : undefined}
+  hidden={hidden}
 >
   <div
     class="group/card flex h-full flex-col overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg"
   >
+    {
+      /* data-watch-track-id は「前回の続きから」導線(#188)向け。クリックを
+      ContinueWatchingController.astro が拾い、localStorage に視聴履歴として記録する。 */
+    }
     <a
       href={videoUrl(video)}
       target="_blank"
       rel="noopener noreferrer"
+      data-watch-track-id={video.id}
       class="focus-visible:outline-2 focus-visible:outline-brand"
     >
       <div class="relative">
@@ -81,6 +92,13 @@ const viewCountLabel = video.viewCount !== null ? formatViewCount(video.viewCoun
           video.isShort && (
             <span class="absolute top-2 left-2 rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
               Shorts
+            </span>
+          )
+        }
+        {
+          durationLabel && (
+            <span class="absolute right-2 bottom-2 rounded bg-black/80 px-1.5 py-0.5 font-mono text-xs font-semibold text-white tabular-nums">
+              {durationLabel}
             </span>
           )
         }

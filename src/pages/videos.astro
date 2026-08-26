@@ -19,6 +19,7 @@ import {
   parseVideosData,
   thumbnailFallbackUrl,
   thumbnailUrl,
+  videoLengthFilterValue,
   videoUrl,
 } from "../lib/youtube";
 
@@ -28,6 +29,13 @@ const categorized = videos.map((video) => ({ video, category: categorizeVideo(vi
 const { items: gearItems } = parseGearData(gearJson);
 const videoGearMap = buildVideoGearMap(gearItems);
 const INITIAL_COUNT = 12;
+// INITIAL_COUNT 件を超える分は、通常の <li> ではなく <template> の中身として描画する(#177)。
+// <template> の子要素はメインドキュメントの DOM ツリーに属さない(document.querySelectorAll("*") 等でも
+// カウントされない)ため、動画数がどれだけ増えても Lighthouse の DOM サイズ計測やレイアウト計算の
+// 対象にならない。絞り込み・並び替えでカードを実際に表示する必要が生じた時点で、クライアント側の
+// スクリプトが template.content を複製して <li> として挿入する(実体化)。
+const eagerVideos = categorized.slice(0, INITIAL_COUNT);
+const deferredVideos = categorized.slice(INITIAL_COUNT);
 // 先頭カード(eager)の画像は onerror フォールバックの直列リクエストを避けるため、
 // 存在保証のある hqdefault を直接指定する(ArchiveCard.astro の eager 分岐と同じ方針)。
 const firstThumbnailSrc = videos[0] ? thumbnailFallbackUrl(videos[0].id) : undefined;
@@ -75,6 +83,8 @@ const jsonLd = {
           uploadDate: video.publishedAt,
           embedUrl: embedUrl(video.id),
           url: videoUrl(video),
+          // Google 推奨プロパティ。取得できない動画は省略する(#173)
+          ...(video.duration !== null && { duration: video.duration }),
         },
       })),
     },
@@ -146,6 +156,32 @@ const searchableDescriptionsSafe = JSON.stringify(
           ))
         }
       </div>
+      <div role="group" aria-label="動画の長さで絞り込み" class="flex flex-wrap gap-2">
+        <button
+          type="button"
+          data-filter-length="all"
+          aria-pressed="true"
+          class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+        >
+          すべて
+        </button>
+        <button
+          type="button"
+          data-filter-length="video"
+          aria-pressed="false"
+          class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+        >
+          通常動画
+        </button>
+        <button
+          type="button"
+          data-filter-length="short"
+          aria-pressed="false"
+          class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+        >
+          Shorts
+        </button>
+      </div>
       {
         hasViewCounts && (
           <div role="group" aria-label="並び替え" class="flex flex-wrap gap-2">
@@ -200,30 +236,69 @@ const searchableDescriptionsSafe = JSON.stringify(
       class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
     >
       {
-        categorized.map(({ video, category }, index) => (
+        eagerVideos.map(({ video, category }, index) => (
           <ArchiveCard
             video={video}
             category={category}
             eager={index === 0}
             thumbnailSrc={index === 0 ? firstThumbnailSrc : undefined}
-            initiallyHidden={index >= INITIAL_COUNT}
             gearItems={videoGearMap.get(video.id) ?? []}
           />
         ))
       }
+      {
+        /* INITIAL_COUNT 超過分は <template> に格納する(上記コメント参照)。data-* は実体化前の
+        絞り込み・並び替え判定用に <template> 自身にも複製しておく(ArchiveCard.astro 側の <li> にも
+        同じ data-* が付くが、それは実体化されるまで DOM ツリーに現れない)。 */
+      }
+      {
+        deferredVideos.map(({ video, category }) => (
+          <template
+            data-video-slot
+            data-category={category}
+            data-length={videoLengthFilterValue(video)}
+            data-title={video.title.toLowerCase()}
+            data-video-id={video.id}
+            data-view-count={video.viewCount ?? ""}
+          >
+            <ArchiveCard
+              video={video}
+              category={category}
+              gearItems={videoGearMap.get(video.id) ?? []}
+            />
+          </template>
+        ))
+      }
     </ul>
     {
-      /* JS 無効時は絞り込みスクリプトが動かないため、初期非表示のカードを含めて全件表示にフォールバックする。
-      <noscript> はスクリプト無効時のみ適用されるため、JS 有効時の絞り込み・段階表示には影響しない
-      (ArchiveCard.astro のコメント参照: `hidden` 属性ではなく data-initial-hidden を上書きする)。 */
+      /* JS 無効時は上記 <template> の中身が展開されず、絞り込みスクリプトも動かないため、
+      INITIAL_COUNT 超過分の動画へたどり着けなくなる。その場合に備え、画像・ボタンを含まない
+      最小限のリンク一覧をフォールバックとして用意する(<noscript> 内は JS 有効時はパースされず
+      DOM に現れないため、通常時の DOM サイズには影響しない)。 */
     }
-    <noscript>
-      <style>
-        #videos-grid > li[data-initial-hidden="true"] {
-          display: block !important;
-        }
-      </style>
-    </noscript>
+    {
+      deferredVideos.length > 0 && (
+        <noscript>
+          <p class="mt-6 text-sm text-ink-muted">
+            {INITIAL_COUNT} 件目以降の動画(JavaScript 無効時の一覧)
+          </p>
+          <ul class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {deferredVideos.map(({ video }) => (
+              <li>
+                <a
+                  href={videoUrl(video)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-brand-accent underline-offset-4 hover:underline"
+                >
+                  {video.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </noscript>
+      )
+    }
     <p id="videos-empty" hidden class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
       条件に一致する動画が見つかりませんでした。カテゴリやキーワードを変えてお試しください。
     </p>
@@ -288,13 +363,26 @@ const searchableDescriptionsSafe = JSON.stringify(
   const buttons = document.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>(
     "[data-filter-category]",
   );
+  const lengthButtons = document.querySelectorAll<HTMLButtonElement>("[data-filter-length]");
   const sortButtons = document.querySelectorAll<HTMLButtonElement>("[data-sort-order]");
   const search = document.getElementById("video-search") as HTMLInputElement | null;
+
+  // INITIAL_COUNT 超過分は <li> ではなく <template data-video-slot> として描画されている(#177)。
+  // <template> の中身はメインドキュメントの DOM ツリーに含まれないため、表示が必要になるまでは
+  // Lighthouse の DOM サイズ計測やレイアウトの対象にならない。「表示が必要」と判定された時点で
+  // materialize() が template.content を複製して実際の <li> に差し替える。
+  type CardSlot = HTMLLIElement | HTMLTemplateElement;
+
   // 「新しい順」に戻す際に再利用する元の DOM 順(= videos.json の公開日時降順)を保持しておく。
-  // 並び替え後は appendChild でカードを移動するだけなので、この配列自体の中身(要素参照)は不変。
-  const originalOrder = [...document.querySelectorAll<HTMLLIElement>("#videos-grid > li")];
+  // 並び替え後は appendChild でカードを移動するだけなので、この配列自体の中身(要素参照)は不変
+  // (ただし materialize() で template → li に差し替わった要素は、この配列側も同じ位置で更新する)。
+  const originalOrder: CardSlot[] = [
+    ...document.querySelectorAll<CardSlot>(
+      "#videos-grid > li, #videos-grid > template[data-video-slot]",
+    ),
+  ];
   // applyFilter が参照する「現在の表示順」。並び替え時に reorderGrid() が差し替える。
-  let cards: HTMLLIElement[] = originalOrder;
+  let cards: CardSlot[] = originalOrder;
   const descriptionsElement = document.getElementById("video-search-descriptions");
   const descriptions: Record<string, string> = descriptionsElement?.textContent
     ? JSON.parse(descriptionsElement.textContent)
@@ -303,21 +391,38 @@ const searchableDescriptionsSafe = JSON.stringify(
   const empty = document.getElementById("videos-empty");
   const moreButton = document.getElementById("videos-more") as HTMLButtonElement | null;
   let category = "all";
+  // 動画の長さ絞り込み状態(#257: category/q と同じくURLに同期する)
+  let length: "all" | "video" | "short" = "all";
   // 並び替え状態(#152: category/q と同じくURLに同期する)
   let sortOrder: "newest" | "popular" = "newest";
   // 一度展開したら以降は全件表示のまま(ボタンは二度と出さない)
   let expanded = false;
 
-  // サーバーが inline style(display:none)で隠していた初期非表示カードを解放し、
-  // 以降は hidden 属性(applyFilter)のみで表示状態を制御する
-  // (inline style は <noscript> フォールバック専用。ArchiveCard.astro のコメント参照)
-  for (const card of cards) {
-    card.style.removeProperty("display");
+  // template.content の中身を複製して実際の <li> に差し替える(未実体化でなければ何もせず返す)。
+  // originalOrder / cards の両方を、差し替え後も同じ位置を指すよう更新する。
+  // WatchLaterButton 等、初期化時に一度だけ全ボタンを同期するコントローラー(WatchLaterController.astro)
+  // へは、新しく挿入した DOM を通知するためカスタムイベントを発火する。
+  function materialize(slot: CardSlot): HTMLLIElement {
+    if (!(slot instanceof HTMLTemplateElement)) return slot;
+    const li = slot.content.firstElementChild?.cloneNode(true) as HTMLLIElement;
+    slot.replaceWith(li);
+    const originalIndex = originalOrder.indexOf(slot);
+    if (originalIndex !== -1) originalOrder[originalIndex] = li;
+    if (cards !== originalOrder) {
+      const cardsIndex = cards.indexOf(slot);
+      if (cardsIndex !== -1) cards[cardsIndex] = li;
+    }
+    document.dispatchEvent(new CustomEvent("mayabase:card-materialized", { detail: { root: li } }));
+    return li;
   }
 
   // URL 経由で受け取ってよいカテゴリ値(ボタンが実際に持つ値のみ許可し、任意の入力は信用しない)
   const validCategories = new Set(
     [...buttons].map((button) => button.dataset.filterCategory ?? "all"),
+  );
+  // URL 経由で受け取ってよい長さ値(同上)
+  const validLengths = new Set(
+    [...lengthButtons].map((button) => button.dataset.filterLength ?? "all"),
   );
 
   function setPressedCategory(nextCategory: string): void {
@@ -325,6 +430,15 @@ const searchableDescriptionsSafe = JSON.stringify(
       button.setAttribute(
         "aria-pressed",
         String((button.dataset.filterCategory ?? "all") === nextCategory),
+      );
+    }
+  }
+
+  function setPressedLength(nextLength: string): void {
+    for (const button of lengthButtons) {
+      button.setAttribute(
+        "aria-pressed",
+        String((button.dataset.filterLength ?? "all") === nextLength),
       );
     }
   }
@@ -346,6 +460,10 @@ const searchableDescriptionsSafe = JSON.stringify(
     const urlCategory = params.get("category");
     category = urlCategory && validCategories.has(urlCategory) ? urlCategory : "all";
     setPressedCategory(category);
+    const urlLength = params.get("length");
+    length =
+      urlLength && validLengths.has(urlLength) ? (urlLength as "all" | "video" | "short") : "all";
+    setPressedLength(length);
     if (search) search.value = params.get("q") ?? "";
 
     // 並び替えトグル自体が無い環境(viewCount 未取得)では order パラメータを無視する
@@ -363,6 +481,7 @@ const searchableDescriptionsSafe = JSON.stringify(
   function syncUrl(mode: "push" | "replace"): void {
     const params = new URLSearchParams();
     if (category !== "all") params.set("category", category);
+    if (length !== "all") params.set("length", length);
     const query = (search?.value ?? "").trim();
     if (query) params.set("q", query);
     if (sortOrder !== "newest") params.set("order", sortOrder);
@@ -375,9 +494,12 @@ const searchableDescriptionsSafe = JSON.stringify(
     }
   }
 
-  function cardMatches(card: HTMLLIElement, query: string): boolean {
+  // card は未実体化の <template> の場合もあるため、判定は data-* のみで行う
+  // (data-* は videos.astro 側で <li> と <template> の両方に同じ値を付与している)。
+  function cardMatches(card: CardSlot, query: string): boolean {
     return (
       (category === "all" || card.dataset.category === category) &&
+      (length === "all" || card.dataset.length === length) &&
       (textMatchesKeyword(card.dataset.title ?? "", query) ||
         textMatchesKeyword(descriptions[card.dataset.videoId ?? ""] ?? "", query))
     );
@@ -387,14 +509,23 @@ const searchableDescriptionsSafe = JSON.stringify(
     const query = (search?.value ?? "").trim().toLowerCase();
     let matched = 0; // 条件に一致する総数
     let shown = 0; // 実際に表示している数(未展開時は INITIAL_COUNT で頭打ち)
-    for (const card of cards) {
-      if (cardMatches(card, query)) {
+    for (let i = 0; i < cards.length; i++) {
+      const slot = cards[i];
+      if (cardMatches(slot, query)) {
         matched += 1;
         const withinLimit = expanded || matched <= INITIAL_COUNT;
-        card.hidden = !withinLimit;
-        if (withinLimit) shown += 1;
-      } else {
-        card.hidden = true;
+        if (withinLimit) {
+          // 表示が必要になった時点で初めて実体化する。まだ一致していないカードは
+          // template のままにしておくことで、通常時の DOM サイズを抑える。
+          const li = materialize(slot);
+          cards[i] = li;
+          li.hidden = false;
+          shown += 1;
+        } else if (slot instanceof HTMLLIElement) {
+          slot.hidden = true;
+        }
+      } else if (slot instanceof HTMLLIElement) {
+        slot.hidden = true;
       }
     }
     if (count) count.textContent = `${matched} 件`;
@@ -444,6 +575,16 @@ const searchableDescriptionsSafe = JSON.stringify(
       }
     });
   }
+  for (const button of lengthButtons) {
+    button.addEventListener("click", () => {
+      const value = button.dataset.filterLength;
+      length = value === "video" || value === "short" ? value : "all";
+      setPressedLength(length);
+      applyFilter();
+      // カテゴリと同様、独立した絞り込み状態とみなし履歴を1件積む
+      syncUrl("push");
+    });
+  }
   search?.addEventListener("input", () => {
     applyFilter();
     // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
@@ -452,15 +593,16 @@ const searchableDescriptionsSafe = JSON.stringify(
 
   // 再生回数ベースの並び替え(#48)。viewCount が 1 件も無い環境ではトグル自体が
   // レンダリングされない(videos.astro のフロントマター参照)ため sortButtons は空になる。
-  function getViewCount(card: HTMLLIElement): number {
+  // data-view-count は <template> にも付与済みのため、未実体化のままでも並び替えキーとして使える。
+  function getViewCount(card: CardSlot): number {
     const raw = card.dataset.viewCount;
     if (!raw) return -1; // 未取得の動画は「人気順」で最下位に回す
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : -1;
   }
 
-  // カードを DOM 上で並び替える(appendChild は既存ノードの移動であり、
-  // 複製ではないため、状態やイベントリスナーはそのまま保たれる)
+  // カードを DOM 上で並び替える(appendChild は既存ノードの移動であり、複製ではないため、
+  // 状態やイベントリスナーはそのまま保たれる。<template> 要素もそのまま移動できる)
   function reorderGrid(order: "newest" | "popular"): void {
     const sorted =
       order === "popular"
@@ -484,12 +626,18 @@ const searchableDescriptionsSafe = JSON.stringify(
   }
 
   moreButton?.addEventListener("click", () => {
-    // 展開直前に「これから現れる最初のカード」を控えておき、展開後にフォーカスを移す
+    // 展開直前に「これから現れる最初のカード」の位置を控えておき、展開後にフォーカスを移す。
+    // applyFilter() が template を <li> に実体化して cards の中身を差し替えるため、
+    // 要素参照ではなくインデックスで覚えておき、実体化後の要素を改めて読み直す。
     const query = (search?.value ?? "").trim().toLowerCase();
-    const firstRevealed = [...cards].find((card) => card.hidden && cardMatches(card, query));
+    const firstRevealedIndex = cards.findIndex((card) => {
+      const isHidden = card instanceof HTMLTemplateElement || card.hidden;
+      return isHidden && cardMatches(card, query);
+    });
     expanded = true;
     applyFilter();
-    firstRevealed?.querySelector("a")?.focus();
+    const revealed = firstRevealedIndex !== -1 ? cards[firstRevealedIndex] : undefined;
+    if (revealed instanceof HTMLLIElement) revealed.querySelector("a")?.focus();
   });
 
   // 戻る/進むボタン操作時は URL から絞り込み状態を再構築する

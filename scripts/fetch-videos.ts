@@ -15,6 +15,7 @@ import { rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
 import { type ChannelStats, parseChannelStatsApiResponse } from "../src/lib/channelStats";
+import { newlyPublishedVideos } from "../src/lib/push";
 import {
   appendChannelStatsHistory,
   type ChannelStatsHistoryEntry,
@@ -31,13 +32,16 @@ import {
   mergeVideos,
   parseFeed,
   parsePlaylistItemsPage,
+  parseVideoDurationsResponse,
   parseVideoStatisticsResponse,
   parseVideosData,
+  probeHqThumbnail,
   probeIsShort,
   uploadsPlaylistId,
   type Video,
   type VideosData,
 } from "../src/lib/youtube";
+import { sendNewVideoNotifications } from "./send-push-notifications";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
 const CHANNEL_STATS_JSON_PATH = fileURLToPath(
@@ -259,17 +263,56 @@ async function probeShorts(videos: Video[]): Promise<Video[]> {
   );
 }
 
+/** fetchVideoDetails の結果。バッチ単位・全体集約の両方で使う共通形 */
+interface VideoDetailsResult {
+  viewCounts: Map<string, number>;
+  durations: Map<string, string>;
+}
+
 /**
- * YouTube Data API v3 `videos.list`(part=statistics)で全動画の再生回数を取得する(#35)。
- * `id` パラメータは1リクエストあたり最大50件のため、動画IDを50件ずつのバッチに分けて取得する。
- * 個別バッチの失敗は無視し(取得できた分だけ反映)、既存の viewCount は失敗時にも維持される
- * (mergeVideos/main 側で prev の値にフォールバックするため)。
+ * OGP画像の高解像度化のため、hq720 サムネイルの存在を確認する(#211)。
+ * probeShorts と同じ「未確認(null/undefined)の動画だけ確認し、確定値は再判定しない」設計だが、
+ * fetchFn を注入できるようにしてテスト容易性を確保している(probeShorts の fetchWithTimeout
+ * 直呼びとは異なる)。
  */
-async function fetchViewCounts(
+async function probeHqThumbnails(
+  videos: Video[],
+  fetchFn: FetchLike = fetchWithTimeout,
+): Promise<Video[]> {
+  const unknowns = videos.filter((v) => v.hasHqThumbnail == null);
+  if (unknowns.length === 0) return videos;
+
+  console.log(`[fetch-videos] hq720 サムネイル存在確認: ${unknowns.length} 件`);
+  const results = await mapWithConcurrency(unknowns, PROBE_CONCURRENCY, async (video) => {
+    let result = await probeHqThumbnail(video.id, fetchFn);
+    if (result === null) {
+      // 一時的な失敗に備えて 300ms 後に 1 回だけリトライ
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      result = await probeHqThumbnail(video.id, fetchFn);
+    }
+    return { id: video.id, hasHqThumbnail: result };
+  });
+
+  const byId = new Map(results.map((r) => [r.id, r.hasHqThumbnail]));
+  return videos.map((video) =>
+    video.hasHqThumbnail == null ? { ...video, hasHqThumbnail: byId.get(video.id) ?? null } : video,
+  );
+}
+
+/**
+ * YouTube Data API v3 `videos.list`(part=statistics,contentDetails)で
+ * 全動画の再生回数(#35)・再生時間(#173)を取得する。
+ * 再生時間は再生回数と同じレスポンス JSON から取り出せるため、`part` に `contentDetails`
+ * を加えるだけで同一リクエストからほぼ追加コストなく取得できる。
+ * `id` パラメータは1リクエストあたり最大50件のため、動画IDを50件ずつのバッチに分けて取得する。
+ * 個別バッチの失敗は無視し(取得できた分だけ反映)、既存の viewCount / duration は失敗時にも
+ * 維持される(mergeVideos/main 側で prev の値にフォールバックするため)。
+ */
+async function fetchVideoDetails(
   videoIds: string[],
   apiKey: string,
   fetchFn: FetchLike = fetchWithTimeout,
-): Promise<Map<string, number>> {
+): Promise<VideoDetailsResult> {
   const batches: string[][] = [];
   for (let i = 0; i < videoIds.length; i += VIEW_COUNT_BATCH_SIZE) {
     batches.push(videoIds.slice(i, i + VIEW_COUNT_BATCH_SIZE));
@@ -278,30 +321,36 @@ async function fetchViewCounts(
   const results = await mapWithConcurrency(batches, VIEW_COUNT_CONCURRENCY, async (batch) => {
     try {
       const url = new URL("https://www.googleapis.com/youtube/v3/videos");
-      url.searchParams.set("part", "statistics");
+      url.searchParams.set("part", "statistics,contentDetails");
       url.searchParams.set("id", batch.join(","));
       const res = await fetchFn(url.toString(), {
         headers: { "X-goog-api-key": apiKey },
       });
       if (!res.ok) {
-        console.warn(`[fetch-videos] 再生回数の取得に失敗しました (HTTP ${res.status})`);
-        return new Map<string, number>();
+        console.warn(`[fetch-videos] 再生回数・再生時間の取得に失敗しました (HTTP ${res.status})`);
+        return { viewCounts: new Map<string, number>(), durations: new Map<string, string>() };
       }
-      return parseVideoStatisticsResponse(await res.json());
+      const data = await res.json();
+      return {
+        viewCounts: parseVideoStatisticsResponse(data),
+        durations: parseVideoDurationsResponse(data),
+      };
     } catch (error) {
       console.warn(
-        "[fetch-videos] 再生回数の取得でエラーが発生しました:",
+        "[fetch-videos] 再生回数・再生時間の取得でエラーが発生しました:",
         error instanceof Error ? error.message : String(error),
       );
-      return new Map<string, number>();
+      return { viewCounts: new Map<string, number>(), durations: new Map<string, string>() };
     }
   });
 
-  const merged = new Map<string, number>();
+  const viewCounts = new Map<string, number>();
+  const durations = new Map<string, string>();
   for (const batchResult of results) {
-    for (const [id, viewCount] of batchResult) merged.set(id, viewCount);
+    for (const [id, viewCount] of batchResult.viewCounts) viewCounts.set(id, viewCount);
+    for (const [id, duration] of batchResult.durations) durations.set(id, duration);
   }
-  return merged;
+  return { viewCounts, durations };
 }
 
 async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
@@ -346,23 +395,28 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   }
 
   let merged = await probeShorts(mergeVideos(existing.videos, entries));
+  merged = await probeHqThumbnails(merged, fetchFn);
 
   if (apiKey) {
-    const viewCounts = await fetchViewCounts(
+    const { viewCounts, durations } = await fetchVideoDetails(
       merged.map((v) => v.id),
       apiKey,
       fetchFn,
     );
-    if (viewCounts.size > 0) {
+    if (viewCounts.size > 0 || durations.size > 0) {
       merged = merged.map((video) => ({
         id: video.id,
         title: video.title,
         description: video.description,
         publishedAt: video.publishedAt,
         isShort: video.isShort,
+        hasHqThumbnail: video.hasHqThumbnail,
         viewCount: viewCounts.get(video.id) ?? video.viewCount,
+        duration: durations.get(video.id) ?? video.duration,
       }));
-      console.log(`[fetch-videos] 再生回数を ${viewCounts.size} 件取得しました`);
+      console.log(
+        `[fetch-videos] 再生回数を ${viewCounts.size} 件、再生時間を ${durations.size} 件取得しました`,
+      );
     }
   }
 
@@ -380,6 +434,24 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   console.log(
     `[fetch-videos] ${merged.length} 件を保存しました(Shorts: ${shorts} 件、未判定: ${merged.filter((v) => v.isShort === null).length} 件)`,
   );
+
+  // 新着動画のプッシュ通知(#157)。既存データが空(初回実行等)の場合は全件が「新着」扱いに
+  // なってしまい通知が乱発するため、既存データがある場合のみ差分を計算して送信を試みる。
+  // 必要な環境変数(Cloudflare/VAPID)が未設定の環境では sendNewVideoNotifications 内で
+  // 何もせず正常終了する。失敗しても動画データ更新フロー自体は止めない。
+  if (existing.videos.length > 0) {
+    const newlyPublished = newlyPublishedVideos(existing.videos, merged);
+    if (newlyPublished.length > 0) {
+      try {
+        await sendNewVideoNotifications(newlyPublished);
+      } catch (error) {
+        console.warn(
+          "[fetch-videos] 新着動画のプッシュ通知送信でエラーが発生しました:",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    }
+  }
 }
 
 // import.meta.main は直接実行時(bun run scripts/fetch-videos.ts)のみ true になり、
@@ -394,4 +466,4 @@ if (import.meta.main) {
   }
 }
 
-export { fetchAllViaApi, fetchViewCounts, main, resolveChannelId, updateChannelStats };
+export { fetchAllViaApi, fetchVideoDetails, main, resolveChannelId, updateChannelStats };
