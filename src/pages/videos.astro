@@ -15,7 +15,7 @@ import {
 } from "../lib/categories";
 import { extractSearchableText, truncate } from "../lib/format";
 import { buildVideoGearMap, parseGearData } from "../lib/gear";
-import { parseSeriesData, seriesUrl } from "../lib/series";
+import { isInSeries, parseSeriesData, seriesUrl } from "../lib/series";
 import {
   embedUrl,
   parseVideosData,
@@ -46,13 +46,22 @@ const firstThumbnailSrc = videos[0] ? thumbnailFallbackUrl(videos[0].id) : undef
 const availableCategories = getAvailableCategories(categorized);
 
 // トップの「一気見」導線で紹介する featured シリーズ(#250)。
-// series.json 側で slug が変わった/削除された場合に、リンク切れのまま気付かず公開されるのを防ぐため
-// ビルド時に存在チェックする(series.ts の parseSeriesData と同じ、不正データはビルドを落とす方針)。
+// series.json 側で slug が変わった/削除された場合、または該当動画が 0 件になった場合に、
+// リンク切れのまま気付かず公開されるのを防ぐためビルド時にチェックする(series.ts の
+// parseSeriesData と同じ、不正データはビルドを落とす方針。動画 0 件のシリーズは
+// [slug].astro の getStaticPaths が静的パスを生成しないため、slug の存在だけでなく
+// 該当動画が 1 件以上あることも確認する)。
 const FEATURED_SERIES_SLUG = "futatsu-no-waraji";
 const { series } = parseSeriesData(seriesJson);
-if (!series.some((item) => item.slug === FEATURED_SERIES_SLUG)) {
+const featuredSeries = series.find((item) => item.slug === FEATURED_SERIES_SLUG);
+if (!featuredSeries) {
   throw new Error(
     `videos.astro: series.json に FEATURED_SERIES_SLUG "${FEATURED_SERIES_SLUG}" が見つかりません`,
+  );
+}
+if (!videos.some((video) => isInSeries(video, featuredSeries.keyword))) {
+  throw new Error(
+    `videos.astro: FEATURED_SERIES_SLUG "${FEATURED_SERIES_SLUG}" に該当する動画が 0 件のため、リンク先ページが生成されません`,
   );
 }
 
