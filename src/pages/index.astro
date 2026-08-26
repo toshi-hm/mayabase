@@ -7,6 +7,7 @@ import SectionHeading from "../components/SectionHeading.astro";
 import ShortCard from "../components/ShortCard.astro";
 import VideoCard from "../components/VideoCard.astro";
 import { site, subscribeUrl } from "../config/site";
+import channelStatsHistoryJson from "../data/channel-stats-history.json";
 import channelStatsJson from "../data/channel-stats.json";
 import featuredVideosJson from "../data/featured-videos.json";
 import videosJson from "../data/videos.json";
@@ -25,6 +26,11 @@ import {
   nextSubscriberMilestone,
   parseChannelStats,
 } from "../lib/channelStats";
+import {
+  buildSparklinePoints,
+  parseChannelStatsHistory,
+  sparklinePointsToPolyline,
+} from "../lib/channelStatsHistory";
 import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredVideos";
 import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
@@ -90,6 +96,18 @@ const milestoneRemainingText =
     : null;
 // リアルタイム取得ではないため、取得日時を併記する
 const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt) : null;
+
+// 登録者数の成長トレンド(スパークライン、#249)。history は日次cronで蓄積されるため、
+// 運用開始直後は1件しか無く折れ線を描けない(2件未満は null)。その間は静かに非表示にする。
+const SPARKLINE_WIDTH = 88;
+const SPARKLINE_HEIGHT = 24;
+const channelStatsHistory = parseChannelStatsHistory(channelStatsHistoryJson);
+const sparklinePoints = buildSparklinePoints(
+  channelStatsHistory,
+  SPARKLINE_WIDTH,
+  SPARKLINE_HEIGHT,
+);
+const sparklinePolyline = sparklinePoints ? sparklinePointsToPolyline(sparklinePoints) : null;
 
 // 更新頻度の目安(#187)。初回訪問者が登録を判断する材料として提示する。
 // データ不足・ペースが低すぎる・間隔が不規則、のいずれかの場合は算出結果を出さない
@@ -177,6 +195,25 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                   {subscriberText && (
                     <>
                       チャンネル登録者数 <span class="text-ink">{subscriberText}</span>
+                      {sparklinePolyline && (
+                        <svg
+                          width={SPARKLINE_WIDTH}
+                          height={SPARKLINE_HEIGHT}
+                          viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT}`}
+                          class="ml-2 inline-block align-middle text-brand-accent"
+                          role="img"
+                          aria-label="登録者数の推移(直近の成長トレンド)"
+                        >
+                          <polyline
+                            points={sparklinePolyline}
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      )}
                     </>
                   )}
                   {subscriberText && totalViewCountText && " / "}

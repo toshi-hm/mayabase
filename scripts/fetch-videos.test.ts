@@ -10,27 +10,33 @@ import {
   updateChannelStats,
 } from "./fetch-videos";
 
-// main() / updateChannelStats() は VIDEOS_JSON_PATH / CHANNEL_STATS_JSON_PATH という
-// (import.meta.url から算出した)実ファイルのパスへ直接書き込む実装になっており、
-// テストから安全に差し替えられるパラメータが無い。そのため実ファイルの内容を
-// beforeEach で退避し、afterEach で必ず書き戻すことでコミット済みデータへの
+// main() / updateChannelStats() は VIDEOS_JSON_PATH / CHANNEL_STATS_JSON_PATH /
+// CHANNEL_STATS_HISTORY_JSON_PATH という(import.meta.url から算出した)実ファイルのパスへ
+// 直接書き込む実装になっており、テストから安全に差し替えられるパラメータが無い。そのため
+// 実ファイルの内容を beforeEach で退避し、afterEach で必ず書き戻すことでコミット済みデータへの
 // 汚染を防ぐ(このファイル内の scripts/fetch-videos.ts と同じ相対パスで解決する)。
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
 const CHANNEL_STATS_JSON_PATH = fileURLToPath(
   new URL("../src/data/channel-stats.json", import.meta.url),
 );
+const CHANNEL_STATS_HISTORY_JSON_PATH = fileURLToPath(
+  new URL("../src/data/channel-stats-history.json", import.meta.url),
+);
 
 let originalVideosJson: string;
 let originalChannelStatsJson: string;
+let originalChannelStatsHistoryJson: string;
 
 beforeEach(async () => {
   originalVideosJson = await Bun.file(VIDEOS_JSON_PATH).text();
   originalChannelStatsJson = await Bun.file(CHANNEL_STATS_JSON_PATH).text();
+  originalChannelStatsHistoryJson = await Bun.file(CHANNEL_STATS_HISTORY_JSON_PATH).text();
 });
 
 afterEach(async () => {
   await Bun.write(VIDEOS_JSON_PATH, originalVideosJson);
   await Bun.write(CHANNEL_STATS_JSON_PATH, originalChannelStatsJson);
+  await Bun.write(CHANNEL_STATS_HISTORY_JSON_PATH, originalChannelStatsHistoryJson);
 });
 
 /** 呼ばれたら失敗させる fetchFn(このパスでは fetch が発生しないはず、を検証するため) */
@@ -201,6 +207,35 @@ describe("updateChannelStats", () => {
     await updateChannelStats("UC3ELUpDyBSGZfZJib67t4Sg", "dummy-key", fetchFn);
     const after = JSON.parse(await Bun.file(CHANNEL_STATS_JSON_PATH).text());
     expect(after.subscriberCount).toBe(999);
+  });
+
+  test("成功時は channel-stats-history.json に登録者数の履歴を追記する(#249)", async () => {
+    await Bun.write(
+      CHANNEL_STATS_HISTORY_JSON_PATH,
+      `${JSON.stringify([{ date: "2020-01-01", subscriberCount: 1 }], null, 2)}\n`,
+    );
+    const fetchFn: FetchLike = async () =>
+      new Response(JSON.stringify({ items: [{ statistics: { subscriberCount: "999" } }] }), {
+        status: 200,
+      });
+    await updateChannelStats("UC3ELUpDyBSGZfZJib67t4Sg", "dummy-key", fetchFn);
+    const history = JSON.parse(await Bun.file(CHANNEL_STATS_HISTORY_JSON_PATH).text());
+    expect(history).toHaveLength(2);
+    expect(history[1].subscriberCount).toBe(999);
+  });
+
+  test("登録者数が非公開/取得不可(null)のときは履歴を追記しない", async () => {
+    await Bun.write(
+      CHANNEL_STATS_HISTORY_JSON_PATH,
+      `${JSON.stringify([{ date: "2020-01-01", subscriberCount: 1 }], null, 2)}\n`,
+    );
+    const fetchFn: FetchLike = async () =>
+      new Response(JSON.stringify({ items: [{ statistics: { hiddenSubscriberCount: true } }] }), {
+        status: 200,
+      });
+    await updateChannelStats("UC3ELUpDyBSGZfZJib67t4Sg", "dummy-key", fetchFn);
+    const history = JSON.parse(await Bun.file(CHANNEL_STATS_HISTORY_JSON_PATH).text());
+    expect(history).toEqual([{ date: "2020-01-01", subscriberCount: 1 }]);
   });
 });
 
