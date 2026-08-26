@@ -591,6 +591,8 @@ const searchableDescriptionsSafe = JSON.stringify(
     });
   }
   search?.addEventListener("input", () => {
+    // カテゴリ・長さ・並び替えと同様、独立した絞り込み状態への切り替えとみなし展開状態をリセットする(#273)
+    expanded = false;
     applyFilter();
     // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
     syncUrl("replace");
