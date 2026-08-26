@@ -558,6 +558,9 @@ const searchableDescriptionsSafe = JSON.stringify(
       event.preventDefault();
       category = button.dataset.filterCategory ?? "all";
       setPressedCategory(category);
+      // 独立した絞り込み状態への切り替えとみなし、展開状態をリセットする(#273)。
+      // でないと展開済みのまま新しい絞り込みに切り替わった際、新条件での頭打ち判定が効かなくなる。
+      expanded = false;
       applyFilter();
       // カテゴリ変更は独立した絞り込み状態とみなし、戻るボタンで前のカテゴリに戻れるよう履歴を1件積む
       syncUrl("push");
@@ -580,12 +583,16 @@ const searchableDescriptionsSafe = JSON.stringify(
       const value = button.dataset.filterLength;
       length = value === "video" || value === "short" ? value : "all";
       setPressedLength(length);
+      // カテゴリと同様、独立した絞り込み状態への切り替えとみなし展開状態をリセットする(#273)
+      expanded = false;
       applyFilter();
       // カテゴリと同様、独立した絞り込み状態とみなし履歴を1件積む
       syncUrl("push");
     });
   }
   search?.addEventListener("input", () => {
+    // カテゴリ・長さ・並び替えと同様、独立した絞り込み状態への切り替えとみなし展開状態をリセットする(#273)
+    expanded = false;
     applyFilter();
     // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
     syncUrl("replace");
@@ -619,6 +626,8 @@ const searchableDescriptionsSafe = JSON.stringify(
       sortOrder = button.dataset.sortOrder === "popular" ? "popular" : "newest";
       setPressedSortOrder(sortOrder);
       reorderGrid(sortOrder);
+      // カテゴリ・長さと同様、独立した状態変化への切り替えとみなし展開状態をリセットする(#273)
+      expanded = false;
       applyFilter();
       // 並び替えもカテゴリと同様、独立した状態変化とみなし履歴を1件積む
       syncUrl("push");
