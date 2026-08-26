@@ -1,26 +1,44 @@
 ---
-import ArchiveCard from "../../../../components/ArchiveCard.astro";
-import Breadcrumb from "../../../../components/Breadcrumb.astro";
-import { site } from "../../../../config/site";
-import gearJson from "../../../../data/gear.json";
-import videosJson from "../../../../data/videos.json";
-import Base from "../../../../layouts/Base.astro";
-import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../../../lib/breadcrumb";
-import { categorizeVideo } from "../../../../lib/categories";
-import { extractSearchableText, truncate } from "../../../../lib/format";
-import { buildVideoGearMap, parseGearData } from "../../../../lib/gear";
-import { isFutatsuNoWarajiSeries } from "../../../../lib/series";
+import ArchiveCard from "../../../components/ArchiveCard.astro";
+import Breadcrumb from "../../../components/Breadcrumb.astro";
+import { site } from "../../../config/site";
+import gearJson from "../../../data/gear.json";
+import seriesJson from "../../../data/series.json";
+import videosJson from "../../../data/videos.json";
+import Base from "../../../layouts/Base.astro";
+import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../../lib/breadcrumb";
+import { categorizeVideo } from "../../../lib/categories";
+import { extractSearchableText, truncate } from "../../../lib/format";
+import { buildVideoGearMap, parseGearData } from "../../../lib/gear";
+import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../../lib/series";
 import {
   embedUrl,
   parseVideosData,
   thumbnailFallbackUrl,
   thumbnailUrl,
+  type Video,
   videoUrl,
-} from "../../../../lib/youtube";
+} from "../../../lib/youtube";
 
-// 「二足のわらじ」タグを持つ動画を抽出する(トピックカテゴリを横断するシリーズ・#174)
-const { videos } = parseVideosData(videosJson);
-const seriesVideos = videos.filter((video) => isFutatsuNoWarajiSeries(video));
+export function getStaticPaths() {
+  const { series } = parseSeriesData(seriesJson);
+  const { videos } = parseVideosData(videosJson);
+  // series.json に定義された各シリーズについて、キーワードに該当する動画を抽出する(#174 を汎用化・#250)
+  return series.map((item) => ({
+    params: { slug: item.slug },
+    props: {
+      series: item,
+      seriesVideos: videos.filter((video) => isInSeries(video, item.keyword)),
+    },
+  }));
+}
+
+interface Props {
+  series: SeriesItem;
+  seriesVideos: Video[];
+}
+
+const { series, seriesVideos }: Props = Astro.props;
 
 // 愛用ガジェットとの相互リンク(videos.astro と同じ #70)
 const { items: gearItems } = parseGearData(gearJson);
@@ -30,8 +48,8 @@ const videoGearMap = buildVideoGearMap(gearItems);
 // 存在保証のある hqdefault を直接指定する(ArchiveCard.astro の eager 分岐と同じ方針)。
 const firstThumbnailSrc = seriesVideos[0] ? thumbnailFallbackUrl(seriesVideos[0].id) : undefined;
 
-const pageTitle = `二足のわらじシリーズ 動画一覧 | ${site.name}`;
-const pageDescription = `エンジニア×大学院生として働く運営者の「二足のわらじ」シリーズ動画をまとめてチェックできます。${seriesVideos.length} 本のアーカイブです。`;
+const pageTitle = `${series.title} 動画一覧 | ${site.name}`;
+const pageDescription = `${series.description}${seriesVideos.length} 本のアーカイブです。`;
 
 if (!Astro.site) {
   throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
@@ -40,7 +58,7 @@ const siteUrl = Astro.site.toString();
 const breadcrumbItems: BreadcrumbItem[] = [
   { name: "ホーム", href: "/" },
   { name: "動画ライブラリ", href: "/videos/" },
-  { name: "二足のわらじシリーズ", href: "/videos/series/futatsu-no-waraji/" },
+  { name: series.title, href: seriesUrl(series.slug) },
 ];
 const jsonLd = {
   "@context": "https://schema.org",
@@ -51,8 +69,8 @@ const jsonLd = {
     },
     {
       "@type": "ItemList",
-      "@id": `${siteUrl}videos/series/futatsu-no-waraji/#videos`,
-      name: `${site.name} の二足のわらじシリーズ動画一覧`,
+      "@id": `${siteUrl}videos/series/${series.slug}/#videos`,
+      name: `${site.name} の${series.title}動画一覧`,
       itemListElement: seriesVideos.map((video, index) => ({
         "@type": "ListItem",
         position: index + 1,
@@ -65,8 +83,6 @@ const jsonLd = {
           uploadDate: video.publishedAt,
           embedUrl: embedUrl(video.id),
           url: videoUrl(video),
-          // Google 推奨プロパティ。取得できない動画は省略する(#173)
-          ...(video.duration !== null && { duration: video.duration }),
         },
       })),
     },
@@ -79,7 +95,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   title={pageTitle}
   description={pageDescription}
   ogImagePath="/ogp-videos.png"
-  ogImageAlt={`${site.name} 二足のわらじシリーズ 動画一覧`}
+  ogImageAlt={`${site.name} ${series.title} 動画一覧`}
 >
   {
     firstThumbnailSrc && (
@@ -89,9 +105,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
   <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
     <Breadcrumb items={breadcrumbItems} />
-    <h1 class="text-3xl font-bold sm:text-4xl">二足のわらじシリーズ</h1>
+    <h1 class="text-3xl font-bold sm:text-4xl">{series.title}</h1>
     <p class="mt-3 max-w-2xl text-ink-muted">
-      エンジニアとして働きながら大学院にも通う「二足のわらじ」生活を追いかけるシリーズです。
+      {series.description}
       カテゴリを横断して {seriesVideos.length}
       本の動画をまとめてチェックできます。
     </p>
@@ -105,7 +121,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </a>
     </nav>
 
-    <h2 class="sr-only">二足のわらじシリーズの動画一覧</h2>
+    <h2 class="sr-only">{series.title}の動画一覧</h2>
     <ul role="list" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {
         seriesVideos.map((video, index) => (
