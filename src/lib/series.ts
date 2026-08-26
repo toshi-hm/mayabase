@@ -2,19 +2,82 @@ import { textMatchesKeyword } from "./format";
 import type { Video } from "./youtube";
 
 /**
- * 「二足のわらじ」シリーズの判定キーワード。
- * エンジニア×大学院生としての「二足のわらじ」生活を指す、チャンネルを象徴する継続シリーズ。
- * カテゴリ(ai/gadget/vlog/career)を横断して付与されるタイトルタグのため、
- * `categorizeVideo`(カテゴリ判定)とは独立に判定する(#174)。
+ * シリーズ 1 件分のデータ。series.json で手動管理する(#250)。
+ * カテゴリ(ai/gadget/vlog/career)を横断して付与されるタイトルタグ的な企画を想定しており、
+ * `categorizeVideo`(カテゴリ判定)とは独立に判定する。
  */
-const FUTATSU_NO_WARAJI_KEYWORD = "二足のわらじ";
-
-/** 動画のタイトルが「二足のわらじ」シリーズに属するかを判定する */
-export function isFutatsuNoWarajiSeries(video: Pick<Video, "title">): boolean {
-  return textMatchesKeyword(video.title, FUTATSU_NO_WARAJI_KEYWORD);
+export interface SeriesItem {
+  /** URL スラッグ(半角英小文字・数字・ハイフンのみ。/videos/series/{slug}/ になる) */
+  slug: string;
+  /** 表示用タイトル */
+  title: string;
+  /** このシリーズに属する動画をタイトルから判定するキーワード */
+  keyword: string;
+  /** アーカイブページの紹介文 */
+  description: string;
 }
 
-/** 「二足のわらじ」シリーズアーカイブページの URL(#174) */
-export function futatsuNoWarajiSeriesUrl(): string {
-  return "/videos/series/futatsu-no-waraji/";
+/** series.json 全体の構造 */
+export interface SeriesData {
+  series: SeriesItem[];
+}
+
+/** URL スラッグとして安全な形式(半角英小文字・数字・ハイフンのみ、先頭末尾はハイフン不可) */
+const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/**
+ * series.json の内容を検証しつつパースする(gear.ts / faq.ts と同じ方針・#250)。
+ * 不正データは具体的なメッセージ付きで throw する(ビルドを落として混入を検知する)。
+ */
+export function parseSeriesData(data: unknown): SeriesData {
+  if (typeof data !== "object" || data === null) {
+    throw new Error("series.json: オブジェクトではありません");
+  }
+  const { series } = data as { series?: unknown };
+  if (!Array.isArray(series)) {
+    throw new Error("series.json: series は配列である必要があります");
+  }
+  const seenSlugs = new Set<string>();
+  const parsed: SeriesItem[] = series.map((raw, i) => {
+    const item = raw as Partial<Record<keyof SeriesItem, unknown>>;
+    if (typeof item.slug !== "string" || !SLUG_PATTERN.test(item.slug)) {
+      throw new Error(
+        `series.json: series[${i}].slug は半角英小文字・数字・ハイフンのみで構成される必要があります`,
+      );
+    }
+    if (seenSlugs.has(item.slug)) {
+      throw new Error(`series.json: series[${i}].slug "${item.slug}" が重複しています`);
+    }
+    seenSlugs.add(item.slug);
+    if (typeof item.title !== "string" || item.title.length === 0) {
+      throw new Error(`series.json: series[${i}].title が不正です`);
+    }
+    if (typeof item.keyword !== "string" || item.keyword.length === 0) {
+      throw new Error(`series.json: series[${i}].keyword が不正です`);
+    }
+    if (typeof item.description !== "string" || item.description.length === 0) {
+      throw new Error(`series.json: series[${i}].description が不正です`);
+    }
+    return {
+      slug: item.slug,
+      title: item.title,
+      keyword: item.keyword,
+      description: item.description,
+    };
+  });
+  return { series: parsed };
+}
+
+/**
+ * 動画のタイトルがシリーズのキーワードに該当するかを判定する。
+ * `textMatchesKeyword`(format.ts、動画ライブラリ・FAQ・愛用ガジェットの検索と共通)を再利用する。
+ * `isFutatsuNoWarajiSeries`(#174)を任意のシリーズに汎用化したもの(#250)。
+ */
+export function isInSeries(video: Pick<Video, "title">, keyword: string): boolean {
+  return textMatchesKeyword(video.title, keyword);
+}
+
+/** シリーズアーカイブページの URL(#174 を汎用化・#250) */
+export function seriesUrl(slug: string): string {
+  return `/videos/series/${slug}/`;
 }

@@ -15,6 +15,13 @@ import { rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
 import { type ChannelStats, parseChannelStatsApiResponse } from "../src/lib/channelStats";
+import {
+  appendChannelStatsHistory,
+  type ChannelStatsHistoryEntry,
+  createEmptyChannelStatsHistory,
+  parseChannelStatsHistory,
+  toJstDateString,
+} from "../src/lib/channelStatsHistory";
 import { newlyPublishedVideos } from "../src/lib/push";
 import {
   createEmptyVideosData,
@@ -39,6 +46,9 @@ import { sendNewVideoNotifications } from "./send-push-notifications";
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
 const CHANNEL_STATS_JSON_PATH = fileURLToPath(
   new URL("../src/data/channel-stats.json", import.meta.url),
+);
+const CHANNEL_STATS_HISTORY_JSON_PATH = fileURLToPath(
+  new URL("../src/data/channel-stats-history.json", import.meta.url),
 );
 const PROBE_CONCURRENCY = 4;
 const FETCH_TIMEOUT_MS = 15_000;
@@ -66,6 +76,20 @@ async function loadExisting(): Promise<VideosData> {
       error,
     );
     return createEmptyVideosData();
+  }
+}
+
+async function loadExistingChannelStatsHistory(): Promise<ChannelStatsHistoryEntry[]> {
+  try {
+    const file = Bun.file(CHANNEL_STATS_HISTORY_JSON_PATH);
+    if (!(await file.exists())) return createEmptyChannelStatsHistory();
+    return parseChannelStatsHistory(await file.json());
+  } catch (error) {
+    console.warn(
+      "[fetch-videos] 既存 channel-stats-history.json の読み込みに失敗したため空データから再構築します:",
+      error,
+    );
+    return createEmptyChannelStatsHistory();
   }
 }
 
@@ -188,13 +212,28 @@ async function updateChannelStats(
       return;
     }
     const { subscriberCount, viewCount } = parseChannelStatsApiResponse(await res.json());
-    const data: ChannelStats = { subscriberCount, viewCount, fetchedAt: new Date().toISOString() };
+    const fetchedAt = new Date().toISOString();
+    const data: ChannelStats = { subscriberCount, viewCount, fetchedAt };
     const tmpPath = `${CHANNEL_STATS_JSON_PATH}.tmp`;
     await Bun.write(tmpPath, `${JSON.stringify(data, null, 2)}\n`);
     await rename(tmpPath, CHANNEL_STATS_JSON_PATH);
     console.log(
       `[fetch-videos] チャンネル統計を保存しました(登録者数: ${subscriberCount ?? "非公開/取得不可"}、総再生回数: ${viewCount ?? "取得不可"})`,
     );
+
+    // 登録者数の推移履歴に追記する(#249)。非公開/取得不可(null)の場合はスパークラインの
+    // 信頼性を損なうため追記しない(既存の履歴はそのまま維持される)。
+    if (subscriberCount !== null) {
+      const existingHistory = await loadExistingChannelStatsHistory();
+      const updatedHistory = appendChannelStatsHistory(existingHistory, {
+        date: toJstDateString(fetchedAt),
+        subscriberCount,
+      });
+      const historyTmpPath = `${CHANNEL_STATS_HISTORY_JSON_PATH}.tmp`;
+      await Bun.write(historyTmpPath, `${JSON.stringify(updatedHistory, null, 2)}\n`);
+      await rename(historyTmpPath, CHANNEL_STATS_HISTORY_JSON_PATH);
+      console.log(`[fetch-videos] 登録者数の推移履歴を保存しました(${updatedHistory.length} 件)`);
+    }
   } catch (error) {
     console.warn(
       "[fetch-videos] チャンネル統計の取得でエラーが発生しました:",
