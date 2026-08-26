@@ -24,13 +24,18 @@ export function getStaticPaths() {
   const { series } = parseSeriesData(seriesJson);
   const { videos } = parseVideosData(videosJson);
   // series.json に定義された各シリーズについて、キーワードに該当する動画を抽出する(#174 を汎用化・#250)
-  return series.map((item) => ({
-    params: { slug: item.slug },
-    props: {
-      series: item,
-      seriesVideos: videos.filter((video) => isInSeries(video, item.keyword)),
-    },
+  const seriesWithVideos = series.map((item) => ({
+    series: item,
+    seriesVideos: videos.filter((video) => isInSeries(video, item.keyword)),
   }));
+  // 該当動画が 1 件もないシリーズはページを生成しない(videos/category/[category].astro の
+  // getAvailableCategories フィルタと同じ方針。空のアーカイブページが索引される事故を防ぐ)
+  return seriesWithVideos
+    .filter((entry) => entry.seriesVideos.length > 0)
+    .map((entry) => ({
+      params: { slug: entry.series.slug },
+      props: entry,
+    }));
 }
 
 interface Props {
