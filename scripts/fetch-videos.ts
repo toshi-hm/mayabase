@@ -15,7 +15,6 @@ import { rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
 import { type ChannelStats, parseChannelStatsApiResponse } from "../src/lib/channelStats";
-import { newlyPublishedVideos } from "../src/lib/push";
 import {
   appendChannelStatsHistory,
   type ChannelStatsHistoryEntry,
@@ -23,6 +22,7 @@ import {
   parseChannelStatsHistory,
   toJstDateString,
 } from "../src/lib/channelStatsHistory";
+import { newlyPublishedVideos } from "../src/lib/push";
 import {
   createEmptyVideosData,
   extractChannelId,
