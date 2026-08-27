@@ -169,13 +169,16 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     let matched = 0;
     for (const section of sections) {
       let visibleInSection = 0;
-      for (const item of section.querySelectorAll<HTMLElement>("[data-faq-item]")) {
+      for (const item of section.querySelectorAll<HTMLDetailsElement>("[data-faq-item]")) {
         const isMatch = faqTextMatches(
           item.dataset.question ?? "",
           item.dataset.answer ?? "",
           query,
         );
         item.hidden = !isMatch;
+        // 検索中(query あり)は、回答文のみに一致した項目でもひと目で分かるよう自動的に開く。
+        // 検索をクリアしたときは通常表示の折りたたみ状態に戻す(#274)。
+        item.open = query !== "" && isMatch;
         if (isMatch) visibleInSection += 1;
       }
       section.hidden = visibleInSection === 0;
