@@ -1,0 +1,225 @@
+---
+import Breadcrumb from "../components/Breadcrumb.astro";
+import GearMiniCard from "../components/GearMiniCard.astro";
+import { site } from "../config/site";
+import gearJson from "../data/gear.json";
+import glossaryJson from "../data/glossary.json";
+import videosJson from "../data/videos.json";
+import Base from "../layouts/Base.astro";
+import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
+import {
+  buildDefinedTermSetJsonLd,
+  glossaryTermAnchorId,
+  parseGlossaryData,
+  resolveGlossaryGear,
+  resolveGlossaryVideos,
+  sortGlossaryTerms,
+} from "../lib/glossary";
+import { parseGearData } from "../lib/gear";
+import { parseVideosData, videoUrl } from "../lib/youtube";
+
+const { items } = parseGlossaryData(glossaryJson);
+const terms = sortGlossaryTerms(items);
+const { items: gearItems } = parseGearData(gearJson);
+const { videos } = parseVideosData(videosJson);
+
+const pageTitle = `IT・ガジェット用語集 | ${site.name}`;
+const pageDescription = `${site.name} の動画で登場するAI・ガジェット・エンジニア用語をまとめた用語集です。「〇〇とは」を簡潔に解説し、関連する動画・愛用ガジェットへリンクしています。`;
+
+if (!Astro.site) {
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
+}
+const siteUrl = Astro.site.toString();
+const pageUrl = new URL("glossary/", siteUrl).toString();
+const breadcrumbItems: BreadcrumbItem[] = [
+  { name: "ホーム", href: "/" },
+  { name: "用語集", href: "/glossary/" },
+];
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: buildBreadcrumbJsonLd(breadcrumbItems, siteUrl),
+    },
+    buildDefinedTermSetJsonLd(terms, pageUrl),
+  ],
+};
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+---
+
+<Base title={pageTitle} description={pageDescription}>
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <main id="main" class="mx-auto max-w-3xl px-4 pt-12 pb-24">
+    <Breadcrumb items={breadcrumbItems} />
+    <h1 class="text-3xl font-bold sm:text-4xl">IT・ガジェット用語集</h1>
+    <p class="mt-3 text-ink-muted">
+      動画で扱っているAI・ガジェット・エンジニア用語をまとめました。気になる用語から、関連する動画や愛用ガジェットもチェックできます。
+    </p>
+
+    <section aria-label="用語集の絞り込み" class="mt-6 max-w-md">
+      <label for="glossary-search" class="mb-1 block text-sm text-ink-muted">キーワード検索</label>
+      <input
+        id="glossary-search"
+        type="search"
+        placeholder="例: RAG、静電容量無接点方式、ジンバル"
+        class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
+      />
+      <p id="glossary-count" aria-live="polite" class="mt-2 text-sm text-ink-muted">
+        {terms.length} 件
+      </p>
+    </section>
+
+    <div class="mt-10 flex flex-col gap-6">
+      {
+        terms.map((item, index) => {
+          const relatedVideos = resolveGlossaryVideos(item, videos);
+          const relatedGear = resolveGlossaryGear(item, gearItems);
+          return (
+            <article
+              id={glossaryTermAnchorId(index)}
+              class="scroll-mt-24 rounded-xl bg-surface-raised p-5"
+              data-glossary-item
+              data-term={item.term.toLowerCase()}
+              data-definition={item.definition.toLowerCase()}
+            >
+              <h2 class="text-lg font-bold">{item.term}</h2>
+              <p class="mt-2 leading-relaxed text-ink-muted">{item.definition}</p>
+              {(relatedVideos.length > 0 || relatedGear.length > 0) && (
+                <div class="mt-4 flex flex-col gap-4">
+                  {relatedVideos.length > 0 && (
+                    <div>
+                      <p class="text-xs font-semibold text-ink-muted">関連動画</p>
+                      <ul role="list" class="mt-1 flex flex-col gap-1">
+                        {relatedVideos.map((video) => (
+                          <li>
+                            <a
+                              href={videoUrl(video)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="text-sm font-semibold text-brand-accent underline-offset-4 hover:underline"
+                            >
+                              {video.title}
+                              <span class="sr-only">(YouTube・新しいタブで開きます)</span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {relatedGear.length > 0 && (
+                    <div>
+                      <p class="text-xs font-semibold text-ink-muted">関連する愛用ガジェット</p>
+                      <ul role="list" class="mt-2 grid gap-3 sm:grid-cols-2">
+                        {relatedGear.map((gear) => (
+                          <GearMiniCard item={gear} />
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </article>
+          );
+        })
+      }
+    </div>
+    <p
+      id="glossary-empty"
+      hidden
+      class="mt-8 rounded-xl bg-surface-raised p-8 text-center text-ink-muted"
+    >
+      条件に一致する用語が見つかりませんでした。キーワードを変えてお試しください。
+    </p>
+
+    <section aria-labelledby="glossary-cta-heading" class="pt-16">
+      <div class="rounded-2xl bg-surface-raised p-8 text-center">
+        <h2 id="glossary-cta-heading" class="text-xl font-bold">
+          もっと詳しく知りたい方は動画をチェック
+        </h2>
+        <p class="mx-auto mt-2 max-w-xl text-ink-muted">
+          AI・ガジェットの解説やレビューは YouTube チャンネルで詳しく紹介しています。
+        </p>
+        <div class="mt-5 flex flex-wrap justify-center gap-4">
+          <a
+            href="/videos/"
+            class="rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-strong"
+          >
+            動画ライブラリを見る
+          </a>
+          <a
+            href={site.youtube.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface"
+          >
+            YouTube チャンネルへ<span class="sr-only">(新しいタブで開きます)</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<script>
+  // キーワード検索。JS 無効時は全件表示のまま(絞り込み UI のみ機能しない)
+  import { glossaryTextMatches } from "../lib/glossary";
+
+  const search = document.getElementById("glossary-search") as HTMLInputElement | null;
+  const items = document.querySelectorAll<HTMLElement>("[data-glossary-item]");
+  const count = document.getElementById("glossary-count");
+  const empty = document.getElementById("glossary-empty");
+
+  function applyFilter(): void {
+    const query = (search?.value ?? "").trim().toLowerCase();
+    let matched = 0;
+    for (const item of items) {
+      const isMatch = glossaryTextMatches(
+        item.dataset.term ?? "",
+        item.dataset.definition ?? "",
+        query,
+      );
+      item.hidden = !isMatch;
+      if (isMatch) matched += 1;
+    }
+    if (count) count.textContent = `${matched} 件`;
+    if (empty) empty.hidden = matched > 0;
+  }
+
+  // 検索キーワードを URL クエリパラメータ(q)へ反映する(videos.astro / faq.astro / gear.astro と同じ方針)。
+  // 検索結果を直接共有・ブックマークできるようにする。空検索時はパラメータごと省略する。
+  // mode "push": 独立した履歴エントリを作る / "replace": 現在の履歴エントリを書き換えるのみ
+  function syncUrl(mode: "push" | "replace"): void {
+    const params = new URLSearchParams();
+    const query = (search?.value ?? "").trim();
+    if (query) params.set("q", query);
+    const queryString = params.toString();
+    const newUrl = `${location.pathname}${queryString ? `?${queryString}` : ""}${location.hash}`;
+    if (mode === "push") {
+      history.pushState(null, "", newUrl);
+    } else {
+      history.replaceState(null, "", newUrl);
+    }
+  }
+
+  // URL のクエリパラメータ(q)から検索状態を復元する
+  function restoreStateFromUrl(): void {
+    if (search) search.value = new URLSearchParams(location.search).get("q") ?? "";
+  }
+
+  search?.addEventListener("input", () => {
+    applyFilter();
+    // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
+    syncUrl("replace");
+  });
+
+  // 戻る/進むボタン操作時は URL から検索状態を再構築する
+  window.addEventListener("popstate", () => {
+    restoreStateFromUrl();
+    applyFilter();
+  });
+
+  // 初期表示:URL のクエリパラメータから検索状態を復元してから表示する
+  restoreStateFromUrl();
+  applyFilter();
+</script>

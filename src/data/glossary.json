@@ -1,0 +1,80 @@
+{
+  "items": [
+    {
+      "term": "RAG(Retrieval-Augmented Generation)",
+      "definition": "LLMが回答を生成する際に、外部の文書やデータベースから関連情報を検索(Retrieval)して回答に組み込む(Augmented Generation)手法。学習データにない最新情報や社内文書に基づいた回答を可能にし、ハルシネーションの抑制にもつながる。"
+    },
+    {
+      "term": "LLM(大規模言語モデル)",
+      "definition": "大量のテキストデータで学習された、文章の生成・要約・翻訳などをこなす言語モデル。ChatGPTやGeminiなど、現在のAIチャットサービスの多くはLLMを基盤にしている。",
+      "relatedVideoIds": ["TaJaU6MMUik", "2WX26Bekrfk", "qF3YSuHxSpc"]
+    },
+    {
+      "term": "プロンプトエンジニアリング",
+      "definition": "AIから望む回答を得るために、指示文(プロンプト)の書き方を工夫する技術。同じAIでも質問の仕方次第で回答の精度が大きく変わるため、実務でAIを使いこなす上で重要なスキルとされる。"
+    },
+    {
+      "term": "ハルシネーション",
+      "definition": "AIがもっともらしい嘘や事実と異なる情報を、あたかも正しいかのように生成してしまう現象。生成AIの回答を鵜呑みにせず、事実確認(ファクトチェック)を挟むことが推奨される。"
+    },
+    {
+      "term": "マルチモーダルAI",
+      "definition": "テキストだけでなく、音声・画像・動画など複数の種類(モーダル)の情報を同時に扱えるAI。OpenAIの音声AI「GPT-Live」のように、リアルタイムの音声対話ができるモデルもこの一種。",
+      "relatedVideoIds": ["2WX26Bekrfk", "qF3YSuHxSpc"]
+    },
+    {
+      "term": "静電容量無接点方式",
+      "definition": "キースイッチが物理的な接点で触れることなく、静電容量の変化を検知して入力を読み取るキーボードの方式。打鍵感が独特で耐久性も高く、HHKBなど高級キーボードで採用されている。",
+      "relatedVideoIds": ["jn3tvSA8KBw"],
+      "relatedGearNames": ["HHKB Professional HYBRID Type-S 雪 英語配列"]
+    },
+    {
+      "term": "ジンバル",
+      "definition": "カメラの傾きや揺れをモーターで打ち消し、歩きながら撮影しても映像がブレにくくする手ぶれ補正機材。DJI Osmo PocketシリーズはVlog撮影の定番として人気が高い。",
+      "relatedVideoIds": ["C6ByR7e2q5U", "2pYlZAfFOE4"],
+      "relatedGearNames": ["Osmo Pocket 3"]
+    },
+    {
+      "term": "骨伝導イヤホン",
+      "definition": "耳を塞がず、頭蓋骨の振動で音を伝える方式のイヤホン。周囲の音が聞こえるため、ランニングや通勤中でも安全に音楽や通知音を聞くことができる。",
+      "relatedGearNames": ["OpenRun Pro 2"]
+    },
+    {
+      "term": "ドッキングステーション",
+      "definition": "ノートPCにケーブル1本を接続するだけで、複数のディスプレイ・USB機器・LANなどをまとめて利用できるようにする周辺機器。在宅と出社を行き来する働き方との相性がよい。",
+      "relatedVideoIds": ["DcVnVQqfpRs", "z5O2lQteSQg"],
+      "relatedGearNames": ["Prime ドッキングステーション(14-in-1, Triple Display)"]
+    },
+    {
+      "term": "電動昇降デスク",
+      "definition": "ボタン操作でモーターにより天板の高さを調整できるデスク。座り姿勢と立ち姿勢を切り替えられ、長時間のデスクワークによる肩こりや集中力低下の対策として注目されている。",
+      "relatedVideoIds": ["jn3tvSA8KBw"],
+      "relatedGearNames": ["E7L 電動昇降デスク"]
+    },
+    {
+      "term": "モニターアーム",
+      "definition": "モニターをデスクに固定し、高さ・角度・奥行きを自由に調整できるようにするアーム型の器具。デスクの設置スペースを節約しつつ、目線の高さを正しく保つことができる。",
+      "relatedGearNames": ["LX モニターアーム"]
+    },
+    {
+      "term": "コンデンサーマイク",
+      "definition": "内部の振動板が音の振動を電気信号に変換する仕組みのマイク。ダイナミックマイクより感度が高く繊細な音を拾えるため、動画収録やポッドキャストなど室内での高音質録音に向く。",
+      "relatedGearNames": ["AT4040"]
+    },
+    {
+      "term": "オーディオインターフェース",
+      "definition": "マイクや楽器からのアナログ音声信号を、PCで扱えるデジタル信号に変換する機器。マイクの性能を最大限活かすには、PC内蔵の音声入力ではなくオーディオインターフェースの利用が推奨される。",
+      "relatedGearNames": ["AG06MK2"]
+    },
+    {
+      "term": "スマートディスプレイ",
+      "definition": "音声アシスタントとタッチ画面を備えた据え置き型のデバイス。声だけで家電を操作したり、ビデオ通話・レシピ表示などをこなせる「スマート家電のハブ」的な存在。",
+      "relatedGearNames": ["Echo Show 8(第3世代)"]
+    },
+    {
+      "term": "ワイヤレス充電器(Qi)",
+      "definition": "ケーブルを挿さずに、対応機器を置くだけで充電できる規格「Qi(チー)」に準拠した充電器。スマートフォンだけでなく、イヤホンやスマートウォッチをまとめて充電できるモデルもある。",
+      "relatedGearNames": ["MagGo 3-in-1 ワイヤレス充電器"]
+    }
+  ]
+}

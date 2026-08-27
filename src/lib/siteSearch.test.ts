@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import faqJson from "../data/faq.json";
 import gearJson from "../data/gear.json";
+import glossaryJson from "../data/glossary.json";
 import videosJson from "../data/videos.json";
 import { parseFaqData } from "./faq";
 import { parseGearData } from "./gear";
+import { parseGlossaryData } from "./glossary";
 import {
   buildSiteSearchIndex,
   searchSiteIndex,
@@ -62,17 +64,23 @@ const gearItems = [
   },
 ];
 
+const glossaryItems = [
+  { term: "RAG", definition: "検索拡張生成のこと。外部知識を検索して回答生成に使う手法です。" },
+  { term: "LLM", definition: "大規模言語モデルのこと。" },
+];
+
 describe("buildSiteSearchIndex", () => {
-  test("動画・FAQ・ガジェットをまとめて1つのインデックスにする", () => {
-    const index = buildSiteSearchIndex(videos, faqCategories, gearItems);
-    expect(index).toHaveLength(videos.length + 2 + gearItems.length);
+  test("動画・FAQ・ガジェット・用語集をまとめて1つのインデックスにする", () => {
+    const index = buildSiteSearchIndex(videos, faqCategories, gearItems, glossaryItems);
+    expect(index).toHaveLength(videos.length + 2 + gearItems.length + glossaryItems.length);
     expect(index.filter((item) => item.type === "video")).toHaveLength(videos.length);
     expect(index.filter((item) => item.type === "faq")).toHaveLength(2);
     expect(index.filter((item) => item.type === "gear")).toHaveLength(gearItems.length);
+    expect(index.filter((item) => item.type === "glossary")).toHaveLength(glossaryItems.length);
   });
 
   test("動画の候補は動画タイトルを query・遷移先を /videos/ にする", () => {
-    const index = buildSiteSearchIndex(videos, [], []);
+    const index = buildSiteSearchIndex(videos, [], [], []);
     expect(index[0]).toMatchObject({
       type: "video",
       title: "HHKBキーボードのレビュー",
@@ -84,7 +92,7 @@ describe("buildSiteSearchIndex", () => {
   });
 
   test("FAQの候補は質問文を query・遷移先を /faq/ にし、質問+回答を検索対象にする", () => {
-    const index = buildSiteSearchIndex([], faqCategories, []);
+    const index = buildSiteSearchIndex([], faqCategories, [], []);
     expect(index[0]).toMatchObject({
       type: "faq",
       title: "使っているキーボードは?",
@@ -96,7 +104,7 @@ describe("buildSiteSearchIndex", () => {
   });
 
   test("ガジェットの候補は商品名を query・遷移先を /gear/ にする", () => {
-    const index = buildSiteSearchIndex([], [], gearItems);
+    const index = buildSiteSearchIndex([], [], gearItems, []);
     expect(index[0]).toMatchObject({
       type: "gear",
       title: "PFU HHKB Professional HYBRID Type-S",
@@ -107,25 +115,45 @@ describe("buildSiteSearchIndex", () => {
     expect(index[0]?.searchText).toContain("メインキーボードです。");
   });
 
-  test("実データ(videos.json / faq.json / gear.json)からインデックスを構築できる(回帰テスト)", () => {
+  test("用語集の候補は用語を query・遷移先を /glossary/ にし、用語+解説を検索対象にする", () => {
+    const index = buildSiteSearchIndex([], [], [], glossaryItems);
+    expect(index[0]).toMatchObject({
+      type: "glossary",
+      title: "RAG",
+      subtitle: "用語集",
+      href: "/glossary/",
+      query: "RAG",
+    });
+    expect(index[0]?.searchText).toContain("検索拡張生成");
+  });
+
+  test("実データ(videos.json / faq.json / gear.json / glossary.json)からインデックスを構築できる(回帰テスト)", () => {
     const { videos: realVideos } = parseVideosData(videosJson);
     const { categories } = parseFaqData(faqJson);
     const { items } = parseGearData(gearJson);
-    const index = buildSiteSearchIndex(realVideos, categories, items);
+    const { items: glossary } = parseGlossaryData(glossaryJson);
+    const index = buildSiteSearchIndex(realVideos, categories, items, glossary);
     expect(index.length).toBe(
       realVideos.length +
         categories.reduce((sum, category) => sum + category.items.length, 0) +
-        items.length,
+        items.length +
+        glossary.length,
     );
   });
 });
 
 describe("searchSiteIndex", () => {
-  const index = buildSiteSearchIndex(videos, faqCategories, gearItems);
+  const index = buildSiteSearchIndex(videos, faqCategories, gearItems, glossaryItems);
 
   test("空クエリでは候補を返さない", () => {
     expect(searchSiteIndex(index, "", 5)).toEqual([]);
     expect(searchSiteIndex(index, "   ", 5)).toEqual([]);
+  });
+
+  test("動画タイトル・FAQ・ガジェット名・用語集を横断して照合する", () => {
+    const results = searchSiteIndex(index, "RAG", 5);
+    const types = results.map((item) => item.type);
+    expect(types).toContain("glossary");
   });
 
   test("動画タイトル・FAQ・ガジェット名を横断して照合する", () => {
@@ -153,7 +181,7 @@ describe("searchSiteIndex", () => {
       viewCount: null,
       duration: null,
     }));
-    const bigIndex = buildSiteSearchIndex(manyVideos, [], []);
+    const bigIndex = buildSiteSearchIndex(manyVideos, [], [], []);
     const results = searchSiteIndex(bigIndex, "AI", 3);
     expect(results).toHaveLength(3);
   });
@@ -185,5 +213,6 @@ describe("siteSearchTypeLabel", () => {
     expect(siteSearchTypeLabel("video")).toBe("動画");
     expect(siteSearchTypeLabel("faq")).toBe("FAQ");
     expect(siteSearchTypeLabel("gear")).toBe("ガジェット");
+    expect(siteSearchTypeLabel("glossary")).toBe("用語集");
   });
 });
