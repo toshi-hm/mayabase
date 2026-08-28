@@ -1,0 +1,191 @@
+---
+import Breadcrumb from "../components/Breadcrumb.astro";
+import { site } from "../config/site";
+import videosJson from "../data/videos.json";
+import Base from "../layouts/Base.astro";
+import { formatChapterTime } from "../lib/chapters";
+import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
+import { buildTopicsIndex } from "../lib/topics";
+import { parseVideosData, thumbnailFallbackUrl, videoUrlAtTime } from "../lib/youtube";
+
+const { videos } = parseVideosData(videosJson);
+// 全動画の概要欄からチャプター(目次)を集約し、横断検索できるようにする(#280)。
+const topics = buildTopicsIndex(videos);
+
+const pageTitle = `チャプター検索 | ${site.name}`;
+const pageDescription = `${site.name} の動画に付けたチャプター(目次)をキーワードで横断検索できます。気になる話題がどの動画のどの場面で語られているか探して、その場面から直接再生できます。`;
+
+if (!Astro.site) {
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
+}
+const siteUrl = Astro.site.toString();
+const breadcrumbItems: BreadcrumbItem[] = [
+  { name: "ホーム", href: "/" },
+  { name: "チャプター検索", href: "/topics/" },
+];
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: buildBreadcrumbJsonLd(breadcrumbItems, siteUrl),
+    },
+  ],
+};
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+---
+
+<Base title={pageTitle} description={pageDescription}>
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <main id="main" class="mx-auto max-w-3xl px-4 pt-12 pb-24">
+    <Breadcrumb items={breadcrumbItems} />
+    <h1 class="text-3xl font-bold sm:text-4xl">チャプター検索</h1>
+    <p class="mt-3 text-ink-muted">
+      動画に付けたチャプター(目次)をキーワードで横断検索できます。気になる話題が、どの動画のどの場面で語られているか探してみてください。クリックするとその場面からYouTubeで再生します。
+    </p>
+
+    <section aria-label="チャプターの絞り込み" class="mt-6 max-w-md">
+      <label for="topics-search" class="mb-1 block text-sm text-ink-muted">キーワード検索</label>
+      <input
+        id="topics-search"
+        type="search"
+        placeholder="例: セットアップ、比較、失敗談"
+        class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
+      />
+      <p id="topics-count" aria-live="polite" class="mt-2 text-sm text-ink-muted">
+        {topics.length} 件
+      </p>
+    </section>
+
+    <ol role="list" class="mt-8 flex flex-col divide-y divide-line rounded-xl border border-line">
+      {
+        topics.map((topic) => (
+          <li
+            data-topic-item
+            data-label={topic.label.toLowerCase()}
+            data-video-title={topic.videoTitle.toLowerCase()}
+          >
+            <a
+              href={videoUrlAtTime({ id: topic.videoId, isShort: topic.isShort }, topic.seconds)}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex items-center gap-4 px-4 py-3 transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
+            >
+              <img
+                src={thumbnailFallbackUrl(topic.videoId)}
+                alt=""
+                width="120"
+                height="68"
+                loading="lazy"
+                decoding="async"
+                class="aspect-video w-24 shrink-0 rounded-lg object-cover"
+              />
+              <span class="min-w-0 flex-1">
+                <span class="line-clamp-1 block font-semibold">{topic.label}</span>
+                <span class="line-clamp-1 block text-sm text-ink-muted">{topic.videoTitle}</span>
+              </span>
+              <span class="w-16 shrink-0 text-right font-mono text-sm text-ink-muted tabular-nums">
+                {formatChapterTime(topic.seconds)}
+              </span>
+              <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+    <p
+      id="topics-empty"
+      hidden
+      class="mt-8 rounded-xl bg-surface-raised p-8 text-center text-ink-muted"
+    >
+      条件に一致するチャプターが見つかりませんでした。キーワードを変えてお試しください。
+    </p>
+
+    <section aria-labelledby="topics-cta-heading" class="pt-16">
+      <div class="rounded-2xl bg-surface-raised p-8 text-center">
+        <h2 id="topics-cta-heading" class="text-xl font-bold">もっと動画をチェックする</h2>
+        <p class="mx-auto mt-2 max-w-xl text-ink-muted">
+          {site.name} では AI・ガジェット・社会人 Vlog など幅広いテーマの動画を公開しています。
+        </p>
+        <div class="mt-5 flex flex-wrap justify-center gap-4">
+          <a
+            href="/videos/"
+            class="rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-strong"
+          >
+            動画ライブラリを見る
+          </a>
+          <a
+            href={site.youtube.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface"
+          >
+            YouTube チャンネルへ<span class="sr-only">(新しいタブで開きます)</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<script>
+  // キーワード検索。JS 無効時は全件表示のまま(絞り込み UI のみ機能しない)
+  import { topicTextMatches } from "../lib/topics";
+
+  const search = document.getElementById("topics-search") as HTMLInputElement | null;
+  const items = document.querySelectorAll<HTMLElement>("[data-topic-item]");
+  const count = document.getElementById("topics-count");
+  const empty = document.getElementById("topics-empty");
+
+  function applyFilter(): void {
+    const query = (search?.value ?? "").trim().toLowerCase();
+    let matched = 0;
+    for (const item of items) {
+      const isMatch = topicTextMatches(
+        item.dataset.label ?? "",
+        item.dataset.videoTitle ?? "",
+        query,
+      );
+      item.hidden = !isMatch;
+      if (isMatch) matched += 1;
+    }
+    if (count) count.textContent = `${matched} 件`;
+    if (empty) empty.hidden = matched > 0;
+  }
+
+  // 検索キーワードを URL クエリパラメータ(q)へ反映する(videos.astro / faq.astro / glossary.astro と同じ方針)。
+  // 検索結果を直接共有・ブックマークできるようにする。空検索時はパラメータごと省略する。
+  function syncUrl(mode: "push" | "replace"): void {
+    const params = new URLSearchParams();
+    const query = (search?.value ?? "").trim();
+    if (query) params.set("q", query);
+    const queryString = params.toString();
+    const newUrl = `${location.pathname}${queryString ? `?${queryString}` : ""}${location.hash}`;
+    if (mode === "push") {
+      history.pushState(null, "", newUrl);
+    } else {
+      history.replaceState(null, "", newUrl);
+    }
+  }
+
+  // URL のクエリパラメータ(q)から検索状態を復元する
+  function restoreStateFromUrl(): void {
+    if (search) search.value = new URLSearchParams(location.search).get("q") ?? "";
+  }
+
+  search?.addEventListener("input", () => {
+    applyFilter();
+    // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
+    syncUrl("replace");
+  });
+
+  // 戻る/進むボタン操作時は URL から検索状態を再構築する
+  window.addEventListener("popstate", () => {
+    restoreStateFromUrl();
+    applyFilter();
+  });
+
+  // 初期表示:URL のクエリパラメータから検索状態を復元してから表示する
+  restoreStateFromUrl();
+  applyFilter();
+</script>
