@@ -420,6 +420,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   }
   interface YouTubePlayer {
     destroy: () => void;
+    seekTo: (seconds: number, allowSeekAhead: boolean) => void;
+    playVideo: () => void;
   }
   interface YouTubeIframeApi {
     Player: new (
@@ -435,10 +437,18 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     }
   }
 
-  // チャプターリンクは通常のYouTube視聴URLへのリンク(JS無効環境・クローラー向けフォールバック)。
-  // JS有効時はページ遷移せず、埋め込みプレイヤーのiframeを該当秒数から再生し直す(#154)
   const frame = document.getElementById("video-player-frame");
   const chapterLinks = document.querySelectorAll<HTMLAnchorElement>("[data-chapter-seconds]");
+  const nextVideoOverlay = document.getElementById("next-video-overlay");
+  const nextVideoDismiss = document.getElementById("next-video-dismiss");
+
+  // IFrame Player API 経由で生成したプレイヤー(次の動画提示(#175)がある場合のみ生成)。
+  // 生成済みの間はチャプター遷移もこの player 経由(seekTo)で行う。frame.src を直接
+  // 書き換えるとプレイヤーとの postMessage 通信が切れ、再生終了検知が効かなくなるため(#279)。
+  let player: YouTubePlayer | null = null;
+
+  // チャプターリンクは通常のYouTube視聴URLへのリンク(JS無効環境・クローラー向けフォールバック)。
+  // JS有効時はページ遷移せず、埋め込みプレイヤーのiframeを該当秒数から再生し直す(#154)
   if (frame instanceof HTMLIFrameElement) {
     for (const link of chapterLinks) {
       link.addEventListener("click", (event) => {
@@ -448,10 +458,15 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         // 「新しいタブで開く」動作を優先し、iframe差し替えは行わない
         if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
         event.preventDefault();
-        const url = new URL(frame.src);
-        url.searchParams.set("start", seconds);
-        url.searchParams.set("autoplay", "1");
-        frame.src = url.toString();
+        if (player) {
+          player.seekTo(Number(seconds), true);
+          player.playVideo();
+        } else {
+          const url = new URL(frame.src);
+          url.searchParams.set("start", seconds);
+          url.searchParams.set("autoplay", "1");
+          frame.src = url.toString();
+        }
         frame.scrollIntoView({ behavior: "smooth", block: "center" });
       });
     }
@@ -461,8 +476,6 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // next-video-overlay が存在する(= 提示できる次の動画がある)場合のみ、
   // YouTube IFrame API スクリプトを動的に読み込む。このサイトは方針としてサードパーティ
   // スクリプトを追加しない(JS最小限)ため、提示先が無い動画では一切読み込ませない。
-  const nextVideoOverlay = document.getElementById("next-video-overlay");
-  const nextVideoDismiss = document.getElementById("next-video-dismiss");
   if (frame instanceof HTMLIFrameElement && nextVideoOverlay) {
     const showNextVideo = (): void => {
       nextVideoOverlay.classList.remove("hidden");
@@ -479,7 +492,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       if (!YT) return;
       // frame は iframe_api 読み込み前後で不変(このスクリプトが差し替えるのは src のみ)。
       // 既存の iframe を渡すことで API 側が enablejsapi=1 のプレイヤーとして認識する(公式仕様)。
-      new YT.Player(frame, {
+      player = new YT.Player(frame, {
         events: {
           onStateChange: (event) => {
             if (event.data === YT.PlayerState.ENDED) showNextVideo();
