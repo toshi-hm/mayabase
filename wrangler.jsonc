@@ -15,14 +15,25 @@
   },
   "observability": {
     "enabled": true
-  },
-  // プッシュ通知の購読情報を永続化するKV(#157)。デプロイ前に手動セットアップが必要:
-  // `wrangler kv namespace create PUSH_SUBSCRIPTIONS` を実行し、返却された id を
-  // 下記の "id" に設定すること(このリポジトリのコードだけでは完結しない)。
-  "kv_namespaces": [
-    {
-      "binding": "PUSH_SUBSCRIPTIONS",
-      "id": "REPLACE_WITH_KV_NAMESPACE_ID"
-    }
-  ]
+  }
+  //
+  // プッシュ通知(#157)の購読情報を永続化する KV バインディングについて:
+  //
+  // ここに実在しない id(プレースホルダ)を書くと `wrangler deploy` が
+  // 「KV namespace '...' is not valid [code: 10042]」で失敗し、
+  // サイト全体のデプロイが止まる。そのため既定では設定しない。
+  // 未設定でも worker/index.ts は静的配信を通常通り行い、
+  // /api/push/* だけが 503 を返す(worker/index.ts 参照)。
+  //
+  // 有効化するときは、運用者が下記を実行して得た **実在する id** を
+  // 設定した上でコミットすること:
+  //
+  //   wrangler kv namespace create PUSH_SUBSCRIPTIONS
+  //
+  // "kv_namespaces": [
+  //   {
+  //     "binding": "PUSH_SUBSCRIPTIONS",
+  //     "id": "<上記コマンドが出力した id>"
+  //   }
+  // ]
 }

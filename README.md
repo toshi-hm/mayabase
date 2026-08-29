@@ -97,10 +97,26 @@ bun run dev          # 開発サーバ(http://localhost:4321)
 
 ## デプロイ
 
-静的サイトなので Cloudflare Pages / Netlify / Vercel / GitHub Pages などにそのままデプロイできます。
+本番は Cloudflare Workers(`wrangler.jsonc` の `portal`)へデプロイしています。静的サイトなので Netlify / Vercel / GitHub Pages などにもそのままデプロイできます。
 
 - ビルドコマンド: `bun run build:full`(ビルド環境から youtube.com へアクセスできない場合は `bun run build`)
 - 出力ディレクトリ: `dist`
+- `dist` は Workers の Assets(`ASSETS` バインディング)として配信され、`/api/push/*` だけを `worker/index.ts` が処理します。
+
+### プッシュ通知用 KV の有効化(任意)
+
+新着動画のプッシュ通知(#157)の購読情報は Workers KV に保存します。**既定では KV バインディングを設定していません**。有効にする場合のみ、次の手順で実在するネームスペース ID を設定してください。
+
+```sh
+wrangler kv namespace create PUSH_SUBSCRIPTIONS
+```
+
+出力された `id` を `wrangler.jsonc` の `kv_namespaces` に設定します(記述例はファイル内のコメント参照)。
+
+> [!IMPORTANT]
+> `id` にプレースホルダや存在しない値を書くと `wrangler deploy` が `KV namespace '...' is not valid [code: 10042]` で失敗し、**サイト全体のデプロイが止まります**。値が用意できないうちは `kv_namespaces` を追加しないでください。CI では `worker/wranglerConfig.test.ts` がこれを検査します。
+
+KV 未設定でも静的サイトの配信は通常どおり動作し、`/api/push/subscribe` と `/api/push/unsubscribe` のみが 503 を返します(購読ボタン自体も `PUBLIC_VAPID_PUBLIC_KEY` 未設定ならビルドに含まれません)。通知送信側に必要な Secrets は `.env.example` / `.dev.vars.example` を参照してください。
 
 ## CI
 
