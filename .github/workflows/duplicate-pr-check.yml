@@ -22,7 +22,7 @@ jobs:
       # actions/github-script は同一組織内の housekeeper リポジトリでも @v7(タグ参照)
       # で使われている一次(GitHub公式)アクションのため、他アクションのSHA固定という
       # このリポジトリの慣例からは外れるがタグ参照のままにしている。
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         with:
           script: |
             // このチェックはあくまで注意喚起であり、レビュー必須のシグナルではないため、
