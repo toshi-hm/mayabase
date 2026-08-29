@@ -6,6 +6,7 @@ import ShareButton from "../../components/ShareButton.astro";
 import WatchLaterButton from "../../components/WatchLaterButton.astro";
 import { site, subscribeUrl } from "../../config/site";
 import gearJson from "../../data/gear.json";
+import seriesJson from "../../data/series.json";
 import videosJson from "../../data/videos.json";
 import Base from "../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../lib/breadcrumb";
@@ -21,6 +22,7 @@ import {
 import { buildVideoGearMap, parseGearData, type GearItem } from "../../lib/gear";
 import { getLightboxContainerClass } from "../../lib/lightbox";
 import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "../../lib/relatedVideos";
+import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../lib/series";
 import {
   buildPlayerCardMeta,
   embedUrl,
@@ -40,9 +42,16 @@ export function getStaticPaths() {
   // 動画数だけページが生成されるため、マップの構築は getStaticPaths 側で 1 度だけ行う。
   const { items: gearItems } = parseGearData(gearJson);
   const videoGearMap = buildVideoGearMap(gearItems);
+  // 動画が属するシリーズ(videos.astro / [slug].astro と同じ isInSeries 判定・#295)。
+  const { series } = parseSeriesData(seriesJson);
   return videos.map((video) => ({
     params: { id: video.id },
-    props: { video, videos, gearItems: videoGearMap.get(video.id) ?? [] },
+    props: {
+      video,
+      videos,
+      gearItems: videoGearMap.get(video.id) ?? [],
+      matchedSeries: series.filter((item) => isInSeries(video, item.keyword)),
+    },
   }));
 }
 
@@ -51,9 +60,11 @@ interface Props {
   videos: Video[];
   /** この動画で紹介されているガジェット(愛用ガジェットとの相互リンク用・#134) */
   gearItems: GearItem[];
+  /** この動画が属するシリーズ(#295)。該当なしなら空配列 */
+  matchedSeries: SeriesItem[];
 }
 
-const { video, videos, gearItems } = Astro.props;
+const { video, videos, gearItems, matchedSeries } = Astro.props;
 const category = categorizeVideo(video);
 const RELATED_LIMIT = 6;
 const relatedVideos = getRelatedVideos(video, videos, category, RELATED_LIMIT);
@@ -139,6 +150,27 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
   <main id="main" class="mx-auto max-w-4xl px-4 pt-12 pb-24">
     <Breadcrumb items={breadcrumbItems} />
+
+    {
+      /* この動画が属するシリーズへの導線(#295)。関連動画(同カテゴリ)とは別軸の回遊導線。
+      該当シリーズが無い動画ではセクション自体を表示しない */
+      matchedSeries.length > 0 && (
+        <p class="mt-2 text-sm text-ink-muted">
+          {matchedSeries.map((item) => (
+            <>
+              この動画は
+              <a
+                href={seriesUrl(item.slug)}
+                class="font-semibold text-brand-accent hover:underline"
+              >
+                「{item.title}」
+              </a>
+              シリーズの一本です。
+            </>
+          ))}
+        </p>
+      )
+    }
 
     <div class="relative">
       {
