@@ -7,6 +7,7 @@ import WatchLaterButton from "../../components/WatchLaterButton.astro";
 import { site, subscribeUrl } from "../../config/site";
 import gearJson from "../../data/gear.json";
 import glossaryJson from "../../data/glossary.json";
+import seriesJson from "../../data/series.json";
 import videosJson from "../../data/videos.json";
 import Base from "../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../lib/breadcrumb";
@@ -28,6 +29,7 @@ import {
 } from "../../lib/glossary";
 import { getLightboxContainerClass } from "../../lib/lightbox";
 import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "../../lib/relatedVideos";
+import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../lib/series";
 import {
   buildPlayerCardMeta,
   embedUrl,
@@ -62,6 +64,8 @@ export function getStaticPaths() {
     sortGlossaryTerms(glossaryItems).map((item, index) => [item.term, glossaryTermAnchorId(index)]),
   );
   const videoGlossaryMap = buildVideoGlossaryMap(glossaryItems);
+  // 動画が属するシリーズ(videos.astro / [slug].astro と同じ isInSeries 判定・#295)。
+  const { series } = parseSeriesData(seriesJson);
   return videos.map((video) => ({
     params: { id: video.id },
     props: {
@@ -74,6 +78,7 @@ export function getStaticPaths() {
         // glossaryAnchorByTerm は同じ glossaryItems から構築しているため必ず見つかる
         anchorId: glossaryAnchorByTerm.get(item.term) as string,
       })),
+      matchedSeries: series.filter((item) => isInSeries(video, item.keyword)),
     },
   }));
 }
@@ -85,9 +90,11 @@ interface Props {
   gearItems: GearItem[];
   /** この動画に登場する用語(用語集との相互リンク用・#294) */
   glossaryTerms: VideoGlossaryLink[];
+  /** この動画が属するシリーズ(#295)。該当なしなら空配列 */
+  matchedSeries: SeriesItem[];
 }
 
-const { video, videos, gearItems, glossaryTerms } = Astro.props;
+const { video, videos, gearItems, glossaryTerms, matchedSeries } = Astro.props;
 const category = categorizeVideo(video);
 const RELATED_LIMIT = 6;
 const relatedVideos = getRelatedVideos(video, videos, category, RELATED_LIMIT);
@@ -173,6 +180,27 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
   <main id="main" class="mx-auto max-w-4xl px-4 pt-12 pb-24">
     <Breadcrumb items={breadcrumbItems} />
+
+    {
+      /* この動画が属するシリーズへの導線(#295)。関連動画(同カテゴリ)とは別軸の回遊導線。
+      該当シリーズが無い動画ではセクション自体を表示しない */
+      matchedSeries.length > 0 && (
+        <p class="mt-2 text-sm text-ink-muted">
+          {matchedSeries.map((item) => (
+            <>
+              この動画は
+              <a
+                href={seriesUrl(item.slug)}
+                class="font-semibold text-brand-accent hover:underline"
+              >
+                「{item.title}」
+              </a>
+              シリーズの一本です。
+            </>
+          ))}
+        </p>
+      )
+    }
 
     <div class="relative">
       {

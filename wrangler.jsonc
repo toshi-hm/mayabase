@@ -16,13 +16,10 @@
   "observability": {
     "enabled": true
   },
-  // プッシュ通知の購読情報を永続化するKV(#157)。デプロイ前に手動セットアップが必要:
-  // `wrangler kv namespace create PUSH_SUBSCRIPTIONS` を実行し、返却された id を
-  // 下記の "id" に設定すること(このリポジトリのコードだけでは完結しない)。
   "kv_namespaces": [
     {
       "binding": "PUSH_SUBSCRIPTIONS",
-      "id": "REPLACE_WITH_KV_NAMESPACE_ID"
+      "id": "f65e291e680540edaa5fc3c1f577e9c6"
     }
   ]
 }
