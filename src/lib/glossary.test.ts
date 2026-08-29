@@ -5,6 +5,7 @@ import videosJson from "../data/videos.json";
 import { parseGearData } from "./gear";
 import {
   buildDefinedTermSetJsonLd,
+  buildVideoGlossaryMap,
   glossaryTermAnchorId,
   glossaryTextMatches,
   parseGlossaryData,
@@ -209,6 +210,26 @@ describe("glossaryTermAnchorId", () => {
   test("インデックスから一意なアンカー ID を組み立てる", () => {
     expect(glossaryTermAnchorId(0)).toBe("term-0");
     expect(glossaryTermAnchorId(12)).toBe("term-12");
+  });
+});
+
+describe("buildVideoGlossaryMap", () => {
+  test("動画 ID → 関連用語一覧の逆引きマップを構築する(#294)", () => {
+    const itemA = { ...validItem, term: "A", relatedVideoIds: ["video1"] };
+    const itemB = { ...validItem, term: "B", relatedVideoIds: ["video1", "video2"] };
+    const itemC = { ...validItem, term: "C" };
+    const { items } = parseGlossaryData({ items: [itemA, itemB, itemC] });
+
+    const map = buildVideoGlossaryMap(items);
+    expect(map.get("video1")?.map((item) => item.term)).toEqual(["A", "B"]);
+    expect(map.get("video2")?.map((item) => item.term)).toEqual(["B"]);
+    expect(map.has("video3")).toBe(false);
+  });
+
+  test("relatedVideoIds を持つ用語が無ければ空のマップを返す(#294)", () => {
+    const { items } = parseGlossaryData(glossaryJson);
+    const withoutRelatedVideoIds = items.filter((item) => !item.relatedVideoIds);
+    expect(buildVideoGlossaryMap(withoutRelatedVideoIds).size).toBe(0);
   });
 });
 

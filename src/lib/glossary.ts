@@ -130,6 +130,25 @@ export function resolveGlossaryGear(
     .filter((gear): gear is GearItem => gear !== undefined);
 }
 
+/**
+ * 動画 ID → その動画で扱われている用語一覧、の逆引きマップを構築する
+ * (gear.ts の buildVideoGearMap と同方針・#294)。glossary.json の記載順を維持する。
+ */
+export function buildVideoGlossaryMap(items: readonly GlossaryItem[]): Map<string, GlossaryItem[]> {
+  const map = new Map<string, GlossaryItem[]>();
+  for (const item of items) {
+    for (const videoId of item.relatedVideoIds ?? []) {
+      const existing = map.get(videoId);
+      if (existing) {
+        existing.push(item);
+      } else {
+        map.set(videoId, [item]);
+      }
+    }
+  }
+  return map;
+}
+
 /** DefinedTerm JSON-LD 1 件分 */
 interface DefinedTermJsonLd {
   "@type": "DefinedTerm";
