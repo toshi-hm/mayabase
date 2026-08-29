@@ -8,8 +8,12 @@
  * が、この Worker が書き込んだ購読情報を Cloudflare API 経由で読み出して送信する。
  *
  * デプロイ前提条件(README/PR説明を参照。手動セットアップが必要):
- * - `wrangler kv namespace create PUSH_SUBSCRIPTIONS` で作成した KV の id を
- *   wrangler.jsonc の kv_namespaces[0].id に設定すること
+ * - `wrangler kv namespace create PUSH_SUBSCRIPTIONS` で作成した KV の **実在する id** を
+ *   wrangler.jsonc の kv_namespaces に設定すること
+ *
+ * この手動セットアップが未実施の環境では KV バインディング自体が存在しない。その場合でも
+ * 静的配信は通常どおり行い、/api/push/* だけが 503 を返す(リポジトリ内の他の連携と同様、
+ * 未設定なら機能だけが無効になる方針。scripts/send-push-notifications.ts / .env.example 参照)。
  */
 import { isValidPushSubscriptionPayload, type StoredPushSubscription } from "../src/lib/push";
 
@@ -23,8 +27,11 @@ interface PushSubscriptionsKv {
 interface Env {
   /** wrangler.jsonc の assets.binding。マッチしないリクエストの静的配信に使う */
   ASSETS: { fetch(request: Request): Promise<Response> };
-  /** wrangler.jsonc の kv_namespaces[0].binding。購読情報の保存先 */
-  PUSH_SUBSCRIPTIONS: PushSubscriptionsKv;
+  /**
+   * wrangler.jsonc の kv_namespaces[].binding。購読情報の保存先。
+   * KV を未セットアップの環境ではバインディングが存在しないため optional にしている。
+   */
+  PUSH_SUBSCRIPTIONS?: PushSubscriptionsKv;
 }
 
 async function sha256Hex(input: string): Promise<string> {
@@ -54,7 +61,15 @@ async function subscriptionKey(endpoint: string): Promise<string> {
   return sha256Hex(endpoint);
 }
 
+/** KV 未設定の環境で undefined へのアクセスによる 500 を避け、意図の伝わる 503 を返す */
+function storageUnavailableResponse(): Response {
+  return jsonResponse({ error: "push subscription storage is not configured" }, 503);
+}
+
 async function handleSubscribe(request: Request, env: Env): Promise<Response> {
+  const kv = env.PUSH_SUBSCRIPTIONS;
+  if (!kv) return storageUnavailableResponse();
+
   const payload = await readJsonBody(request);
   if (!isValidPushSubscriptionPayload(payload)) {
     return jsonResponse({ error: "invalid subscription payload" }, 400);
@@ -66,11 +81,14 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
     subscribedAt: new Date().toISOString(),
   };
   const key = await subscriptionKey(payload.endpoint);
-  await env.PUSH_SUBSCRIPTIONS.put(key, JSON.stringify(record));
+  await kv.put(key, JSON.stringify(record));
   return jsonResponse({ ok: true }, 201);
 }
 
 async function handleUnsubscribe(request: Request, env: Env): Promise<Response> {
+  const kv = env.PUSH_SUBSCRIPTIONS;
+  if (!kv) return storageUnavailableResponse();
+
   const payload = await readJsonBody(request);
   const endpoint =
     typeof payload === "object" && payload !== null
@@ -81,7 +99,7 @@ async function handleUnsubscribe(request: Request, env: Env): Promise<Response> 
   }
 
   const key = await subscriptionKey(endpoint);
-  await env.PUSH_SUBSCRIPTIONS.delete(key);
+  await kv.delete(key);
   return jsonResponse({ ok: true });
 }
 
