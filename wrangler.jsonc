@@ -1,45 +1,25 @@
 {
-	"$schema": "./node_modules/wrangler/config-schema.json",
-	// 既存の Worker(https://portal.mayabase.workers.dev)を更新するため name は "portal"
-	"name": "portal",
-	"compatibility_date": "2026-07-12",
-	// プッシュ通知の購読/解除エンドポイント(#157)を提供するため worker/index.ts を追加した。
-	// このエンドポイント以外の全リクエストは、これまで通り静的アセット配信に委譲する(挙動は変えない)。
-	"main": "worker/index.ts",
-	"assets": {
-		"directory": "./dist",
-		// worker/index.ts から env.ASSETS.fetch() で参照するためのバインディング名
-		"binding": "ASSETS",
-		// 未マッチのURLで src/pages/404.astro 由来の dist/404.html を返す(#102)
-		"not_found_handling": "404-page"
-	},
-	"observability": {
-		"enabled": true
-	},
-	"kv_namespaces": [
-		{
-			"binding": "PUSH_SUBSCRIPTIONS",
-			"id": "f65e291e680540edaa5fc3c1f577e9c6"
-		}
-	]
-	//
-	// プッシュ通知(#157)の購読情報を永続化する KV バインディングについて:
-	//
-	// ここに実在しない id(プレースホルダ)を書くと `wrangler deploy` が
-	// 「KV namespace '...' is not valid [code: 10042]」で失敗し、
-	// サイト全体のデプロイが止まる。そのため既定では設定しない。
-	// 未設定でも worker/index.ts は静的配信を通常通り行い、
-	// /api/push/* だけが 503 を返す(worker/index.ts 参照)。
-	//
-	// 有効化するときは、運用者が下記を実行して得た **実在する id** を
-	// 設定した上でコミットすること:
-	//
-	//   wrangler kv namespace create PUSH_SUBSCRIPTIONS
-	//
-	// "kv_namespaces": [
-	//   {
-	//     "binding": "PUSH_SUBSCRIPTIONS",
-	//     "id": "<上記コマンドが出力した id>"
-	//   }
-	// ]
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // 既存の Worker(https://portal.mayabase.workers.dev)を更新するため name は "portal"
+  "name": "portal",
+  "compatibility_date": "2026-07-12",
+  // プッシュ通知の購読/解除エンドポイント(#157)を提供するため worker/index.ts を追加した。
+  // このエンドポイント以外の全リクエストは、これまで通り静的アセット配信に委譲する(挙動は変えない)。
+  "main": "worker/index.ts",
+  "assets": {
+    "directory": "./dist",
+    // worker/index.ts から env.ASSETS.fetch() で参照するためのバインディング名
+    "binding": "ASSETS",
+    // 未マッチのURLで src/pages/404.astro 由来の dist/404.html を返す(#102)
+    "not_found_handling": "404-page"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "kv_namespaces": [
+    {
+      "binding": "PUSH_SUBSCRIPTIONS",
+      "id": "f65e291e680540edaa5fc3c1f577e9c6"
+    }
+  ]
 }
