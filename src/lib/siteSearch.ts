@@ -2,10 +2,11 @@ import type { FaqCategory } from "./faq";
 import { textMatchesKeyword } from "./format";
 import { type GearItem, gearDisplayName } from "./gear";
 import type { GlossaryItem } from "./glossary";
+import type { Topic } from "./topics";
 import type { Video } from "./youtube";
 
 /** ヘッダー横断検索の対象コンテンツ種別 */
-export type SiteSearchItemType = "video" | "faq" | "gear" | "glossary";
+export type SiteSearchItemType = "video" | "faq" | "gear" | "glossary" | "topic";
 
 /** 種別ごとの表示ラベル(候補プレビューのバッジに使う) */
 const SITE_SEARCH_TYPE_LABELS: Record<SiteSearchItemType, string> = {
@@ -13,6 +14,7 @@ const SITE_SEARCH_TYPE_LABELS: Record<SiteSearchItemType, string> = {
   faq: "FAQ",
   gear: "ガジェット",
   glossary: "用語集",
+  topic: "チャプター",
 };
 
 export function siteSearchTypeLabel(type: SiteSearchItemType): string {
@@ -39,16 +41,17 @@ export interface SiteSearchItem {
 }
 
 /**
- * 動画・FAQ・ガジェット・用語集のデータからヘッダー横断検索インデックスを組み立てる(#155、#255)。
- * ヘッダーはほぼ全ページに表示されるため、動画の概要欄全文のような重いテキストは含めず、
- * 「動画タイトル・FAQ(質問+回答)・ガジェット名(+ブランド+ひとことコメント)・用語集(用語+解説)」
- * に絞って軽量に保つ。
+ * 動画・FAQ・ガジェット・用語集・チャプターのデータからヘッダー横断検索インデックスを組み立てる
+ * (#155、#255、#301)。ヘッダーはほぼ全ページに表示されるため、動画の概要欄全文のような重いテキストは
+ * 含めず、「動画タイトル・FAQ(質問+回答)・ガジェット名(+ブランド+ひとことコメント)・
+ * 用語集(用語+解説)・チャプター(見出し+動画タイトル)」に絞って軽量に保つ。
  */
 export function buildSiteSearchIndex(
   videos: readonly Video[],
   faqCategories: readonly FaqCategory[],
   gearItems: readonly GearItem[],
   glossaryItems: readonly GlossaryItem[],
+  topics: readonly Topic[] = [],
 ): SiteSearchItem[] {
   const videoItems: SiteSearchItem[] = videos.map((video) => ({
     type: "video",
@@ -88,7 +91,19 @@ export function buildSiteSearchIndex(
     searchText: `${item.term} ${item.definition}`,
   }));
 
-  return [...videoItems, ...faqItems, ...gearSearchItems, ...glossarySearchItems];
+  // チャプター(目次)横断検索(#280)の1件も候補に含める(#301)。
+  // 遷移先は /topics/ で、query(チャプターの見出しラベル)は /topics/ 自身の
+  // topicTextMatches によるキーワード絞り込みと同じ照合ルールで再度マッチする。
+  const topicItems: SiteSearchItem[] = topics.map((topic) => ({
+    type: "topic",
+    title: topic.label,
+    subtitle: topic.videoTitle,
+    href: "/topics/",
+    query: topic.label,
+    searchText: `${topic.label} ${topic.videoTitle}`,
+  }));
+
+  return [...videoItems, ...faqItems, ...gearSearchItems, ...glossarySearchItems, ...topicItems];
 }
 
 /**
@@ -96,7 +111,7 @@ export function buildSiteSearchIndex(
  * `textMatchesKeyword`(format.ts、動画ライブラリ・FAQ・ガジェット検索と共通)を使い、
  * 同じ照合ルール(英数字キーワードは単語境界照合等)で判定する。
  * 動画が94件と件数が多いため、種別ごとに `limitPerType` 件で頭打ちにして
- * 特定の種別だけが候補を占有しないようにする(4種別 × limitPerType 件が候補の上限)。
+ * 特定の種別だけが候補を占有しないようにする(5種別 × limitPerType 件が候補の上限)。
  * 空クエリでは候補を返さない(サジェストを毎回全件出さないようにするため)。
  */
 export function searchSiteIndex(
@@ -107,7 +122,13 @@ export function searchSiteIndex(
   const trimmed = query.trim();
   if (trimmed === "") return [];
 
-  const counts: Record<SiteSearchItemType, number> = { video: 0, faq: 0, gear: 0, glossary: 0 };
+  const counts: Record<SiteSearchItemType, number> = {
+    video: 0,
+    faq: 0,
+    gear: 0,
+    glossary: 0,
+    topic: 0,
+  };
   const matched: SiteSearchItem[] = [];
   for (const item of index) {
     if (counts[item.type] >= limitPerType) continue;

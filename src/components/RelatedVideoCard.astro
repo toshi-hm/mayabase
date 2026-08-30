@@ -6,7 +6,11 @@ import {
   thumbnailFallbackUrl,
   thumbnailUrl,
   type Video,
+  videoUrl,
 } from "../lib/youtube";
+import PreviewButton from "./PreviewButton.astro";
+import ShareButton from "./ShareButton.astro";
+import WatchLaterButton from "./WatchLaterButton.astro";
 
 interface Props {
   video: Video;
@@ -18,7 +22,11 @@ const durationLabel = formatDurationLabel(video.duration);
 ---
 
 {/* 動画詳細ページ専用の関連動画カード。他カードと異なりサイト内の個別ページへリンクする(#83) */}
-<li>
+{
+  /* ArchiveCard.astro / ShortCard.astro と同じく、プレビュー再生・シェア・あとで見るの
+  3ボタンを <a> の兄弟要素として重ねる(#303)。 */
+}
+<li class="relative">
   <a
     href={`/videos/${video.id}/`}
     class="group/card block h-full overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
@@ -59,4 +67,7 @@ const durationLabel = formatDurationLabel(video.duration);
       </p>
     </div>
   </a>
+  <PreviewButton videoId={video.id} title={video.title} aspect="video" />
+  <ShareButton title={video.title} url={videoUrl(video)} />
+  <WatchLaterButton videoId={video.id} title={video.title} aspect="video" />
 </li>

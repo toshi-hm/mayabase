@@ -12,6 +12,7 @@ import {
   siteSearchResultUrl,
   siteSearchTypeLabel,
 } from "./siteSearch";
+import { buildTopicsIndex } from "./topics";
 import { parseVideosData } from "./youtube";
 
 const videos = [
@@ -69,14 +70,51 @@ const glossaryItems = [
   { term: "LLM", definition: "大規模言語モデルのこと。" },
 ];
 
+const topics = [
+  {
+    videoId: "abc12345678",
+    videoTitle: "HHKBキーボードのレビュー",
+    isShort: false,
+    label: "開封",
+    seconds: 0,
+  },
+  {
+    videoId: "abc12345678",
+    videoTitle: "HHKBキーボードのレビュー",
+    isShort: false,
+    label: "打鍵感チェック",
+    seconds: 120,
+  },
+];
+
 describe("buildSiteSearchIndex", () => {
-  test("動画・FAQ・ガジェット・用語集をまとめて1つのインデックスにする", () => {
-    const index = buildSiteSearchIndex(videos, faqCategories, gearItems, glossaryItems);
-    expect(index).toHaveLength(videos.length + 2 + gearItems.length + glossaryItems.length);
+  test("動画・FAQ・ガジェット・用語集・チャプターをまとめて1つのインデックスにする", () => {
+    const index = buildSiteSearchIndex(videos, faqCategories, gearItems, glossaryItems, topics);
+    expect(index).toHaveLength(
+      videos.length + 2 + gearItems.length + glossaryItems.length + topics.length,
+    );
     expect(index.filter((item) => item.type === "video")).toHaveLength(videos.length);
     expect(index.filter((item) => item.type === "faq")).toHaveLength(2);
     expect(index.filter((item) => item.type === "gear")).toHaveLength(gearItems.length);
     expect(index.filter((item) => item.type === "glossary")).toHaveLength(glossaryItems.length);
+    expect(index.filter((item) => item.type === "topic")).toHaveLength(topics.length);
+  });
+
+  test("topics 省略時はチャプターの候補を含まない", () => {
+    const index = buildSiteSearchIndex(videos, faqCategories, gearItems, glossaryItems);
+    expect(index.filter((item) => item.type === "topic")).toHaveLength(0);
+  });
+
+  test("チャプターの候補は見出しラベルを query・遷移先を /topics/ にし、見出し+動画タイトルを検索対象にする", () => {
+    const index = buildSiteSearchIndex([], [], [], [], topics);
+    expect(index[0]).toMatchObject({
+      type: "topic",
+      title: "開封",
+      subtitle: "HHKBキーボードのレビュー",
+      href: "/topics/",
+      query: "開封",
+    });
+    expect(index[0]?.searchText).toContain("HHKBキーボードのレビュー");
   });
 
   test("動画の候補は動画タイトルを query・遷移先を /videos/ にする", () => {
@@ -132,28 +170,37 @@ describe("buildSiteSearchIndex", () => {
     const { categories } = parseFaqData(faqJson);
     const { items } = parseGearData(gearJson);
     const { items: glossary } = parseGlossaryData(glossaryJson);
-    const index = buildSiteSearchIndex(realVideos, categories, items, glossary);
+    const realTopics = buildTopicsIndex(realVideos);
+    const index = buildSiteSearchIndex(realVideos, categories, items, glossary, realTopics);
     expect(index.length).toBe(
       realVideos.length +
         categories.reduce((sum, category) => sum + category.items.length, 0) +
         items.length +
-        glossary.length,
+        glossary.length +
+        realTopics.length,
     );
   });
 });
 
 describe("searchSiteIndex", () => {
-  const index = buildSiteSearchIndex(videos, faqCategories, gearItems, glossaryItems);
+  const index = buildSiteSearchIndex(videos, faqCategories, gearItems, glossaryItems, topics);
 
   test("空クエリでは候補を返さない", () => {
     expect(searchSiteIndex(index, "", 5)).toEqual([]);
     expect(searchSiteIndex(index, "   ", 5)).toEqual([]);
   });
 
-  test("動画タイトル・FAQ・ガジェット名・用語集を横断して照合する", () => {
+  test("動画タイトル・FAQ・ガジェット名・用語集・チャプターを横断して照合する", () => {
     const results = searchSiteIndex(index, "RAG", 5);
     const types = results.map((item) => item.type);
     expect(types).toContain("glossary");
+  });
+
+  test("チャプターの見出しでも照合する", () => {
+    const results = searchSiteIndex(index, "打鍵感", 5);
+    expect(results.some((item) => item.type === "topic" && item.title === "打鍵感チェック")).toBe(
+      true,
+    );
   });
 
   test("動画タイトル・FAQ・ガジェット名を横断して照合する", () => {
@@ -214,5 +261,6 @@ describe("siteSearchTypeLabel", () => {
     expect(siteSearchTypeLabel("faq")).toBe("FAQ");
     expect(siteSearchTypeLabel("gear")).toBe("ガジェット");
     expect(siteSearchTypeLabel("glossary")).toBe("用語集");
+    expect(siteSearchTypeLabel("topic")).toBe("チャプター");
   });
 });
