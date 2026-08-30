@@ -11,10 +11,12 @@ import { parseGearData } from "../lib/gear";
 import { parseGlossaryData } from "../lib/glossary";
 import { isNavCurrent } from "../lib/navigation";
 import { buildSiteSearchIndex } from "../lib/siteSearch";
+import { buildTopicsIndex } from "../lib/topics";
 import { parseVideosData } from "../lib/youtube";
 
 const NAV_ITEMS = [
   { href: "/videos/", label: "動画ライブラリ" },
+  { href: "/topics/", label: "チャプター検索" },
   { href: "/gear/", label: "愛用ガジェット" },
   { href: "/glossary/", label: "用語集" },
   { href: "/faq/", label: "FAQ" },
@@ -25,13 +27,21 @@ const NAV_ITEMS = [
 const currentPath = Astro.url.pathname.replace(/\/+$/, "") || "/";
 const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
 
-// ヘッダー横断検索(#155)。動画タイトル・FAQ・ガジェット名・用語集をビルド時に1つのインデックスへまとめ、
-// クライアントスクリプトへ JSON として埋め込む(videos.astro の video-search-descriptions と同じ方針)。
+// ヘッダー横断検索(#155)。動画タイトル・FAQ・ガジェット名・用語集・チャプターをビルド時に
+// 1つのインデックスへまとめ、クライアントスクリプトへ JSON として埋め込む
+// (videos.astro の video-search-descriptions と同じ方針)。
 const { videos } = parseVideosData(videosJson);
 const { categories: faqCategories } = parseFaqData(faqJson);
 const { items: gearItems } = parseGearData(gearJson);
 const { items: glossaryItems } = parseGlossaryData(glossaryJson);
-const siteSearchIndex = buildSiteSearchIndex(videos, faqCategories, gearItems, glossaryItems);
+const topics = buildTopicsIndex(videos);
+const siteSearchIndex = buildSiteSearchIndex(
+  videos,
+  faqCategories,
+  gearItems,
+  glossaryItems,
+  topics,
+);
 const siteSearchIndexSafe = JSON.stringify(siteSearchIndex).replace(/</g, "\\u003c");
 ---
 
