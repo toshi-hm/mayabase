@@ -35,13 +35,45 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 /**
+ * Web Push の endpoint として正当な主要プッシュサービスのホスト名(完全一致)。
+ * ここに無いホストは拒否する(#312。認証・レート制限の無い /api/push/subscribe に
+ * 任意のURLを endpoint として登録され、CIから第三者サーバーへリクエストが送られる経路を塞ぐ)。
+ */
+const ALLOWED_PUSH_ENDPOINT_HOSTS = new Set([
+  // Chrome / Edge / Android(Firebase Cloud Messaging)
+  "fcm.googleapis.com",
+  "android.googleapis.com",
+  // Firefox
+  "updates.push.services.mozilla.com",
+  // Safari / iOS / macOS
+  "web.push.apple.com",
+]);
+
+/** サブドメイン込みで許可するホストのサフィックス(Windows/Edge の WNS 等、インスタンスごとに変わるもの) */
+const ALLOWED_PUSH_ENDPOINT_HOST_SUFFIXES = [".notify.windows.com"];
+
+function isAllowedPushEndpointHost(hostname: string): boolean {
+  if (ALLOWED_PUSH_ENDPOINT_HOSTS.has(hostname)) return true;
+  return ALLOWED_PUSH_ENDPOINT_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
+}
+
+/**
  * クライアントから届いた購読情報(PushSubscription.toJSON() 相当)の形式を検証する。
  * worker/index.ts の /api/push/subscribe から、リクエストボディの妥当性チェックに使う。
  */
 export function isValidPushSubscriptionPayload(value: unknown): value is PushSubscriptionPayload {
   if (typeof value !== "object" || value === null) return false;
   const { endpoint, keys } = value as { endpoint?: unknown; keys?: unknown };
-  if (!isNonEmptyString(endpoint) || !endpoint.startsWith("https://")) return false;
+  if (!isNonEmptyString(endpoint)) return false;
+  let endpointUrl: URL;
+  try {
+    endpointUrl = new URL(endpoint);
+  } catch {
+    return false;
+  }
+  if (endpointUrl.protocol !== "https:" || !isAllowedPushEndpointHost(endpointUrl.hostname)) {
+    return false;
+  }
   if (typeof keys !== "object" || keys === null) return false;
   const { p256dh, auth } = keys as { p256dh?: unknown; auth?: unknown };
   return isNonEmptyString(p256dh) && isNonEmptyString(auth);

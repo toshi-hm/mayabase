@@ -31,6 +31,25 @@ describe("isValidPushSubscriptionPayload", () => {
     ).toBe(true);
   });
 
+  test("主要プッシュサービス(Firefox/Safari/WNSサブドメイン)のendpointは true", () => {
+    const keys = { p256dh: "p256dh-value", auth: "auth-value" };
+    expect(
+      isValidPushSubscriptionPayload({
+        endpoint: "https://updates.push.services.mozilla.com/wpush/v2/xyz",
+        keys,
+      }),
+    ).toBe(true);
+    expect(
+      isValidPushSubscriptionPayload({ endpoint: "https://web.push.apple.com/xyz", keys }),
+    ).toBe(true);
+    expect(
+      isValidPushSubscriptionPayload({
+        endpoint: "https://xyz.notify.windows.com/w/xyz",
+        keys,
+      }),
+    ).toBe(true);
+  });
+
   test("null・非オブジェクトは false", () => {
     expect(isValidPushSubscriptionPayload(null)).toBe(false);
     expect(isValidPushSubscriptionPayload("not an object")).toBe(false);
@@ -44,6 +63,25 @@ describe("isValidPushSubscriptionPayload", () => {
     expect(isValidPushSubscriptionPayload({ endpoint: "http://insecure.example/", keys })).toBe(
       false,
     );
+  });
+
+  test("プッシュサービスの許可リストに無いホストは false(#312)", () => {
+    const keys = { p256dh: "p256dh-value", auth: "auth-value" };
+    expect(
+      isValidPushSubscriptionPayload({ endpoint: "https://attacker.example/collect", keys }),
+    ).toBe(false);
+    // サフィックス一致の悪用(例: notify.windows.com.attacker.example)も拒否する
+    expect(
+      isValidPushSubscriptionPayload({
+        endpoint: "https://notify.windows.com.attacker.example/",
+        keys,
+      }),
+    ).toBe(false);
+  });
+
+  test("endpointがURLとしてパースできない文字列は false", () => {
+    const keys = { p256dh: "p256dh-value", auth: "auth-value" };
+    expect(isValidPushSubscriptionPayload({ endpoint: "https://", keys })).toBe(false);
   });
 
   test("keys.p256dh / keys.auth が欠落・空文字は false", () => {
