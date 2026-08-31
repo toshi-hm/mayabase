@@ -30,6 +30,23 @@ const jsonLd = {
       "@type": "BreadcrumbList",
       itemListElement: buildBreadcrumbJsonLd(breadcrumbItems, siteUrl),
     },
+    {
+      "@type": "ItemList",
+      "@id": `${siteUrl}topics/#topics`,
+      name: `${site.name} のチャプター(目次)一覧`,
+      // 動画個別ページの Clip(hasPart)構造化データ(#154)と同じパターンを、
+      // サイト横断のチャプター一覧に対して ItemList で表現する(#304)。
+      itemListElement: topics.map((topic, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        item: {
+          "@type": "Clip",
+          name: topic.label,
+          startOffset: topic.seconds,
+          url: videoUrlAtTime({ id: topic.videoId, isShort: topic.isShort }, topic.seconds),
+        },
+      })),
+    },
   ],
 };
 const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
