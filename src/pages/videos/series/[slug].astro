@@ -109,6 +109,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       <link rel="preload" as="image" href={firstThumbnailSrc} fetchpriority="high" slot="head" />
     )
   }
+  <link
+    rel="alternate"
+    type="application/rss+xml"
+    title={`${series.title} | ${site.name}`}
+    href={`/videos/series/${series.slug}/rss.xml`}
+    slot="head"
+  />
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
   <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
     <Breadcrumb items={breadcrumbItems} />
@@ -117,6 +124,14 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       {series.description}
       カテゴリを横断して {seriesVideos.length}
       本の動画をまとめてチェックできます。
+    </p>
+    <p class="mt-2 text-sm">
+      <a
+        href={`/videos/series/${series.slug}/rss.xml`}
+        class="inline-flex items-center gap-1 text-ink-muted underline-offset-4 transition hover:text-ink hover:underline"
+      >
+        「{series.title}」の新着動画をRSSで購読
+      </a>
     </p>
 
     <nav aria-label="動画ライブラリへ戻る" class="mt-8 flex flex-wrap gap-2">
