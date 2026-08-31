@@ -2,17 +2,7 @@
 import PushNotificationController from "./PushNotificationController.astro";
 import ThemeToggle from "./ThemeToggle.astro";
 import { site } from "../config/site";
-import faqJson from "../data/faq.json";
-import gearJson from "../data/gear.json";
-import glossaryJson from "../data/glossary.json";
-import videosJson from "../data/videos.json";
-import { parseFaqData } from "../lib/faq";
-import { parseGearData } from "../lib/gear";
-import { parseGlossaryData } from "../lib/glossary";
 import { isNavCurrent } from "../lib/navigation";
-import { buildSiteSearchIndex } from "../lib/siteSearch";
-import { buildTopicsIndex } from "../lib/topics";
-import { parseVideosData } from "../lib/youtube";
 
 const NAV_ITEMS = [
   { href: "/videos/", label: "動画ライブラリ" },
@@ -26,23 +16,6 @@ const NAV_ITEMS = [
 // 末尾スラッシュの有無に依存しないよう正規化して現在ページを判定する
 const currentPath = Astro.url.pathname.replace(/\/+$/, "") || "/";
 const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
-
-// ヘッダー横断検索(#155)。動画タイトル・FAQ・ガジェット名・用語集・チャプターをビルド時に
-// 1つのインデックスへまとめ、クライアントスクリプトへ JSON として埋め込む
-// (videos.astro の video-search-descriptions と同じ方針)。
-const { videos } = parseVideosData(videosJson);
-const { categories: faqCategories } = parseFaqData(faqJson);
-const { items: gearItems } = parseGearData(gearJson);
-const { items: glossaryItems } = parseGlossaryData(glossaryJson);
-const topics = buildTopicsIndex(videos);
-const siteSearchIndex = buildSiteSearchIndex(
-  videos,
-  faqCategories,
-  gearItems,
-  glossaryItems,
-  topics,
-);
-const siteSearchIndexSafe = JSON.stringify(siteSearchIndex).replace(/</g, "\\u003c");
 ---
 
 <header class="sticky top-0 z-40 border-b border-line bg-surface/92 backdrop-blur-lg">
@@ -154,12 +127,15 @@ const siteSearchIndexSafe = JSON.stringify(siteSearchIndex).replace(/</g, "\\u00
   </noscript>
 </header>
 
-<script is:inline type="application/json" id="site-search-index" set:html={siteSearchIndexSafe} />
-
 <script>
   // ヘッダー横断検索(#155)。トグルボタンでパネルを開閉し、インクリメンタルサーチの候補プレビューを
   // 表示する。候補選択時は各コンテンツページ(videos.astro / faq.astro / gear.astro)へ
   // ?q= 付きで遷移し、既存の syncUrl / restoreStateFromUrl による絞り込みをそのまま再利用する。
+  //
+  // 検索インデックス(/search-index.json)はチャプター統合(#301)で約210KBまで増えており、
+  // 全ページにインライン埋め込みすると検索を使わない訪問者にもパース・レイアウトコストを
+  // 強いてLighthouse performanceを悪化させていた(#318)。パネルを実際に開いた時点で
+  // 初めて1回だけ取得する(以降は同一セッション内でキャッシュして使い回す)。
   import { searchSiteIndex, siteSearchResultUrl, siteSearchTypeLabel } from "../lib/siteSearch";
   import type { SiteSearchItem } from "../lib/siteSearch";
 
@@ -172,11 +148,24 @@ const siteSearchIndexSafe = JSON.stringify(siteSearchIndex).replace(/</g, "\\u00
   const input = document.getElementById("site-search-input") as HTMLInputElement | null;
   const listbox = document.getElementById("site-search-listbox");
   const empty = document.getElementById("site-search-empty");
-  const indexElement = document.getElementById("site-search-index");
 
-  const index: SiteSearchItem[] = indexElement?.textContent
-    ? JSON.parse(indexElement.textContent)
-    : [];
+  let index: SiteSearchItem[] = [];
+  let indexPromise: Promise<SiteSearchItem[]> | null = null;
+
+  // /search-index.json は全ページ共通の同一URLのため、2ページ目以降の遷移では
+  // ブラウザのHTTPキャッシュがそのまま効く。取得失敗時は空配列のまま(検索候補が出ないだけ)にする。
+  function loadIndex(): Promise<SiteSearchItem[]> {
+    if (!indexPromise) {
+      indexPromise = fetch("/search-index.json")
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data: SiteSearchItem[]) => {
+          index = data;
+          return data;
+        })
+        .catch(() => []);
+    }
+    return indexPromise;
+  }
 
   let results: SiteSearchItem[] = [];
   // ハイライト中(キーボード操作)の候補インデックス。未選択は -1
@@ -264,6 +253,9 @@ const siteSearchIndexSafe = JSON.stringify(siteSearchIndex).replace(/</g, "\\u00
     panel.hidden = false;
     toggle?.setAttribute("aria-expanded", "true");
     input?.focus();
+    // 取得が完了した時点で、既に入力済みのキーワードがあれば候補を再計算する
+    // (パネルを開いてすぐ入力を始めた場合、取得中は空の index で検索してしまうため)
+    loadIndex().then(() => applySearch());
   }
 
   function closePanel(): void {
