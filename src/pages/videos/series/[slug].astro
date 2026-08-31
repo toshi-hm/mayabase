@@ -1,5 +1,6 @@
 ---
 import ArchiveCard from "../../../components/ArchiveCard.astro";
+import ArchiveFilterController from "../../../components/ArchiveFilterController.astro";
 import Breadcrumb from "../../../components/Breadcrumb.astro";
 import { site, subscribeUrl } from "../../../config/site";
 import gearJson from "../../../data/gear.json";
@@ -143,8 +144,49 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </a>
     </nav>
 
+    <section aria-label="動画の絞り込み" class="mt-6 flex flex-col gap-4">
+      <div role="group" aria-label="動画の長さで絞り込み" class="flex flex-wrap gap-2">
+        <button
+          type="button"
+          data-filter-length="all"
+          aria-pressed="true"
+          class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+        >
+          すべて
+        </button>
+        <button
+          type="button"
+          data-filter-length="video"
+          aria-pressed="false"
+          class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+        >
+          通常動画
+        </button>
+        <button
+          type="button"
+          data-filter-length="short"
+          aria-pressed="false"
+          class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+        >
+          Shorts
+        </button>
+      </div>
+      <div class="max-w-md">
+        <label for="archive-search" class="mb-1 block text-sm text-ink-muted">キーワード検索</label>
+        <input
+          id="archive-search"
+          type="search"
+          placeholder="例: ChatGPT、家電、Vlog"
+          class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
+        />
+      </div>
+      <p id="archive-count" aria-live="polite" class="text-sm text-ink-muted">
+        {seriesVideos.length} 件
+      </p>
+    </section>
+
     <h2 class="sr-only">{series.title}の動画一覧</h2>
-    <ul role="list" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <ul id="archive-grid" role="list" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {
         seriesVideos.map((video, index) => (
           <ArchiveCard
@@ -157,6 +199,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         ))
       }
     </ul>
+    <p
+      id="archive-empty"
+      hidden
+      class="mt-6 rounded-xl bg-surface-raised p-8 text-center text-ink-muted"
+    >
+      条件に一致する動画が見つかりませんでした。キーワードを変えてお試しください。
+    </p>
 
     <section aria-labelledby="series-cta-heading" class="pt-16">
       <div class="rounded-2xl bg-surface-raised p-8 text-center">
@@ -189,4 +238,6 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </div>
     </section>
   </main>
+  {/* 動画の長さ・キーワードでの絞り込み(#275)。DOM は持たずスクリプトのみ */}
+  <ArchiveFilterController />
 </Base>

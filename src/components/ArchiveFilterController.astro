@@ -1,0 +1,111 @@
+---
+/**
+ * カテゴリ別ページ・シリーズページ向けの「動画の長さ」絞り込み・キーワード検索(#275)。
+ * videos.astro のフィルタースクリプトから、カテゴリ絞り込み・並び替え・段階表示(<template>実体化)を
+ * 除いた「長さ + キーワード」部分だけを共通化したもの。カテゴリ別ページはページ自体が既に1カテゴリに
+ * 絞られており、シリーズページにもカテゴリ概念が無いため、カテゴリ絞り込みは対象外にしている。
+ *
+ * 各ページ側は以下のマークアップ規約に従うことを前提にする:
+ * - `#archive-search`: キーワード検索の input[type=search]
+ * - `[data-filter-length]`(値: all/video/short): 長さ絞り込みボタン
+ * - `#archive-grid`: `<li data-length data-title>`(ArchiveCard.astro が既に付与)を並べたコンテナ
+ * - `#archive-count`: 該当件数を表示する要素(aria-live 推奨)
+ * - `#archive-empty`: 0件時に表示する要素(通常は hidden)
+ */
+---
+
+<script>
+  import { textMatchesKeyword } from "../lib/format";
+
+  const grid = document.getElementById("archive-grid");
+  const search = document.getElementById("archive-search") as HTMLInputElement | null;
+  const lengthButtons = document.querySelectorAll<HTMLButtonElement>("[data-filter-length]");
+  const count = document.getElementById("archive-count");
+  const empty = document.getElementById("archive-empty");
+  const cards = grid ? [...grid.querySelectorAll<HTMLLIElement>(":scope > li")] : [];
+
+  // このコントローラーを使うページが無い(該当マークアップが存在しない)場合は何もしない
+  if (grid && cards.length > 0) {
+    let length: "all" | "video" | "short" = "all";
+    const validLengths = new Set(
+      [...lengthButtons].map((button) => button.dataset.filterLength ?? "all"),
+    );
+
+    function setPressedLength(nextLength: string): void {
+      for (const button of lengthButtons) {
+        button.setAttribute(
+          "aria-pressed",
+          String((button.dataset.filterLength ?? "all") === nextLength),
+        );
+      }
+    }
+
+    function cardMatches(card: HTMLLIElement, query: string): boolean {
+      return (
+        (length === "all" || card.dataset.length === length) &&
+        textMatchesKeyword(card.dataset.title ?? "", query)
+      );
+    }
+
+    function applyFilter(): void {
+      const query = (search?.value ?? "").trim().toLowerCase();
+      let matched = 0;
+      for (const card of cards) {
+        const isMatch = cardMatches(card, query);
+        card.hidden = !isMatch;
+        if (isMatch) matched += 1;
+      }
+      if (count) count.textContent = `${matched} 件`;
+      if (empty) empty.hidden = matched > 0;
+    }
+
+    // 長さ・検索キーワードをURLクエリパラメータ(length/q)へ反映する(videos.astro と同じ方針)。
+    function syncUrl(mode: "push" | "replace"): void {
+      const params = new URLSearchParams();
+      if (length !== "all") params.set("length", length);
+      const query = (search?.value ?? "").trim();
+      if (query) params.set("q", query);
+      const queryString = params.toString();
+      const newUrl = `${location.pathname}${queryString ? `?${queryString}` : ""}${location.hash}`;
+      if (mode === "push") {
+        history.pushState(null, "", newUrl);
+      } else {
+        history.replaceState(null, "", newUrl);
+      }
+    }
+
+    // クエリパラメータ(length / q)から絞り込み状態を復元する。不正な length はデフォルトへ戻す。
+    function restoreStateFromUrl(): void {
+      const params = new URLSearchParams(location.search);
+      const urlLength = params.get("length");
+      length =
+        urlLength && validLengths.has(urlLength) ? (urlLength as "all" | "video" | "short") : "all";
+      setPressedLength(length);
+      if (search) search.value = params.get("q") ?? "";
+    }
+
+    for (const button of lengthButtons) {
+      button.addEventListener("click", () => {
+        const value = button.dataset.filterLength;
+        length = value === "video" || value === "short" ? value : "all";
+        setPressedLength(length);
+        applyFilter();
+        syncUrl("push");
+      });
+    }
+
+    search?.addEventListener("input", () => {
+      applyFilter();
+      // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
+      syncUrl("replace");
+    });
+
+    window.addEventListener("popstate", () => {
+      restoreStateFromUrl();
+      applyFilter();
+    });
+
+    restoreStateFromUrl();
+    applyFilter();
+  }
+</script>
