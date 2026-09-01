@@ -11,7 +11,12 @@ import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../../lib/breadcr
 import { categorizeVideo } from "../../../lib/categories";
 import { extractSearchableText, truncate } from "../../../lib/format";
 import { buildVideoGearMap, parseGearData } from "../../../lib/gear";
-import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../../lib/series";
+import {
+  getSeriesWithVideos,
+  parseSeriesData,
+  type SeriesItem,
+  seriesUrl,
+} from "../../../lib/series";
 import {
   embedUrl,
   parseVideosData,
@@ -24,19 +29,12 @@ import {
 export function getStaticPaths() {
   const { series } = parseSeriesData(seriesJson);
   const { videos } = parseVideosData(videosJson);
-  // series.json に定義された各シリーズについて、キーワードに該当する動画を抽出する(#174 を汎用化・#250)
-  const seriesWithVideos = series.map((item) => ({
-    series: item,
-    seriesVideos: videos.filter((video) => isInSeries(video, item.keyword)),
+  // series.json に定義された各シリーズについて、キーワードに該当する動画を抽出する(#174 を汎用化・#250)。
+  // 該当動画が 1 件もないシリーズはページを生成しない(空のアーカイブページが索引される事故を防ぐ・#305)
+  return getSeriesWithVideos(series, videos).map(({ series: item, videos: seriesVideos }) => ({
+    params: { slug: item.slug },
+    props: { series: item, seriesVideos },
   }));
-  // 該当動画が 1 件もないシリーズはページを生成しない(videos/category/[category].astro の
-  // getAvailableCategories フィルタと同じ方針。空のアーカイブページが索引される事故を防ぐ)
-  return seriesWithVideos
-    .filter((entry) => entry.seriesVideos.length > 0)
-    .map((entry) => ({
-      params: { slug: entry.series.slug },
-      props: entry,
-    }));
 }
 
 interface Props {
@@ -135,12 +133,18 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </a>
     </p>
 
-    <nav aria-label="動画ライブラリへ戻る" class="mt-8 flex flex-wrap gap-2">
+    <nav aria-label="シリーズページの関連リンク" class="mt-8 flex flex-wrap gap-2">
       <a
         href="/videos/"
         class="rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand"
       >
         すべての動画を見る
+      </a>
+      <a
+        href="/videos/series/"
+        class="rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        シリーズ一覧を見る
       </a>
     </nav>
 

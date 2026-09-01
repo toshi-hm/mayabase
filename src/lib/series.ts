@@ -81,3 +81,23 @@ export function isInSeries(video: Pick<Video, "title">, keyword: string): boolea
 export function seriesUrl(slug: string): string {
   return `/videos/series/${slug}/`;
 }
+
+/** シリーズと、そのシリーズに該当する動画の組(#305) */
+export interface SeriesWithVideos {
+  series: SeriesItem;
+  videos: Video[];
+}
+
+/**
+ * 各シリーズに該当動画を紐付ける。該当動画が 1 件もないシリーズは除外する
+ * (空のアーカイブページ・一覧カードが index ページに表示される事故を防ぐ。
+ * videos/series/[slug].astro の getStaticPaths と /videos/series/ 一覧ページで共通利用する・#305)。
+ */
+export function getSeriesWithVideos(series: SeriesItem[], videos: Video[]): SeriesWithVideos[] {
+  return series
+    .map((item) => ({
+      series: item,
+      videos: videos.filter((video) => isInSeries(video, item.keyword)),
+    }))
+    .filter((entry) => entry.videos.length > 0);
+}
