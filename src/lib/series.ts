@@ -90,7 +90,7 @@ export interface SeriesWithVideos {
 
 /**
  * 各シリーズに該当動画を紐付ける。該当動画が 1 件もないシリーズは除外する
- * (空のアーカイブページ・一覧カードが index/表示される事故を防ぐ。
+ * (空のアーカイブページ・一覧カードが index ページに表示される事故を防ぐ。
  * videos/series/[slug].astro の getStaticPaths と /videos/series/ 一覧ページで共通利用する・#305)。
  */
 export function getSeriesWithVideos(series: SeriesItem[], videos: Video[]): SeriesWithVideos[] {
