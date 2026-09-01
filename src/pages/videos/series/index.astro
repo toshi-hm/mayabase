@@ -1,0 +1,154 @@
+---
+import Breadcrumb from "../../../components/Breadcrumb.astro";
+import { site, subscribeUrl } from "../../../config/site";
+import seriesJson from "../../../data/series.json";
+import videosJson from "../../../data/videos.json";
+import Base from "../../../layouts/Base.astro";
+import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../../lib/breadcrumb";
+import { getSeriesWithVideos, parseSeriesData, seriesUrl } from "../../../lib/series";
+import { parseVideosData, thumbnailFallbackUrl, thumbnailUrl } from "../../../lib/youtube";
+
+// series.json に定義された企画のうち、該当動画が1件以上あるものだけを一覧表示する
+// (videos/series/[slug].astro が実際にページを生成する対象と揃える・#305)。
+const { series } = parseSeriesData(seriesJson);
+const { videos } = parseVideosData(videosJson);
+const seriesWithVideos = getSeriesWithVideos(series, videos);
+
+const pageTitle = `シリーズ一覧 | ${site.name}`;
+const pageDescription = `${site.name} のシリーズ企画一覧です。カテゴリを横断したテーマで動画をまとめてイッキ見できます。`;
+
+if (!Astro.site) {
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
+}
+const siteUrl = Astro.site.toString();
+const breadcrumbItems: BreadcrumbItem[] = [
+  { name: "ホーム", href: "/" },
+  { name: "動画ライブラリ", href: "/videos/" },
+  { name: "シリーズ一覧", href: "/videos/series/" },
+];
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: buildBreadcrumbJsonLd(breadcrumbItems, siteUrl),
+    },
+    {
+      "@type": "ItemList",
+      "@id": `${siteUrl}videos/series/#series`,
+      name: `${site.name} のシリーズ一覧`,
+      itemListElement: seriesWithVideos.map(({ series: item }, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: item.title,
+        url: `${siteUrl.replace(/\/$/, "")}${seriesUrl(item.slug)}`,
+      })),
+    },
+  ],
+};
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+---
+
+<Base
+  title={pageTitle}
+  description={pageDescription}
+  ogImagePath="/ogp-videos.png"
+  ogImageAlt={`${site.name} シリーズ一覧`}
+>
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
+    <Breadcrumb items={breadcrumbItems} />
+    <h1 class="text-3xl font-bold sm:text-4xl">シリーズ一覧</h1>
+    <p class="mt-3 max-w-2xl text-ink-muted">
+      カテゴリを横断したテーマ企画をシリーズごとにまとめています。気になるシリーズを一気見してみてください。
+    </p>
+
+    <nav aria-label="動画ライブラリへ戻る" class="mt-8 flex flex-wrap gap-2">
+      <a
+        href="/videos/"
+        class="rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        すべての動画を見る
+      </a>
+    </nav>
+
+    <h2 class="sr-only">シリーズ一覧</h2>
+    <ul role="list" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        seriesWithVideos.map(({ series: item, videos: seriesVideos }, index) => {
+          const firstVideo = seriesVideos[0];
+          return (
+            <li>
+              <a
+                href={seriesUrl(item.slug)}
+                class="group/card flex h-full flex-col overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
+              >
+                {firstVideo && (
+                  <img
+                    src={
+                      index === 0
+                        ? thumbnailFallbackUrl(firstVideo.id)
+                        : thumbnailUrl(firstVideo.id)
+                    }
+                    onerror={
+                      index === 0
+                        ? undefined
+                        : `this.onerror=null;this.src='${thumbnailFallbackUrl(firstVideo.id)}'`
+                    }
+                    alt=""
+                    width="1280"
+                    height="720"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    fetchpriority={index === 0 ? "high" : "auto"}
+                    decoding="async"
+                    class="aspect-video w-full object-cover"
+                  />
+                )}
+                <div class="flex flex-1 flex-col p-4">
+                  <h3 class="font-semibold leading-snug group-hover/card:text-brand-accent">
+                    {item.title}
+                  </h3>
+                  <p class="mt-2 line-clamp-3 flex-1 text-sm text-ink-muted">{item.description}</p>
+                  <p class="mt-3 text-sm font-semibold text-brand-accent">
+                    {seriesVideos.length} 本を見る<span aria-hidden="true">→</span>
+                  </p>
+                </div>
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+
+    <section aria-labelledby="series-index-cta-heading" class="pt-16">
+      <div class="rounded-2xl bg-surface-raised p-8 text-center">
+        <h2 id="series-index-cta-heading" class="text-xl font-bold">
+          もっと{site.name}の動画を見たい方は
+        </h2>
+        <p class="mx-auto mt-2 max-w-xl text-ink-muted">
+          チャンネル登録すると、新着動画の通知を受け取れます。
+        </p>
+        <div class="mt-5 flex flex-wrap justify-center gap-4">
+          <a
+            href={subscribeUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-strong"
+          >
+            チャンネル登録する <span aria-hidden="true">↗</span>
+            <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+          </a>
+          <a
+            href={site.youtube.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface"
+          >
+            YouTube チャンネルへ <span aria-hidden="true">↗</span>
+            <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+</Base>

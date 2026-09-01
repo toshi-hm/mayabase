@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import seriesJson from "../data/series.json";
 import videosJson from "../data/videos.json";
-import { isInSeries, parseSeriesData, seriesUrl } from "./series";
+import { getSeriesWithVideos, isInSeries, parseSeriesData, seriesUrl } from "./series";
 import type { Video } from "./youtube";
 import { parseVideosData } from "./youtube";
 
@@ -108,5 +108,42 @@ describe("isInSeries", () => {
 describe("seriesUrl", () => {
   test("シリーズアーカイブページの URL を返す", () => {
     expect(seriesUrl("futatsu-no-waraji")).toBe("/videos/series/futatsu-no-waraji/");
+  });
+});
+
+describe("getSeriesWithVideos", () => {
+  const seriesA = { ...validItem, slug: "series-a", keyword: "二足のわらじ" };
+  const seriesB = {
+    ...validItem,
+    slug: "series-b",
+    title: "別シリーズ",
+    keyword: "存在しない企画",
+  };
+
+  test("各シリーズに該当動画を紐付ける", () => {
+    const videos = [
+      makeVideo({ id: "v1", title: "【二足のわらじ】1本目" }),
+      makeVideo({ id: "v2", title: "無関係な動画" }),
+    ];
+    const result = getSeriesWithVideos([seriesA], videos);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.series).toEqual(seriesA);
+    expect(result[0]?.videos.map((v) => v.id)).toEqual(["v1"]);
+  });
+
+  test("該当動画が1件もないシリーズは除外する", () => {
+    const videos = [makeVideo({ id: "v1", title: "【二足のわらじ】1本目" })];
+    const result = getSeriesWithVideos([seriesA, seriesB], videos);
+    expect(result.map((entry) => entry.series.slug)).toEqual(["series-a"]);
+  });
+
+  test("実データ(series.json / videos.json)で1件以上のシリーズが返る(回帰テスト)", () => {
+    const { series } = parseSeriesData(seriesJson);
+    const { videos } = parseVideosData(videosJson);
+    const result = getSeriesWithVideos(series, videos);
+    expect(result.length).toBeGreaterThan(0);
+    for (const entry of result) {
+      expect(entry.videos.length).toBeGreaterThan(0);
+    }
   });
 });
