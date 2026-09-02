@@ -70,7 +70,7 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
         <circle cx="11" cy="11" r="7"></circle>
         <path d="m21 21-4.35-4.35"></path>
       </svg>
-      <span class="sr-only">サイト内検索(動画・FAQ・ガジェット)</span>
+      <span class="sr-only">サイト内検索(動画・FAQ・ガジェット・用語集・チャプター)</span>
     </button>
     <PushNotificationController />
     <ThemeToggle />
@@ -88,15 +88,17 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
       <form
         id="site-search-form"
         role="search"
-        aria-label="サイト内検索(動画・FAQ・ガジェット)"
+        aria-label="サイト内検索(動画・FAQ・ガジェット・用語集・チャプター)"
         class="relative max-w-md"
         autocomplete="off"
       >
-        <label for="site-search-input" class="sr-only">動画・FAQ・ガジェットを検索</label>
+        <label for="site-search-input" class="sr-only">
+          動画・FAQ・ガジェット・用語集・チャプターを検索
+        </label>
         <input
           id="site-search-input"
           type="search"
-          placeholder="動画・FAQ・ガジェットを検索"
+          placeholder="動画・FAQ・ガジェット・用語集・チャプターを検索"
           role="combobox"
           aria-expanded="false"
           aria-controls="site-search-listbox"
@@ -139,7 +141,8 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
   import { searchSiteIndex, siteSearchResultUrl, siteSearchTypeLabel } from "../lib/siteSearch";
   import type { SiteSearchItem } from "../lib/siteSearch";
 
-  // 種別ごとの候補数の上限(searchSiteIndex 側の頭打ち件数)。3種別 × 4件 = 最大12件を候補に表示する。
+  // 種別ごとの候補数の上限(searchSiteIndex 側の頭打ち件数)。5種別(動画・FAQ・ガジェット・
+  // 用語集・チャプター)× 4件 = 最大20件を候補に表示する。
   const RESULT_LIMIT_PER_TYPE = 4;
 
   const toggle = document.getElementById("site-search-toggle");
