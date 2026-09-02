@@ -6,6 +6,7 @@
  * ネイティブ <dialog> の showModal() を使うことで、Esc キーでの close・フォーカストラップ・
  * 開いた要素へのフォーカス復帰を自前実装せずに得られる。
  */
+import { site, subscribeUrl } from "../config/site";
 ---
 
 <dialog
@@ -43,6 +44,22 @@
       class="h-full w-full"
       allow="autoplay; encrypted-media; picture-in-picture; web-share"
       allowfullscreen></iframe>
+  </div>
+  {
+    /* プレビュー再生に集中してもらいつつ、視聴後(あるいは視聴中)にそのまま登録に進める
+    導線を用意する(#326)。動画本編の視聴に対して控えめな見た目に留める。 */
+  }
+  <div class="flex items-center justify-between gap-4 border-t border-line px-4 py-3">
+    <p class="text-sm text-ink-muted">{site.name}が気に入ったら</p>
+    <a
+      href={subscribeUrl()}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="flex-none rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-strong focus-visible:outline-2 focus-visible:outline-brand"
+    >
+      チャンネル登録する <span aria-hidden="true">↗</span>
+      <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+    </a>
   </div>
 </dialog>
 
