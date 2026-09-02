@@ -26,3 +26,7 @@ node_modules/
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+# 新着動画のプッシュ通知(#157, #323): fetch-videos.ts が書き出し、
+# update-videos.yml のコミット成功後ステップが読んで送信する一時ファイル
+.push-notifications-pending.json
