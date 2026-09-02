@@ -41,7 +41,7 @@ import {
   type Video,
   type VideosData,
 } from "../src/lib/youtube";
-import { sendNewVideoNotifications } from "./send-push-notifications";
+import { PENDING_NOTIFICATIONS_PATH } from "./send-push-notifications";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
 const CHANNEL_STATS_JSON_PATH = fileURLToPath(
@@ -436,20 +436,22 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   );
 
   // 新着動画のプッシュ通知(#157)。既存データが空(初回実行等)の場合は全件が「新着」扱いに
-  // なってしまい通知が乱発するため、既存データがある場合のみ差分を計算して送信を試みる。
-  // 必要な環境変数(Cloudflare/VAPID)が未設定の環境では sendNewVideoNotifications 内で
-  // 何もせず正常終了する。失敗しても動画データ更新フロー自体は止めない。
+  // なってしまい通知が乱発するため、既存データがある場合のみ差分を計算する。
+  //
+  // 通知の実際の送信はここでは行わない(#323)。以前はここで直接 sendNewVideoNotifications() を
+  // 呼んでいたが、この時点では update-videos.yml の後続ステップ(検証・コミット)がまだ成功する
+  // かどうか分からず、検証失敗でコミット・pushされなかった場合にも、まだ存在しないページへの
+  // リンクを含む通知が購読者に届いてしまう不整合があった。そのため、新着動画の一覧を一時ファイル
+  // (PENDING_NOTIFICATIONS_PATH)に書き出すだけに留め、実際の送信は「変更があればコミット」
+  // ステップの成功後に実行される専用ステップ(scripts/send-push-notifications.ts の
+  // import.meta.main ブロック)に委ねる。
   if (existing.videos.length > 0) {
     const newlyPublished = newlyPublishedVideos(existing.videos, merged);
     if (newlyPublished.length > 0) {
-      try {
-        await sendNewVideoNotifications(newlyPublished);
-      } catch (error) {
-        console.warn(
-          "[fetch-videos] 新着動画のプッシュ通知送信でエラーが発生しました:",
-          error instanceof Error ? error.message : String(error),
-        );
-      }
+      await Bun.write(PENDING_NOTIFICATIONS_PATH, `${JSON.stringify(newlyPublished, null, 2)}\n`);
+      console.log(
+        `[fetch-videos] 新着動画 ${newlyPublished.length} 件を通知待ちとして記録しました(送信はコミット成功後)`,
+      );
     }
   }
 }

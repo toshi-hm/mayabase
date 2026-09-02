@@ -1,8 +1,13 @@
 /**
  * 新着動画公開時のWeb Push通知送信(#157)。
  *
- * 呼び出し元: scripts/fetch-videos.ts の main() 末尾(既存の動画データ自動更新フローに連動)。
- * 単体で `bun run` する用途は想定していない(CLIエントリポイントを持たない)。
+ * 呼び出し元: `.github/workflows/update-videos.yml` の「変更があればコミット」ステップ成功後に
+ * 実行される専用ステップ(`bun run notify:new-videos`、下部の `import.meta.main` ブロック参照)。
+ *
+ * 通知対象は scripts/fetch-videos.ts が書き出す PENDING_NOTIFICATIONS_PATH のファイル経由で
+ * 受け取る(#323)。以前は fetch-videos.ts の main() 末尾で検証・コミットより前に直接送信して
+ * いたが、検証失敗でコミット・pushされなかった場合にも通知だけが届いてしまう不整合があった
+ * ため、送信はコミット成功後の別ステップに切り離した。
  *
  * このリポジトリのコードだけでは完結せず、運用者側で以下の手動セットアップが必要:
  * - Cloudflare Workers KV に購読情報を保存するネームスペースを作成する
@@ -19,12 +24,23 @@
  * これらが未設定の環境(ローカル開発・フォーク・PRビルド等)では何もせず正常終了する。
  * 動画データ更新フロー自体を止めないため、内部エラーも(呼び出し元へ伝播させず)ここで警告に留める。
  */
+import { readFile, rm } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import webpush from "web-push";
 import { buildNewVideoNotification, type StoredPushSubscription } from "../src/lib/push";
 import type { FetchLike, Video } from "../src/lib/youtube";
 
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 const KV_LIST_LIMIT = 1000;
+
+/**
+ * scripts/fetch-videos.ts が新着動画一覧を書き出す一時ファイル(#323)。
+ * リポジトリにはコミットしない(.gitignore 参照)、同一ワークフロージョブ内でのみ
+ * ステップ間の受け渡しに使う揮発的なファイル。
+ */
+export const PENDING_NOTIFICATIONS_PATH = fileURLToPath(
+  new URL("../.push-notifications-pending.json", import.meta.url),
+);
 
 interface PushEnvConfig {
   accountId: string;
@@ -172,6 +188,47 @@ export async function sendNewVideoNotifications(
   console.log(
     `[send-push-notifications] 送信完了(成功: ${sent}件、失効削除: ${expired}件、失敗: ${failed}件)`,
   );
+}
+
+/**
+ * PENDING_NOTIFICATIONS_PATH から新着動画一覧を読み込む。
+ * ファイルが存在しない場合(前段のfetchで新着動画が無かった場合)は空配列を返す。
+ */
+export async function readPendingNotifications(): Promise<Video[]> {
+  let raw: string;
+  try {
+    raw = await readFile(PENDING_NOTIFICATIONS_PATH, "utf-8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+  return JSON.parse(raw) as Video[];
+}
+
+export async function main(): Promise<void> {
+  const pending = await readPendingNotifications();
+  if (pending.length === 0) {
+    console.log("[send-push-notifications] 通知待ちの新着動画はありません");
+    return;
+  }
+  try {
+    await sendNewVideoNotifications(pending);
+  } finally {
+    // 送信の成否によらず、一度読み込んだ通知待ちファイルは片付ける
+    // (次回実行時に古い新着動画が再送されるのを防ぐ)。
+    await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
+  }
+}
+
+// import.meta.main は直接実行時(bun run scripts/send-push-notifications.ts)のみ true になり、
+// テストからの import 時は false になる(Bun の仕様。fetch-videos.ts と同じ方針)。
+if (import.meta.main) {
+  try {
+    await main();
+  } catch (error) {
+    // ワークフロー自体は既にコミット・push済みのため、通知送信の失敗でジョブを失敗させない。
+    console.warn("[send-push-notifications] 通知送信処理でエラーが発生しました:", error);
+  }
 }
 
 export { deleteSubscription, getSubscription, listSubscriptionKeys, readConfig };

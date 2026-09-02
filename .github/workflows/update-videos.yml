@@ -34,17 +34,12 @@ jobs:
         # YOUTUBE_API_KEY(リポジトリ Secrets)を設定すると Data API で全動画を取得する。
         # 未設定でも RSS(最新 15 件)で動作する(段階的に過去動画が蓄積される)。
         #
-        # 新着動画のプッシュ通知(#157): CLOUDFLARE_*/VAPID_* の Secrets が未設定の場合、
-        # scripts/send-push-notifications.ts は何もせずスキップする(このステップ自体は失敗しない)。
-        # セットアップ手順は .dev.vars.example を参照。
+        # 新着動画のプッシュ通知(#157): このステップでは送信せず、新着動画の一覧を
+        # 一時ファイルに書き出すだけに留める。実際の送信は、検証・コミットが成功した後の
+        # 「新着動画のプッシュ通知送信」ステップが行う(#323: 検証失敗でコミットされなかった
+        # 場合に、まだ存在しないページへの通知が届いてしまう不整合を防ぐため)。
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
-          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
-          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
-          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
         run: bun run fetch
 
       - name: 動画データの鮮度チェック
@@ -155,9 +150,11 @@ jobs:
           bun run build
 
       - name: 変更があればコミット
+        id: commit
         run: |
           if git diff --quiet src/data/videos.json src/data/channel-stats.json src/data/channel-stats-history.json public/fonts; then
             echo "変更なし"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
@@ -168,3 +165,19 @@ jobs:
           git fetch origin main
           git rebase origin/main
           git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: 新着動画のプッシュ通知送信(#157, #323)
+        # 通知はコミット・pushが成功した場合にのみ送信する(検証失敗等でpushされなかった場合、
+        # まだ存在しないページへのリンクを含む通知が届いてしまう不整合を防ぐ)。
+        # CLOUDFLARE_*/VAPID_* の Secrets が未設定の場合、scripts/send-push-notifications.ts は
+        # 何もせずスキップする(このステップ自体は失敗しない)。セットアップ手順は .dev.vars.example 参照。
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+        run: bun run notify:new-videos

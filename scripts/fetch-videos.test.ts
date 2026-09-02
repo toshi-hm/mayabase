@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
 import type { FetchLike } from "../src/lib/youtube";
@@ -9,6 +10,7 @@ import {
   resolveChannelId,
   updateChannelStats,
 } from "./fetch-videos";
+import { PENDING_NOTIFICATIONS_PATH } from "./send-push-notifications";
 
 // main() / updateChannelStats() は VIDEOS_JSON_PATH / CHANNEL_STATS_JSON_PATH /
 // CHANNEL_STATS_HISTORY_JSON_PATH という(import.meta.url から算出した)実ファイルのパスへ
@@ -37,6 +39,9 @@ afterEach(async () => {
   await Bun.write(VIDEOS_JSON_PATH, originalVideosJson);
   await Bun.write(CHANNEL_STATS_JSON_PATH, originalChannelStatsJson);
   await Bun.write(CHANNEL_STATS_HISTORY_JSON_PATH, originalChannelStatsHistoryJson);
+  // #323: 通知待ちファイルはリポジトリに存在しない一時ファイルのため退避/復元は不要で、
+  // テストが作った分だけ確実に消す(既存repoの状態を汚さない)。
+  await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
 });
 
 /** 呼ばれたら失敗させる fetchFn(このパスでは fetch が発生しないはず、を検証するため) */
@@ -473,5 +478,52 @@ describe("main", () => {
     const updated = videosAfter.videos.find((v: { id: string }) => v.id === knownVideoId);
     expect(updated?.viewCount).toBe(999);
     expect(updated?.duration).toBe("PT4M13S");
+  });
+
+  test("既存に無いIDの動画を新たに取得したら、直接送信せず通知待ちファイルに書き出すだけに留める(#323)", async () => {
+    process.env.YOUTUBE_API_KEY = "dummy-key";
+
+    // 既存 videos.json に存在しないダミーIDを新着動画として与える
+    const newVideoId = "AAAAAAAAAAA";
+    const fetchFn: FetchLike = async (url) => {
+      const u = new URL(url);
+      if (u.pathname === "/youtube/v3/playlistItems") {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                contentDetails: { videoId: newVideoId, videoPublishedAt: "2026-08-01T00:00:00Z" },
+                snippet: { title: "新着動画", description: "新着動画の説明" },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      // channel-stats 更新・再生回数/時間取得は本テストの対象外のため失敗させる
+      if (u.pathname === "/youtube/v3/channels") return new Response(null, { status: 500 });
+      if (u.pathname === "/youtube/v3/videos") return new Response(null, { status: 500 });
+      // probeHqThumbnails(#211)・probeShorts の実ネットワークアクセスを無害化する
+      if (u.hostname === "i.ytimg.com") return new Response(null, { status: 200 });
+      if (u.hostname === "www.youtube.com" && u.pathname.startsWith("/shorts/")) {
+        return new Response(null, { status: 200 });
+      }
+      throw new Error(`想定外の fetch: ${url}`);
+    };
+
+    // 通知待ちファイルが事前に存在しないこと(前のテストの汚染が無いこと)を確認してから実行する
+    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+
+    await main(fetchFn);
+
+    // videos.json には既存動画に加え新着動画が追加されている(mergeVideos は上書きではなく追加)
+    const videosAfter = JSON.parse(await Bun.file(VIDEOS_JSON_PATH).text());
+    expect(videosAfter.videos.some((v: { id: string }) => v.id === newVideoId)).toBe(true);
+
+    // 通知は直接送信せず、新着動画一覧を通知待ちファイルへ書き出すだけに留める
+    const pending = JSON.parse(await Bun.file(PENDING_NOTIFICATIONS_PATH).text());
+    expect(pending).toHaveLength(1);
+    expect(pending[0].id).toBe(newVideoId);
+    expect(pending[0].title).toBe("新着動画");
   });
 });
