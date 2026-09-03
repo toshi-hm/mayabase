@@ -113,12 +113,6 @@ const jsonLd = {
   ],
 };
 const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
-// 概要欄検索用データはカード属性ではなく 1 つの JSON に集約し、カード DOM を軽く保つ。
-const searchableDescriptionsSafe = JSON.stringify(
-  Object.fromEntries(
-    videos.map((video) => [video.id, extractSearchableText(video.description).toLowerCase()]),
-  ),
-).replace(/</g, "\\u003c");
 ---
 
 <Base
@@ -133,12 +127,6 @@ const searchableDescriptionsSafe = JSON.stringify(
     )
   }
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
-  <script
-    is:inline
-    id="video-search-descriptions"
-    type="application/json"
-    set:html={searchableDescriptionsSafe}
-  />
   <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
     <Breadcrumb items={breadcrumbItems} />
     <h1 class="text-3xl font-bold sm:text-4xl">動画ライブラリ</h1>
@@ -411,10 +399,18 @@ const searchableDescriptionsSafe = JSON.stringify(
   ];
   // applyFilter が参照する「現在の表示順」。並び替え時に reorderGrid() が差し替える。
   let cards: CardSlot[] = originalOrder;
-  const descriptionsElement = document.getElementById("video-search-descriptions");
-  const descriptions: Record<string, string> = descriptionsElement?.textContent
-    ? JSON.parse(descriptionsElement.textContent)
-    : {};
+  // 概要欄本文の検索対象テキストは動画数に比例してページの初期HTMLを肥大化させる
+  // (Lighthouse performance低下の一因・#324)ため、インライン埋め込みではなく
+  // ヘッダー横断検索(search-index.json.ts・#318)と同じ方針で遅延取得する。
+  // 取得が完了するまではタイトルのみで絞り込み、完了後に概要欄本文も対象に加えて再絞り込みする。
+  let descriptions: Record<string, string> = {};
+  fetch("/video-descriptions.json")
+    .then((res) => (res.ok ? res.json() : {}))
+    .then((data: Record<string, string>) => {
+      descriptions = data;
+      applyFilter();
+    })
+    .catch(() => {});
   const count = document.getElementById("videos-count");
   const empty = document.getElementById("videos-empty");
   const moreButton = document.getElementById("videos-more") as HTMLButtonElement | null;
