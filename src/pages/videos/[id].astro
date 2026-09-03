@@ -3,6 +3,7 @@ import Breadcrumb from "../../components/Breadcrumb.astro";
 import GearMiniCard from "../../components/GearMiniCard.astro";
 import RelatedVideoCard from "../../components/RelatedVideoCard.astro";
 import ShareButton from "../../components/ShareButton.astro";
+import SubscribeMilestoneNote from "../../components/SubscribeMilestoneNote.astro";
 import WatchLaterButton from "../../components/WatchLaterButton.astro";
 import { site, subscribeUrl } from "../../config/site";
 import gearJson from "../../data/gear.json";
@@ -486,6 +487,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         <p class="mx-auto mt-2 max-w-xl text-ink-muted">
           {site.name} では AI・ガジェット・社会人 Vlog など幅広いテーマの動画を公開しています。
         </p>
+        <SubscribeMilestoneNote />
         <div class="mt-5 flex flex-wrap justify-center gap-4">
           <a
             href="/videos/"

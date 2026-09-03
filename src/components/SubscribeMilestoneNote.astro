@@ -1,0 +1,36 @@
+---
+/**
+ * 「次の目標(◯人)まであと◯人!」の訴求文(#200)。
+ *
+ * これまで index.astro のみが表示しており、動画個別ページ・動画ライブラリ・カテゴリ/シリーズ
+ * ページ等のチャンネル登録CTAは「チャンネル登録すると、新着動画の通知を受け取れます。」という
+ * 汎用文言のみだった(#327)。動画個別ページ等はSEO流入等で「チャンネルを知らない新規訪問者」が
+ * 最初に見る場所になりやすく、トップページ以上に具体的な訴求材料が必要と考えられるため、
+ * 各ページのCTAブロックから呼び出せる部品として切り出した。
+ *
+ * 登録者数を取得できない環境(subscriberCount === null)では、index.astro と同じ方針で
+ * 何も出力しない。
+ */
+import channelStatsJson from "../data/channel-stats.json";
+import {
+  formatSubscriberCount,
+  nextSubscriberMilestone,
+  parseChannelStats,
+} from "../lib/channelStats";
+
+const { subscriberCount } = parseChannelStats(channelStatsJson);
+const nextMilestoneText =
+  subscriberCount !== null ? formatSubscriberCount(nextSubscriberMilestone(subscriberCount)) : null;
+const milestoneRemainingText =
+  subscriberCount !== null
+    ? formatSubscriberCount(nextSubscriberMilestone(subscriberCount) - subscriberCount)
+    : null;
+---
+
+{
+  nextMilestoneText && milestoneRemainingText && (
+    <p class="mt-1 text-sm font-semibold text-brand-accent">
+      次の目標({nextMilestoneText})まであと{milestoneRemainingText}!
+    </p>
+  )
+}
