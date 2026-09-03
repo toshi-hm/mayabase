@@ -1,5 +1,6 @@
 ---
 import Breadcrumb from "../components/Breadcrumb.astro";
+import SubscribeMilestoneNote from "../components/SubscribeMilestoneNote.astro";
 import { site } from "../config/site";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
@@ -124,6 +125,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         <p class="mx-auto mt-2 max-w-xl text-ink-muted">
           {site.name} では AI・ガジェット・社会人 Vlog など幅広いテーマの動画を公開しています。
         </p>
+        <SubscribeMilestoneNote />
         <div class="mt-5 flex flex-wrap justify-center gap-4">
           <a
             href="/videos/"

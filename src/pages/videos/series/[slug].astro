@@ -2,6 +2,7 @@
 import ArchiveCard from "../../../components/ArchiveCard.astro";
 import ArchiveFilterController from "../../../components/ArchiveFilterController.astro";
 import Breadcrumb from "../../../components/Breadcrumb.astro";
+import SubscribeMilestoneNote from "../../../components/SubscribeMilestoneNote.astro";
 import { site, subscribeUrl } from "../../../config/site";
 import gearJson from "../../../data/gear.json";
 import seriesJson from "../../../data/series.json";
@@ -219,6 +220,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         <p class="mx-auto mt-2 max-w-xl text-ink-muted">
           チャンネル登録すると、新着動画の通知を受け取れます。
         </p>
+        <SubscribeMilestoneNote />
         <div class="mt-5 flex flex-wrap justify-center gap-4">
           <a
             href={subscribeUrl()}
