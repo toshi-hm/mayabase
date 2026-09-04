@@ -6,9 +6,11 @@ interface Props {
   title: string;
   /** サムネイルのアスペクト比。Shorts の縦型サムネイル(ShortCard)は "short" を指定する */
   aspect?: "video" | "short";
+  /** 指定秒数から再生開始したい場合に指定する(チャプター検索からのプレビュー・#328) */
+  startSeconds?: number;
 }
 
-const { videoId, title, aspect = "video" } = Astro.props;
+const { videoId, title, aspect = "video", startSeconds } = Astro.props;
 ---
 
 {
@@ -21,6 +23,7 @@ const { videoId, title, aspect = "video" } = Astro.props;
   data-lightbox-video-id={videoId}
   data-lightbox-title={title}
   data-lightbox-aspect={aspect}
+  data-lightbox-start={startSeconds}
   aria-haspopup="dialog"
   aria-label={`プレビュー再生: ${title}`}
   class:list={[

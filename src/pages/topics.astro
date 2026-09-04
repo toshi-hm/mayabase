@@ -1,6 +1,9 @@
 ---
 import Breadcrumb from "../components/Breadcrumb.astro";
+import PreviewButton from "../components/PreviewButton.astro";
+import ShareButton from "../components/ShareButton.astro";
 import SubscribeMilestoneNote from "../components/SubscribeMilestoneNote.astro";
+import WatchLaterButton from "../components/WatchLaterButton.astro";
 import { site } from "../config/site";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
@@ -77,38 +80,78 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
     <ol role="list" class="mt-8 flex flex-col divide-y divide-line rounded-xl border border-line">
       {
-        topics.map((topic) => (
-          <li
-            data-topic-item
-            data-label={topic.label.toLowerCase()}
-            data-video-title={topic.videoTitle.toLowerCase()}
-          >
-            <a
-              href={videoUrlAtTime({ id: topic.videoId, isShort: topic.isShort }, topic.seconds)}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="flex items-center gap-4 px-4 py-3 transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
+        topics.map((topic) => {
+          const watchUrl = videoUrlAtTime(
+            { id: topic.videoId, isShort: topic.isShort },
+            topic.seconds,
+          );
+          return (
+            <li
+              data-topic-item
+              data-label={topic.label.toLowerCase()}
+              data-video-title={topic.videoTitle.toLowerCase()}
+              class="flex items-center gap-4 px-4 py-3"
             >
-              <img
-                src={thumbnailFallbackUrl(topic.videoId)}
-                alt=""
-                width="120"
-                height="68"
-                loading="lazy"
-                decoding="async"
-                class="aspect-video w-24 shrink-0 rounded-lg object-cover"
-              />
-              <span class="min-w-0 flex-1">
-                <span class="line-clamp-1 block font-semibold">{topic.label}</span>
-                <span class="line-clamp-1 block text-sm text-ink-muted">{topic.videoTitle}</span>
-              </span>
-              <span class="w-16 shrink-0 text-right font-mono text-sm text-ink-muted tabular-nums">
-                {formatChapterTime(topic.seconds)}
-              </span>
-              <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
-            </a>
-          </li>
-        ))
+              {/* サムネイルには他の一覧ページ(VideoCard 等)と同じくプレビュー再生
+                (PreviewButton)を重ねて配置する(#328)。ただしこの一覧の
+                サムネイルは w-24 と小さく、シェア・あとで見るまで同じ重ね配置
+                (absolute)で載せるとボタン同士が視覚的・操作的に衝突するため、
+                その2つは行内の通常配置(variant="inline")として離して置く。
+                サムネイル自体の <a> はキーボード操作・JS 無効環境からは冗長なため
+                aria-hidden + tabindex="-1" にし、直後のテキスト <a> を実際の
+                視聴リンクとして残す(同じ URL への重複リンクを読み上げさせないため)。 */}
+              <div class="relative w-24 shrink-0">
+                <a
+                  href={watchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  class="block"
+                >
+                  <img
+                    src={thumbnailFallbackUrl(topic.videoId)}
+                    alt=""
+                    width="120"
+                    height="68"
+                    loading="lazy"
+                    decoding="async"
+                    class="aspect-video w-24 rounded-lg object-cover"
+                  />
+                </a>
+                <PreviewButton
+                  videoId={topic.videoId}
+                  title={topic.videoTitle}
+                  aspect="video"
+                  startSeconds={topic.seconds}
+                />
+              </div>
+              <a
+                href={watchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="flex min-w-0 flex-1 items-center gap-4 rounded-lg transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
+              >
+                <span class="min-w-0 flex-1">
+                  <span class="line-clamp-1 font-semibold">{topic.label}</span>
+                  <span class="line-clamp-1 text-sm text-ink-muted">{topic.videoTitle}</span>
+                </span>
+                <span class="w-16 shrink-0 text-right font-mono text-sm text-ink-muted tabular-nums">
+                  {formatChapterTime(topic.seconds)}
+                </span>
+                <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+              </a>
+              <div class="flex shrink-0 items-center gap-1">
+                <ShareButton title={topic.videoTitle} url={watchUrl} variant="inline" />
+                <WatchLaterButton
+                  videoId={topic.videoId}
+                  title={topic.videoTitle}
+                  variant="inline"
+                />
+              </div>
+            </li>
+          );
+        })
       }
     </ol>
     <p
