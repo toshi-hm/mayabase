@@ -6,9 +6,15 @@ interface Props {
   title: string;
   /** シェア対象の URL(YouTube 視聴 URL) */
   url: string;
+  /**
+   * overlay: サムネイル上に絶対配置で重ねる(既定・カード系コンポーネントで使用)。
+   * inline: 通常のインライン配置で表示する(チャプター検索(/topics/)の行内アクション等、
+   * サムネイルが小さく重ね配置だとボタン同士が衝突してしまう場所で使う・#328)。
+   */
+  variant?: "overlay" | "inline";
 }
 
-const { title, url } = Astro.props;
+const { title, url, variant = "overlay" } = Astro.props;
 ---
 
 {/* 親要素(カード全体)は視聴リンクの <a> のため、入れ子を避けて兄弟要素として重ねて配置する */}
@@ -17,7 +23,12 @@ const { title, url } = Astro.props;
   target="_blank"
   rel="noopener noreferrer"
   aria-label={`「${title}」をXでシェア(新しいタブで開きます)`}
-  class="absolute top-2 right-2 z-10 rounded-full bg-brand/80 p-2 text-white backdrop-blur transition hover:bg-brand-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+  class:list={[
+    "rounded-full p-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
+    variant === "overlay"
+      ? "absolute top-2 right-2 z-10 bg-brand/80 text-white backdrop-blur hover:bg-brand-strong"
+      : "bg-surface-raised text-ink-muted hover:bg-brand/10 hover:text-brand",
+  ]}
 >
   <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
     <path

@@ -92,8 +92,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               data-video-title={topic.videoTitle.toLowerCase()}
               class="flex items-center gap-4 px-4 py-3"
             >
-              {/* サムネイルは他の一覧ページ(VideoCard 等)と同じく、プレビュー再生
-                (PreviewButton)・シェア・あとで見るを重ねて配置する(#328)。
+              {/* サムネイルには他の一覧ページ(VideoCard 等)と同じくプレビュー再生
+                (PreviewButton)を重ねて配置する(#328)。ただしこの一覧の
+                サムネイルは w-24 と小さく、シェア・あとで見るまで同じ重ね配置
+                (absolute)で載せるとボタン同士が視覚的・操作的に衝突するため、
+                その2つは行内の通常配置(variant="inline")として離して置く。
                 サムネイル自体の <a> はキーボード操作・JS 無効環境からは冗長なため
                 aria-hidden + tabindex="-1" にし、直後のテキスト <a> を実際の
                 視聴リンクとして残す(同じ URL への重複リンクを読み上げさせないため)。 */}
@@ -122,8 +125,6 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                   aspect="video"
                   startSeconds={topic.seconds}
                 />
-                <ShareButton title={topic.videoTitle} url={watchUrl} />
-                <WatchLaterButton videoId={topic.videoId} title={topic.videoTitle} aspect="video" />
               </div>
               <a
                 href={watchUrl}
@@ -140,6 +141,14 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                 </span>
                 <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
               </a>
+              <div class="flex shrink-0 items-center gap-1">
+                <ShareButton title={topic.videoTitle} url={watchUrl} variant="inline" />
+                <WatchLaterButton
+                  videoId={topic.videoId}
+                  title={topic.videoTitle}
+                  variant="inline"
+                />
+              </div>
             </li>
           );
         })
