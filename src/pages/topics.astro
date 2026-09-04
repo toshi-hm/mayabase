@@ -133,8 +133,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                 class="flex min-w-0 flex-1 items-center gap-4 rounded-lg transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
               >
                 <span class="min-w-0 flex-1">
-                  <span class="line-clamp-1 block font-semibold">{topic.label}</span>
-                  <span class="line-clamp-1 block text-sm text-ink-muted">{topic.videoTitle}</span>
+                  <span class="line-clamp-1 font-semibold">{topic.label}</span>
+                  <span class="line-clamp-1 text-sm text-ink-muted">{topic.videoTitle}</span>
                 </span>
                 <span class="w-16 shrink-0 text-right font-mono text-sm text-ink-muted tabular-nums">
                   {formatChapterTime(topic.seconds)}
