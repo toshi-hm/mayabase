@@ -64,8 +64,12 @@ import { site, subscribeUrl } from "../config/site";
 </dialog>
 
 <script>
-  import { getLightboxContainerClass, parseLightboxAspect } from "../lib/lightbox";
-  import { embedUrl } from "../lib/youtube";
+  import {
+    buildLightboxSrc,
+    getLightboxContainerClass,
+    parseLightboxAspect,
+    parseLightboxStartSeconds,
+  } from "../lib/lightbox";
 
   const dialog = document.getElementById("video-lightbox");
   const player = document.getElementById("video-lightbox-player");
@@ -80,9 +84,14 @@ import { site, subscribeUrl } from "../config/site";
     titleEl &&
     closeButton
   ) {
-    const openLightbox = (videoId: string, title: string, aspect: string | undefined): void => {
+    const openLightbox = (
+      videoId: string,
+      title: string,
+      aspect: string | undefined,
+      startSeconds: string | undefined,
+    ): void => {
       player.className = getLightboxContainerClass(parseLightboxAspect(aspect));
-      iframe.src = `${embedUrl(videoId)}?autoplay=1&rel=0`;
+      iframe.src = buildLightboxSrc(videoId, parseLightboxStartSeconds(startSeconds));
       iframe.title = title;
       titleEl.textContent = title;
       dialog.showModal();
@@ -119,7 +128,12 @@ import { site, subscribeUrl } from "../config/site";
       if (!trigger) return;
       const videoId = trigger.dataset.lightboxVideoId;
       if (!videoId) return;
-      openLightbox(videoId, trigger.dataset.lightboxTitle ?? "", trigger.dataset.lightboxAspect);
+      openLightbox(
+        videoId,
+        trigger.dataset.lightboxTitle ?? "",
+        trigger.dataset.lightboxAspect,
+        trigger.dataset.lightboxStart,
+      );
     });
   }
 </script>
