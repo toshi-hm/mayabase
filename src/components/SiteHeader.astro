@@ -33,24 +33,44 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
     >
       {site.name}
     </a>
-    <ul role="list" class="ml-auto flex gap-1 overflow-x-auto text-sm">
+    <div class="relative ml-auto min-w-0">
+      <ul id="site-nav-list" role="list" class="flex gap-1 overflow-x-auto text-sm">
+        {
+          NAV_ITEMS.map((item) => (
+            <li class="flex-none">
+              <a
+                href={item.href}
+                aria-current={isCurrent(item.href) ? "page" : undefined}
+                class:list={[
+                  "block rounded-md px-3 py-1.5 transition hover:bg-surface-raised hover:text-ink",
+                  isCurrent(item.href) ? "bg-brand font-semibold text-white" : "text-ink-muted",
+                ]}
+              >
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
       {
-        NAV_ITEMS.map((item) => (
-          <li class="flex-none">
-            <a
-              href={item.href}
-              aria-current={isCurrent(item.href) ? "page" : undefined}
-              class:list={[
-                "block rounded-md px-3 py-1.5 transition hover:bg-surface-raised hover:text-ink",
-                isCurrent(item.href) ? "bg-brand font-semibold text-white" : "text-ink-muted",
-              ]}
-            >
-              {item.label}
-            </a>
-          </li>
-        ))
+        /*
+        横スクロールバーが非表示になる端末でも「まだ続きがある」ことに気づけるよう、
+        端に近づくと表示されるフェードヒントを重ねる(#329)。装飾のみで操作対象では
+        ないため aria-hidden + pointer-events-none にし、実際の表示切替は
+        computeScrollFadeEdges(src/lib/scrollFade.ts)の判定結果に従う。
+      */
       }
-    </ul>
+      <span
+        id="site-nav-fade-start"
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-surface to-transparent opacity-0 transition-opacity"
+      ></span>
+      <span
+        id="site-nav-fade-end"
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-surface to-transparent opacity-0 transition-opacity"
+      ></span>
+    </div>
     <button
       type="button"
       id="site-search-toggle"
@@ -140,6 +160,31 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
   // 初めて1回だけ取得する(以降は同一セッション内でキャッシュして使い回す)。
   import { searchSiteIndex, siteSearchResultUrl, siteSearchTypeLabel } from "../lib/siteSearch";
   import type { SiteSearchItem } from "../lib/siteSearch";
+  import { computeScrollFadeEdges } from "../lib/scrollFade";
+
+  // ナビの横スクロール「続きがある」フェードヒント(#329)。スクロール位置に応じて
+  // 始端/終端のフェードの表示・非表示を切り替える。JS 無効時はフェード自体が
+  // 常に非表示のままだが、横スクロール操作自体は CSS のみで機能する。
+  const navList = document.getElementById("site-nav-list");
+  const navFadeStart = document.getElementById("site-nav-fade-start");
+  const navFadeEnd = document.getElementById("site-nav-fade-end");
+
+  function updateNavFade(): void {
+    if (!navList) return;
+    const { showStart, showEnd } = computeScrollFadeEdges(
+      navList.scrollLeft,
+      navList.scrollWidth,
+      navList.clientWidth,
+    );
+    navFadeStart?.classList.toggle("opacity-100", showStart);
+    navFadeStart?.classList.toggle("opacity-0", !showStart);
+    navFadeEnd?.classList.toggle("opacity-100", showEnd);
+    navFadeEnd?.classList.toggle("opacity-0", !showEnd);
+  }
+
+  navList?.addEventListener("scroll", updateNavFade, { passive: true });
+  window.addEventListener("resize", updateNavFade);
+  updateNavFade();
 
   // 種別ごとの候補数の上限(searchSiteIndex 側の頭打ち件数)。5種別(動画・FAQ・ガジェット・
   // 用語集・チャプター)× 4件 = 最大20件を候補に表示する。
