@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import xPostsJson from "../data/x-posts.json";
-import { parseXPostsData, postUrl, shareIntentUrl } from "./x";
+import { buildVideoPostDraft, parseXPostsData, postUrl, shareIntentUrl } from "./x";
 
 describe("postUrl", () => {
   test("status URL を生成する", () => {
@@ -22,6 +22,16 @@ describe("shareIntentUrl", () => {
     const parsed = new URL(result);
     expect(parsed.searchParams.get("text")).toBe("A&B #tag");
     expect(parsed.searchParams.get("url")).toBe("https://example.com/?q=1&r=2");
+  });
+});
+
+describe("buildVideoPostDraft", () => {
+  test("新着動画の本文とX投稿インテントURLを生成する", () => {
+    const draft = buildVideoPostDraft({ id: "abc123", isShort: false, title: "新しい動画 & レビュー" });
+    const parsed = new URL(draft.url);
+    expect(draft.text).toBe("🎬 新着動画: 新しい動画 & レビュー");
+    expect(parsed.searchParams.get("text")).toBe(draft.text);
+    expect(parsed.searchParams.get("url")).toBe("https://www.youtube.com/watch?v=abc123");
   });
 });
 
