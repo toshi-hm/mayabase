@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     # 代表URLをトップ/一覧のみから9ページ(カテゴリ・動画詳細・シリーズ含む)に拡張したため、
     # numberOfRuns: 5 を維持したまま計測しても収まるよう猶予を広げる(#248)。
-    timeout-minutes: 15
+    timeout-minutes: 20
     needs: ci
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
