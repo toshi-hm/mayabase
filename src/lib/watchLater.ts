@@ -44,6 +44,15 @@ export function addWatchLaterId(ids: readonly string[], id: string): string[] {
   return [...ids, id];
 }
 
+/**
+ * 指定した動画IDへの追加操作が、上限(WATCH_LATER_MAX_ITEMS)到達により
+ * 反映されない(サイレントな no-op になる)かどうかを判定する。
+ * 既に保存済みのID(削除方向のトグル)は上限に関係なく常に成功するため false になる。
+ */
+export function isWatchLaterAddBlockedByLimit(ids: readonly string[], id: string): boolean {
+  return !isWatchLaterSaved(ids, id) && ids.length >= WATCH_LATER_MAX_ITEMS;
+}
+
 /** 指定した動画IDを取り除いた新しい配列を返す(元の配列は変更しない) */
 export function removeWatchLaterId(ids: readonly string[], id: string): string[] {
   return ids.filter((existing) => existing !== id);
@@ -53,4 +62,3 @@ export function removeWatchLaterId(ids: readonly string[], id: string): string[]
 export function toggleWatchLaterId(ids: readonly string[], id: string): string[] {
   return isWatchLaterSaved(ids, id) ? removeWatchLaterId(ids, id) : addWatchLaterId(ids, id);
 }
-
