@@ -37,6 +37,20 @@ export function buildVideoPostDraft(video: Pick<Video, "id" | "isShort" | "title
   return { text, url: shareIntentUrl(text, videoUrl(video)) };
 }
 
+/** ジョブサマリーに表示する新着動画のタイトルをHTMLとして安全に整形する。 */
+export function formatVideoPostDraftSummary(
+  video: Pick<Video, "id" | "isShort" | "title">,
+): string {
+  const escapedTitle = video.title
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/\\r?\\n/g, " ");
+  return `- <code>${escapedTitle}</code>: ${buildVideoPostDraft(video).url}`;
+}
+
 /**
  * x-posts.json の内容を検証しつつ読み込む。
  * 手動管理ファイルのため、形式ミスはビルド時に早期検出する(throw)。
