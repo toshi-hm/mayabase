@@ -4,6 +4,12 @@ export const WATCH_LATER_STORAGE_KEY = "mayabase-watch-later";
 /** 保存できる動画ID数の上限。無制限の localStorage 肥大化を防ぐための安全弁 */
 export const WATCH_LATER_MAX_ITEMS = 200;
 
+/** 保存済み動画をYouTubeの一時プレイリストとして開くURLを組み立てる */
+export function buildWatchLaterPlaylistUrl(ids: readonly string[]): string {
+  const videoIds = ids.map((id) => encodeURIComponent(id)).join(",");
+  return "https://www.youtube.com/watch_videos?video_ids=" + videoIds;
+}
+
 /** 値が動画IDの配列として妥当か判定する(localStorage から読んだ値の検証・型ガードに使う) */
 function isIdArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0);
@@ -38,15 +44,6 @@ export function addWatchLaterId(ids: readonly string[], id: string): string[] {
   return [...ids, id];
 }
 
-/**
- * 指定した動画IDへの追加操作が、上限(WATCH_LATER_MAX_ITEMS)到達により
- * 反映されない(サイレントな no-op になる)かどうかを判定する。
- * 既に保存済みのID(削除方向のトグル)は上限に関係なく常に成功するため false になる。
- */
-export function isWatchLaterAddBlockedByLimit(ids: readonly string[], id: string): boolean {
-  return !isWatchLaterSaved(ids, id) && ids.length >= WATCH_LATER_MAX_ITEMS;
-}
-
 /** 指定した動画IDを取り除いた新しい配列を返す(元の配列は変更しない) */
 export function removeWatchLaterId(ids: readonly string[], id: string): string[] {
   return ids.filter((existing) => existing !== id);
@@ -56,3 +53,4 @@ export function removeWatchLaterId(ids: readonly string[], id: string): string[]
 export function toggleWatchLaterId(ids: readonly string[], id: string): string[] {
   return isWatchLaterSaved(ids, id) ? removeWatchLaterId(ids, id) : addWatchLaterId(ids, id);
 }
+
