@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   addWatchLaterId,
+  isWatchLaterAddBlockedByLimit,
   isWatchLaterSaved,
   parseStoredWatchLaterIds,
   removeWatchLaterId,
@@ -60,6 +61,22 @@ describe("addWatchLaterId", () => {
     const original = ["abc"];
     addWatchLaterId(original, "def");
     expect(original).toEqual(["abc"]);
+  });
+});
+
+describe("isWatchLaterAddBlockedByLimit", () => {
+  test("上限未満なら false", () => {
+    expect(isWatchLaterAddBlockedByLimit(["abc"], "def")).toBe(false);
+  });
+
+  test("上限に達していても、既に保存済みのID(削除方向)は false", () => {
+    const full = Array.from({ length: WATCH_LATER_MAX_ITEMS }, (_, i) => `id${i}`);
+    expect(isWatchLaterAddBlockedByLimit(full, "id0")).toBe(false);
+  });
+
+  test("上限に達していて未保存のIDを追加しようとすると true", () => {
+    const full = Array.from({ length: WATCH_LATER_MAX_ITEMS }, (_, i) => `id${i}`);
+    expect(isWatchLaterAddBlockedByLimit(full, "new-id")).toBe(true);
   });
 });
 
