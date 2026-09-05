@@ -65,7 +65,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       rel="noopener noreferrer"
       class="mt-5 inline-flex rounded-full border border-ink-muted px-5 py-2.5 font-semibold transition hover:border-ink hover:bg-surface-raised"
     >
-      YouTubeでまとめて再生 <span aria-hidden="true">↗</span>
+      YouTubeでまとめて再生(先頭50本まで) <span aria-hidden="true">↗</span>
       <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
     </a>
 
@@ -129,6 +129,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   import {
     buildWatchLaterPlaylistUrl,
     parseStoredWatchLaterIds,
+    WATCH_LATER_PLAYLIST_MAX_ITEMS,
     WATCH_LATER_STORAGE_KEY,
   } from "../lib/watchLater";
 
@@ -153,16 +154,22 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   function render(): void {
     const storedIds = readStoredIds();
     const idSet = new Set(storedIds);
+    const visibleIds: string[] = [];
     let visibleCount = 0;
     for (const card of cards) {
       const id = card.dataset.videoId;
       const saved = id ? idSet.has(id) : false;
       card.hidden = !saved;
-      if (saved) visibleCount += 1;
+      if (saved) {
+        visibleCount += 1;
+        if (id) visibleIds.push(id);
+      }
     }
     if (playlistLink) {
-      playlistLink.hidden = storedIds.length < 2;
-      playlistLink.href = buildWatchLaterPlaylistUrl(storedIds);
+      playlistLink.hidden = visibleIds.length < 2;
+      playlistLink.href = buildWatchLaterPlaylistUrl(
+        visibleIds.slice(0, WATCH_LATER_PLAYLIST_MAX_ITEMS),
+      );
     }
     if (empty) empty.hidden = visibleCount > 0;
   }
