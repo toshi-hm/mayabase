@@ -23,6 +23,7 @@ import {
   toJstDateString,
 } from "../src/lib/channelStatsHistory";
 import { newlyPublishedVideos } from "../src/lib/push";
+import { buildVideoPostDraft } from "../src/lib/x";
 import {
   createEmptyVideosData,
   extractChannelId,
@@ -41,7 +42,6 @@ import {
   type Video,
   type VideosData,
 } from "../src/lib/youtube";
-import { buildVideoPostDraft } from "../src/lib/x";
 import { PENDING_NOTIFICATIONS_PATH } from "./send-push-notifications";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
