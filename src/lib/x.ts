@@ -47,7 +47,7 @@ export function formatVideoPostDraftSummary(
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;")
-    .replace(/\\r?\\n/g, " ");
+    .replace(/\r?\n/g, " ");
   return `- <code>${escapedTitle}</code>: ${buildVideoPostDraft(video).url}`;
 }
 
