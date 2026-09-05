@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import xPostsJson from "../data/x-posts.json";
-import { buildVideoPostDraft, parseXPostsData, postUrl, shareIntentUrl } from "./x";
+import {
+  buildVideoPostDraft,
+  formatVideoPostDraftSummary,
+  parseXPostsData,
+  postUrl,
+  shareIntentUrl,
+} from "./x";
 
 describe("postUrl", () => {
   test("status URL を生成する", () => {
@@ -36,6 +42,20 @@ describe("buildVideoPostDraft", () => {
     expect(draft.text).toBe("🎬 新着動画: 新しい動画 & レビュー");
     expect(parsed.searchParams.get("text")).toBe(draft.text);
     expect(parsed.searchParams.get("url")).toBe("https://www.youtube.com/watch?v=abc123");
+  });
+});
+
+describe("formatVideoPostDraftSummary", () => {
+  test("タイトルをHTMLエスケープしてサマリー向けに整形する", () => {
+    const summary = formatVideoPostDraftSummary({
+      id: "abc123",
+      isShort: false,
+      title: '[リンク] <img src="https://example.com/track.gif"> & 詳細',
+    });
+    expect(summary).toContain(
+      "<code>[リンク] &lt;img src=&quot;https://example.com/track.gif&quot;&gt; &amp; 詳細</code>",
+    );
+    expect(summary).not.toContain("<img src=");
   });
 });
 
