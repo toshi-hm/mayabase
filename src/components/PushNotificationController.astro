@@ -75,16 +75,16 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
     }
   }
 
-  async function postJson(path: string, body: unknown): Promise<void> {
+  async function postJson(path: string, body: unknown): Promise<boolean> {
     try {
-      await fetch(path, {
+      const response = await fetch(path, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
+      return response.ok;
     } catch {
-      // 配信サーバーに未到達でも、ブラウザ側の購読/解除操作自体は完了しているため無視する
-      // (次回起動時にKV側の情報が古いままになるが、失効時はサーバー側で自動削除される)
+      return false;
     }
   }
 
@@ -121,8 +121,15 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
         });
+        const saved = await postJson("/api/push/subscribe", subscription.toJSON());
+        if (!saved) {
+          // ブラウザ側だけ購読済みになると、サーバーに保存されていないのに
+          // 次回表示で「オン」と誤認させるため、購読自体もロールバックする。
+          await subscription.unsubscribe();
+          applyState(false);
+          return;
+        }
         applyState(true);
-        await postJson("/api/push/subscribe", subscription.toJSON());
       } catch (error) {
         console.warn("[push] 通知設定の切り替えに失敗しました:", error);
       } finally {
@@ -131,3 +138,4 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
     });
   }
 </script>
+
