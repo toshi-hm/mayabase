@@ -11,7 +11,7 @@
  * - Shorts 判定は未判定(isShort: null)の動画のみ行い、確定値は再判定しない
  * - 失敗しても既存の videos.json を残して exit 0(ビルドを決して落とさない)
  */
-import { rename } from "node:fs/promises";
+import { appendFile, rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
 import { type ChannelStats, parseChannelStatsApiResponse } from "../src/lib/channelStats";
@@ -41,6 +41,7 @@ import {
   type Video,
   type VideosData,
 } from "../src/lib/youtube";
+import { buildVideoPostDraft } from "../src/lib/x";
 import { PENDING_NOTIFICATIONS_PATH } from "./send-push-notifications";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
@@ -353,6 +354,25 @@ async function fetchVideoDetails(
   return { viewCounts, durations };
 }
 
+async function writeXPostDraftSummary(videos: readonly Video[]): Promise<void> {
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY?.trim();
+  if (!summaryPath || videos.length === 0) return;
+
+  const lines = [
+    "",
+    "## X投稿の下書きURL",
+    "",
+    "以下のリンクを開くと、本文と動画URLが入力されたX投稿画面を開けます。内容を確認・編集して手動投稿してください。",
+    ...videos.map((video) => {
+      const draft = buildVideoPostDraft(video);
+      const title = video.title.replace(/\r?\n/g, " ");
+      return `- ${title}: ${draft.url}`;
+    }),
+    "",
+  ];
+  await appendFile(summaryPath, `${lines.join("\n")}\n`, "utf8");
+}
+
 async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   const existing = await loadExisting();
 
@@ -449,6 +469,7 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
     const newlyPublished = newlyPublishedVideos(existing.videos, merged);
     if (newlyPublished.length > 0) {
       await Bun.write(PENDING_NOTIFICATIONS_PATH, `${JSON.stringify(newlyPublished, null, 2)}\n`);
+      await writeXPostDraftSummary(newlyPublished);
       console.log(
         `[fetch-videos] 新着動画 ${newlyPublished.length} 件を通知待ちとして記録しました(送信はコミット成功後)`,
       );
