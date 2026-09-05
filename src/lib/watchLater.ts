@@ -4,10 +4,16 @@ export const WATCH_LATER_STORAGE_KEY = "mayabase-watch-later";
 /** 保存できる動画ID数の上限。無制限の localStorage 肥大化を防ぐための安全弁 */
 export const WATCH_LATER_MAX_ITEMS = 200;
 
+/** YouTubeの一時プレイリストURLへ渡す動画ID数の上限 */
+export const WATCH_LATER_PLAYLIST_MAX_ITEMS = 50;
+
 /** 保存済み動画をYouTubeの一時プレイリストとして開くURLを組み立てる */
 export function buildWatchLaterPlaylistUrl(ids: readonly string[]): string {
-  const videoIds = ids.map((id) => encodeURIComponent(id)).join(",");
-  return "https://www.youtube.com/watch_videos?video_ids=" + videoIds;
+  const videoIds = ids
+    .slice(0, WATCH_LATER_PLAYLIST_MAX_ITEMS)
+    .map((id) => encodeURIComponent(id))
+    .join(",");
+  return `https://www.youtube.com/watch_videos?video_ids=${videoIds}`;
 }
 
 /** 値が動画IDの配列として妥当か判定する(localStorage から読んだ値の検証・型ガードに使う) */
