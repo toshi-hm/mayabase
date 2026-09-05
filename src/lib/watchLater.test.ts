@@ -17,6 +17,13 @@ describe("buildWatchLaterPlaylistUrl", () => {
     );
   });
 
+  test("YouTubeの件数上限を超えるIDはURLへ含めない", () => {
+    const ids = Array.from({ length: 51 }, (_, index) => `id${index}`);
+    const url = buildWatchLaterPlaylistUrl(ids);
+    expect(url).toContain("id49");
+    expect(url).not.toContain("id50");
+  });
+
   test("動画IDに含まれる文字をURLエンコードする", () => {
     expect(buildWatchLaterPlaylistUrl(["a/b", "c d"])).toBe(
       "https://www.youtube.com/watch_videos?video_ids=a%2Fb,c%20d",
