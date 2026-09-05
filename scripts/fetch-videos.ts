@@ -23,7 +23,7 @@ import {
   toJstDateString,
 } from "../src/lib/channelStatsHistory";
 import { newlyPublishedVideos } from "../src/lib/push";
-import { buildVideoPostDraft } from "../src/lib/x";
+import { formatVideoPostDraftSummary } from "../src/lib/x";
 import {
   createEmptyVideosData,
   extractChannelId,
@@ -364,9 +364,7 @@ async function writeXPostDraftSummary(videos: readonly Video[]): Promise<void> {
     "",
     "以下のリンクを開くと、本文と動画URLが入力されたX投稿画面を開けます。内容を確認・編集して手動投稿してください。",
     ...videos.map((video) => {
-      const draft = buildVideoPostDraft(video);
-      const title = video.title.replace(/\r?\n/g, " ");
-      return `- ${title}: ${draft.url}`;
+      return formatVideoPostDraftSummary(video);
     }),
     "",
   ];
