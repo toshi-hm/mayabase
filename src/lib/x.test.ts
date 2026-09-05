@@ -27,7 +27,11 @@ describe("shareIntentUrl", () => {
 
 describe("buildVideoPostDraft", () => {
   test("新着動画の本文とX投稿インテントURLを生成する", () => {
-    const draft = buildVideoPostDraft({ id: "abc123", isShort: false, title: "新しい動画 & レビュー" });
+    const draft = buildVideoPostDraft({
+      id: "abc123",
+      isShort: false,
+      title: "新しい動画 & レビュー",
+    });
     const parsed = new URL(draft.url);
     expect(draft.text).toBe("🎬 新着動画: 新しい動画 & レビュー");
     expect(parsed.searchParams.get("text")).toBe(draft.text);
