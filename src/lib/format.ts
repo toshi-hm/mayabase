@@ -12,6 +12,15 @@ export function formatDateJa(iso: string): string {
   return formatter.format(new Date(time));
 }
 
+/** 公開から7日以内の動画か判定する */
+export function isRecentlyPublished(publishedAt: string, now: Date): boolean {
+  const publishedTime = Date.parse(publishedAt);
+  if (Number.isNaN(publishedTime)) return false;
+  const age = now.getTime() - publishedTime;
+  const sevenDays = 7 * 24 * 60 * 60 * 1000;
+  return age >= 0 && age <= sevenDays;
+}
+
 /** 表示用に本文を切り詰める(コードポイント単位、超過時は「…」を付与) */
 export function truncate(text: string, maxLength: number): string {
   const chars = [...text];
