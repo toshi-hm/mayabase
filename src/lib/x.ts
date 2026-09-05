@@ -1,5 +1,5 @@
 /** X(Twitter)ポスト 1 件分。src/data/x-posts.json で手動管理する */
-import { videoUrl, type Video } from "./youtube";
+import { type Video, videoUrl } from "./youtube";
 
 export interface XPost {
   /** ポスト ID(status URL の末尾の数字) */
