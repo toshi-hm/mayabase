@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   addWatchLaterId,
+  buildWatchLaterPlaylistUrl,
   isWatchLaterAddBlockedByLimit,
   isWatchLaterSaved,
   parseStoredWatchLaterIds,
@@ -8,6 +9,27 @@ import {
   toggleWatchLaterId,
   WATCH_LATER_MAX_ITEMS,
 } from "./watchLater";
+
+describe("buildWatchLaterPlaylistUrl", () => {
+  test("動画IDを保存順に一時プレイリストURLへ変換する", () => {
+    expect(buildWatchLaterPlaylistUrl(["abc123", "def456"])).toBe(
+      "https://www.youtube.com/watch_videos?video_ids=abc123,def456",
+    );
+  });
+
+  test("YouTubeの件数上限を超えるIDはURLへ含めない", () => {
+    const ids = Array.from({ length: 51 }, (_, index) => `id${index}`);
+    const url = buildWatchLaterPlaylistUrl(ids);
+    expect(url).toContain("id49");
+    expect(url).not.toContain("id50");
+  });
+
+  test("動画IDに含まれる文字をURLエンコードする", () => {
+    expect(buildWatchLaterPlaylistUrl(["a/b", "c d"])).toBe(
+      "https://www.youtube.com/watch_videos?video_ids=a%2Fb,c%20d",
+    );
+  });
+});
 
 describe("parseStoredWatchLaterIds", () => {
   test("未設定(null)は空配列", () => {

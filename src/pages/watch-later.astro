@@ -57,6 +57,18 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       各動画カードの保存ボタンで追加した「あとで見る」リストです。この端末のブラウザ内にのみ保存され、他の端末とは共有されません。
     </p>
 
+    <a
+      id="watch-later-playlist"
+      hidden
+      href="https://www.youtube.com/watch_videos"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="mt-5 inline-flex rounded-full border border-ink-muted px-5 py-2.5 font-semibold transition hover:border-ink hover:bg-surface-raised"
+    >
+      YouTubeでまとめて再生(先頭50本まで) <span aria-hidden="true">↗</span>
+      <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+    </a>
+
     <p
       id="watch-later-empty"
       class="mt-10 rounded-xl bg-surface-raised p-8 text-center text-ink-muted"
@@ -114,10 +126,16 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 </Base>
 
 <script>
-  import { parseStoredWatchLaterIds, WATCH_LATER_STORAGE_KEY } from "../lib/watchLater";
+  import {
+    buildWatchLaterPlaylistUrl,
+    parseStoredWatchLaterIds,
+    WATCH_LATER_PLAYLIST_MAX_ITEMS,
+    WATCH_LATER_STORAGE_KEY,
+  } from "../lib/watchLater";
 
   const grid = document.getElementById("watch-later-grid");
   const empty = document.getElementById("watch-later-empty");
+  const playlistLink = document.getElementById("watch-later-playlist") as HTMLAnchorElement | null;
   const cards = grid ? [...grid.querySelectorAll<HTMLLIElement>(":scope > li[data-video-id]")] : [];
 
   function readStoredIds(): string[] {
@@ -134,13 +152,24 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // 上限まで保存されても高々 WATCH_LATER_MAX_ITEMS 件・全カード94件程度のため、
   // 毎回全カードを走査する単純な実装で十分(videos.astro のような段階表示は不要)。
   function render(): void {
-    const ids = new Set(readStoredIds());
+    const storedIds = readStoredIds();
+    const idSet = new Set(storedIds);
+    const visibleIds: string[] = [];
     let visibleCount = 0;
     for (const card of cards) {
       const id = card.dataset.videoId;
-      const saved = id ? ids.has(id) : false;
+      const saved = id ? idSet.has(id) : false;
       card.hidden = !saved;
-      if (saved) visibleCount += 1;
+      if (saved) {
+        visibleCount += 1;
+        if (id) visibleIds.push(id);
+      }
+    }
+    if (playlistLink) {
+      playlistLink.hidden = visibleIds.length < 2;
+      playlistLink.href = buildWatchLaterPlaylistUrl(
+        visibleIds.slice(0, WATCH_LATER_PLAYLIST_MAX_ITEMS),
+      );
     }
     if (empty) empty.hidden = visibleCount > 0;
   }
