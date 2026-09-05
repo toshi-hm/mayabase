@@ -9,8 +9,10 @@
 
 <script>
   import {
+    isWatchLaterAddBlockedByLimit,
     parseStoredWatchLaterIds,
     toggleWatchLaterId,
+    WATCH_LATER_MAX_ITEMS,
     WATCH_LATER_STORAGE_KEY,
   } from "../lib/watchLater";
 
@@ -30,6 +32,30 @@
     } catch {
       // 保存に失敗しても当該セッション内の表示切り替え自体は継続する
     }
+  }
+
+  let limitToastHideTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // 上限到達によりボタン操作が反映されなかったことを一時的なトーストで知らせる(#341)。
+  // WatchLaterButton は同一ページ内に多数存在するため、通知UIはボタンごとではなく単一のトーストで共有する。
+  function showWatchLaterLimitToast(): void {
+    let toast = document.getElementById("watch-later-limit-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "watch-later-limit-toast";
+      toast.setAttribute("role", "status");
+      toast.setAttribute("aria-live", "polite");
+      toast.className =
+        "fixed inset-x-4 bottom-4 z-50 mx-auto w-fit max-w-[calc(100%-2rem)] rounded-full bg-ink px-4 py-2 text-center text-sm font-semibold text-surface shadow-lg";
+      document.body.append(toast);
+    }
+    toast.textContent = `あとで見るは最大${WATCH_LATER_MAX_ITEMS}件までです。他の動画を削除してから追加してください。`;
+    toast.hidden = false;
+
+    clearTimeout(limitToastHideTimer);
+    limitToastHideTimer = setTimeout(() => {
+      if (toast) toast.hidden = true;
+    }, 4000);
   }
 
   function applyButtonState(button: HTMLElement, saved: boolean): void {
@@ -70,7 +96,9 @@
     const id = button.dataset.watchLaterId;
     if (!id) return;
 
-    const nextIds = toggleWatchLaterId(readStoredIds(), id);
+    const beforeIds = readStoredIds();
+    const limitBlocked = isWatchLaterAddBlockedByLimit(beforeIds, id);
+    const nextIds = toggleWatchLaterId(beforeIds, id);
     writeStoredIds(nextIds);
     const saved = nextIds.includes(id);
 
@@ -80,6 +108,8 @@
     )) {
       applyButtonState(match, saved);
     }
+
+    if (limitBlocked) showWatchLaterLimitToast();
 
     // /watch-later/ ページ等、保存状態の変化を監視したいページへ通知する
     window.dispatchEvent(new CustomEvent("watch-later-change", { detail: { id, saved } }));
