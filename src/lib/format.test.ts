@@ -3,6 +3,7 @@ import {
   extractSearchableText,
   formatDateJa,
   formatViewCount,
+  isRecentlyPublished,
   linkifyText,
   textMatchesKeyword,
   truncate,
@@ -20,6 +21,21 @@ describe("formatDateJa", () => {
 
   test("不正な日時は空文字", () => {
     expect(formatDateJa("invalid")).toBe("");
+  });
+});
+
+describe("isRecentlyPublished", () => {
+  const now = new Date("2026-09-06T00:00:00Z");
+
+  test("公開から7日以内なら true", () => {
+    expect(isRecentlyPublished("2026-09-01T00:00:00Z", now)).toBe(true);
+    expect(isRecentlyPublished("2026-09-06T00:00:00Z", now)).toBe(true);
+  });
+
+  test("8日以上前・未来・不正な日時は false", () => {
+    expect(isRecentlyPublished("2026-08-29T23:59:59Z", now)).toBe(false);
+    expect(isRecentlyPublished("2026-09-07T00:00:00Z", now)).toBe(false);
+    expect(isRecentlyPublished("invalid", now)).toBe(false);
   });
 });
 

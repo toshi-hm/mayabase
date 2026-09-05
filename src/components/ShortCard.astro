@@ -1,5 +1,5 @@
 ---
-import { formatDateJa } from "../lib/format";
+import { formatDateJa, isRecentlyPublished } from "../lib/format";
 import { thumbnailFallbackUrl, type Video, videoUrl } from "../lib/youtube";
 import PreviewButton from "./PreviewButton.astro";
 import ShareButton from "./ShareButton.astro";
@@ -16,6 +16,7 @@ interface Props {
 }
 
 const { video, position, total, eager = false } = Astro.props;
+const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
 ---
 
 <li
@@ -35,6 +36,13 @@ const { video, position, total, eager = false } = Astro.props;
     data-watch-track-id={video.id}
     class="group/card block overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
   >
+    {
+      recentlyPublished && (
+        <span class="absolute top-2 right-2 rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
+          NEW
+        </span>
+      )
+    }
     {/* Shorts は縦型のため 4:3 サムネイルを 9:16 枠で中央トリミングする */}
     <img
       src={thumbnailFallbackUrl(video.id)}

@@ -1,5 +1,5 @@
 ---
-import { formatDateJa } from "../lib/format";
+import { formatDateJa, isRecentlyPublished } from "../lib/format";
 import {
   formatDurationLabel,
   thumbnailFallbackUrl,
@@ -28,6 +28,7 @@ interface Props {
 const { video, position, total, eager = false, featured = false, viewCountLabel } = Astro.props;
 // RSS のみ(YOUTUBE_API_KEY 未設定)の環境では取得できず null になる(viewCount と同じ方針・#173)
 const durationLabel = formatDurationLabel(video.duration);
+const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
 ---
 
 <li
@@ -75,6 +76,13 @@ const durationLabel = formatDurationLabel(video.duration);
         video.isShort && (
           <span class="absolute top-2 left-2 rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
             Shorts
+          </span>
+        )
+      }
+      {
+        recentlyPublished && (
+          <span class="absolute top-2 right-2 rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
+            NEW
           </span>
         )
       }
