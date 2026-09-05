@@ -7,7 +7,8 @@
  * 設定されていても、Service Worker / PushManager / Notification API 未対応の
  * ブラウザではクライアント側で hidden のままにする(SiteHeader.astro に配置)。
  */
-const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undefined;
+const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as
+  string | undefined;
 ---
 
 {
@@ -50,7 +51,12 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
         <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
       </svg>
-      <span id="push-notification-status" class="sr-only" role="status" aria-live="polite"></span>
+      <span
+        id="push-notification-status"
+        class="sr-only"
+        role="status"
+        aria-live="polite"
+      />
     </button>
   )
 }
@@ -60,7 +66,9 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
 
   const SW_URL = "/sw.js";
 
-  const button = document.getElementById("push-notification-toggle") as HTMLButtonElement | null;
+  const button = document.getElementById(
+    "push-notification-toggle",
+  ) as HTMLButtonElement | null;
   const vapidPublicKey = button?.dataset.vapidPublicKey;
   const status = document.getElementById("push-notification-status");
 
@@ -68,16 +76,25 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
     if (status) status.textContent = message;
   }
   const supported =
-    "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    "serviceWorker" in navigator &&
+    "PushManager" in window &&
+    "Notification" in window;
 
   function applyState(subscribed: boolean): void {
     button?.setAttribute("aria-pressed", String(subscribed));
     button?.setAttribute(
       "aria-label",
-      subscribed ? "新着動画のプッシュ通知をオフにする" : "新着動画のプッシュ通知を受け取る",
+      subscribed
+        ? "新着動画のプッシュ通知をオフにする"
+        : "新着動画のプッシュ通知を受け取る",
     );
-    for (const icon of button?.querySelectorAll<SVGElement>("[data-push-icon]") ?? []) {
-      icon.classList.toggle("hidden", icon.dataset.pushIcon !== (subscribed ? "on" : "off"));
+    for (const icon of button?.querySelectorAll<SVGElement>(
+      "[data-push-icon]",
+    ) ?? []) {
+      icon.classList.toggle(
+        "hidden",
+        icon.dataset.pushIcon !== (subscribed ? "on" : "off"),
+      );
     }
   }
 
@@ -114,10 +131,14 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
 
         if (existing) {
           const endpoint = existing.endpoint;
-          const removedFromServer = await postJson("/api/push/unsubscribe", { endpoint });
+          const removedFromServer = await postJson("/api/push/unsubscribe", {
+            endpoint,
+          });
           if (!removedFromServer) {
             applyState(true);
-            setStatus("通知の解除に失敗しました。時間を置いてもう一度お試しください。");
+            setStatus(
+              "通知の解除に失敗しました。時間を置いてもう一度お試しください。",
+            );
             return;
           }
 
@@ -141,9 +162,14 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
 
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
+          applicationServerKey: urlBase64ToUint8Array(
+            vapidPublicKey,
+          ) as BufferSource,
         });
-        const saved = await postJson("/api/push/subscribe", subscription.toJSON());
+        const saved = await postJson(
+          "/api/push/subscribe",
+          subscription.toJSON(),
+        );
         if (!saved) {
           let rollbackSucceeded = false;
           try {
@@ -162,7 +188,9 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
         applyState(true);
         setStatus("新着動画の通知をオンにしました。");
       } catch (error) {
-        setStatus("通知設定の切り替えに失敗しました。時間を置いてもう一度お試しください。");
+        setStatus(
+          "通知設定の切り替えに失敗しました。時間を置いてもう一度お試しください。",
+        );
         console.warn("[push] 通知設定の切り替えに失敗しました:", error);
       } finally {
         button.disabled = false;
