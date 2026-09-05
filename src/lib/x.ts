@@ -1,4 +1,6 @@
 /** X(Twitter)ポスト 1 件分。src/data/x-posts.json で手動管理する */
+import { type Video, videoUrl } from "./youtube";
+
 export interface XPost {
   /** ポスト ID(status URL の末尾の数字) */
   id: string;
@@ -24,6 +26,29 @@ export function postUrl(account: string, postId: string): string {
 export function shareIntentUrl(text: string, url: string): string {
   const params = new URLSearchParams({ text, url });
   return `https://x.com/intent/tweet?${params.toString()}`;
+}
+
+/** 新着動画を手動投稿するための本文とX投稿インテントURLを生成する。 */
+export function buildVideoPostDraft(video: Pick<Video, "id" | "isShort" | "title">): {
+  text: string;
+  url: string;
+} {
+  const text = `🎬 新着動画: ${video.title}`;
+  return { text, url: shareIntentUrl(text, videoUrl(video)) };
+}
+
+/** ジョブサマリーに表示する新着動画のタイトルをHTMLとして安全に整形する。 */
+export function formatVideoPostDraftSummary(
+  video: Pick<Video, "id" | "isShort" | "title">,
+): string {
+  const escapedTitle = video.title
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/\r?\n/g, " ");
+  return `- <code>${escapedTitle}</code>: ${buildVideoPostDraft(video).url}`;
 }
 
 /**
