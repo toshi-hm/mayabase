@@ -50,6 +50,7 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
         <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
       </svg>
+      <span id="push-notification-status" class="sr-only" role="status" aria-live="polite" />
     </button>
   )
 }
@@ -61,6 +62,11 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
 
   const button = document.getElementById("push-notification-toggle") as HTMLButtonElement | null;
   const vapidPublicKey = button?.dataset.vapidPublicKey;
+  const status = document.getElementById("push-notification-status");
+
+  function setStatus(message: string): void {
+    if (status) status.textContent = message;
+  }
   const supported =
     "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 
@@ -75,16 +81,16 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
     }
   }
 
-  async function postJson(path: string, body: unknown): Promise<void> {
+  async function postJson(path: string, body: unknown): Promise<boolean> {
     try {
-      await fetch(path, {
+      const response = await fetch(path, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
+      return response.ok;
     } catch {
-      // 配信サーバーに未到達でも、ブラウザ側の購読/解除操作自体は完了しているため無視する
-      // (次回起動時にKV側の情報が古いままになるが、失効時はサーバー側で自動削除される)
+      return false;
     }
   }
 
@@ -108,9 +114,27 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
 
         if (existing) {
           const endpoint = existing.endpoint;
-          await existing.unsubscribe();
-          applyState(false);
-          await postJson("/api/push/unsubscribe", { endpoint });
+          const removedFromServer = await postJson("/api/push/unsubscribe", {
+            endpoint,
+          });
+          if (!removedFromServer) {
+            applyState(true);
+            setStatus("通知の解除に失敗しました。時間を置いてもう一度お試しください。");
+            return;
+          }
+
+          let unsubscribed = false;
+          try {
+            unsubscribed = await existing.unsubscribe();
+          } catch {
+            // ブラウザ側の購読解除に失敗した場合は状態をオンのままにして再試行できるようにする
+          }
+          applyState(!unsubscribed);
+          setStatus(
+            unsubscribed
+              ? "新着動画の通知をオフにしました。"
+              : "サーバーからは解除しましたが、ブラウザ側の解除に失敗しました。もう一度お試しください。",
+          );
           return;
         }
 
@@ -121,9 +145,26 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
         });
+        const saved = await postJson("/api/push/subscribe", subscription.toJSON());
+        if (!saved) {
+          let rollbackSucceeded = false;
+          try {
+            rollbackSucceeded = await subscription.unsubscribe();
+          } catch {
+            // ロールバックに失敗した場合は、実際の購読状態に合わせてオンのままにする
+          }
+          applyState(!rollbackSucceeded);
+          setStatus(
+            rollbackSucceeded
+              ? "通知の購読に失敗しました。時間を置いてもう一度お試しください。"
+              : "通知の保存と購読解除に失敗しました。ブラウザの通知設定を確認してください。",
+          );
+          return;
+        }
         applyState(true);
-        await postJson("/api/push/subscribe", subscription.toJSON());
+        setStatus("新着動画の通知をオンにしました。");
       } catch (error) {
+        setStatus("通知設定の切り替えに失敗しました。時間を置いてもう一度お試しください。");
         console.warn("[push] 通知設定の切り替えに失敗しました:", error);
       } finally {
         button.disabled = false;
