@@ -1,13 +1,27 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildWatchLaterPlaylistUrl,
   addWatchLaterId,
-  isWatchLaterAddBlockedByLimit,
   isWatchLaterSaved,
   parseStoredWatchLaterIds,
   removeWatchLaterId,
   toggleWatchLaterId,
   WATCH_LATER_MAX_ITEMS,
 } from "./watchLater";
+
+describe("buildWatchLaterPlaylistUrl", () => {
+  test("動画IDを保存順に一時プレイリストURLへ変換する", () => {
+    expect(buildWatchLaterPlaylistUrl(["abc123", "def456"])).toBe(
+      "https://www.youtube.com/watch_videos?video_ids=abc123,def456",
+    );
+  });
+
+  test("動画IDに含まれる文字をURLエンコードする", () => {
+    expect(buildWatchLaterPlaylistUrl(["a/b", "c d"])).toBe(
+      "https://www.youtube.com/watch_videos?video_ids=a%2Fb,c%20d",
+    );
+  });
+});
 
 describe("parseStoredWatchLaterIds", () => {
   test("未設定(null)は空配列", () => {
@@ -64,22 +78,6 @@ describe("addWatchLaterId", () => {
   });
 });
 
-describe("isWatchLaterAddBlockedByLimit", () => {
-  test("上限未満なら false", () => {
-    expect(isWatchLaterAddBlockedByLimit(["abc"], "def")).toBe(false);
-  });
-
-  test("上限に達していても、既に保存済みのID(削除方向)は false", () => {
-    const full = Array.from({ length: WATCH_LATER_MAX_ITEMS }, (_, i) => `id${i}`);
-    expect(isWatchLaterAddBlockedByLimit(full, "id0")).toBe(false);
-  });
-
-  test("上限に達していて未保存のIDを追加しようとすると true", () => {
-    const full = Array.from({ length: WATCH_LATER_MAX_ITEMS }, (_, i) => `id${i}`);
-    expect(isWatchLaterAddBlockedByLimit(full, "new-id")).toBe(true);
-  });
-});
-
 describe("removeWatchLaterId", () => {
   test("指定したIDを取り除く", () => {
     expect(removeWatchLaterId(["abc", "def"], "abc")).toEqual(["def"]);
@@ -105,3 +103,4 @@ describe("toggleWatchLaterId", () => {
     expect(toggleWatchLaterId(["abc", "def"], "abc")).toEqual(["def"]);
   });
 });
+
