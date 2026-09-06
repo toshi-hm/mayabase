@@ -285,9 +285,14 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               id="next-video-overlay"
               class="pointer-events-none absolute inset-0 z-10 hidden items-center justify-center bg-black/80 p-4"
             >
-              <div class="pointer-events-auto w-full max-w-xs rounded-xl bg-surface p-4 text-ink shadow-xl">
+              <div
+                role="region"
+                aria-label="次の動画"
+                class="pointer-events-auto w-full max-w-xs rounded-xl bg-surface p-4 text-ink shadow-xl"
+              >
                 <p class="text-xs text-ink-muted">次の動画</p>
                 <a
+                  id="next-video-link"
                   href={`/videos/${nextVideo.id}/`}
                   class="group/next mt-2 flex gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
@@ -539,11 +544,18 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   const chapterLinks = document.querySelectorAll<HTMLAnchorElement>("[data-chapter-seconds]");
   const nextVideoOverlay = document.getElementById("next-video-overlay");
   const nextVideoDismiss = document.getElementById("next-video-dismiss");
+  const nextVideoLink = document.getElementById("next-video-link");
 
   // IFrame Player API 経由で生成したプレイヤー(次の動画提示(#175)がある場合のみ生成)。
   // 生成済みの間はチャプター遷移もこの player 経由(seekTo)で行う。frame.src を直接
   // 書き換えるとプレイヤーとの postMessage 通信が切れ、再生終了検知が効かなくなるため(#279)。
   let player: YouTubePlayer | null = null;
+
+  // next-video-overlay が存在しない(= 提示できる次の動画が無い)場合は何もしない安全な no-op。
+  function hideNextVideo(): void {
+    nextVideoOverlay?.classList.add("hidden");
+    nextVideoOverlay?.classList.remove("flex");
+  }
 
   // チャプターリンクは通常のYouTube視聴URLへのリンク(JS無効環境・クローラー向けフォールバック)。
   // JS有効時はページ遷移せず、埋め込みプレイヤーのiframeを該当秒数から再生し直す(#154)
@@ -556,6 +568,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         // 「新しいタブで開く」動作を優先し、iframe差し替えは行わない
         if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
         event.preventDefault();
+        // 再生終了後に表示された「次の動画」オーバーレイが残ったままだと、チャプター再生で
+        // 裏側の動画が再開しても隠れて見えないため、再生し直す前に必ず閉じる(#366)
+        hideNextVideo();
         if (player) {
           player.seekTo(Number(seconds), true);
           player.playVideo();
@@ -578,12 +593,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     const showNextVideo = (): void => {
       nextVideoOverlay.classList.remove("hidden");
       nextVideoOverlay.classList.add("flex");
+      // スクリーンリーダー利用者にもオーバーレイの出現に気付けるよう、案内リンクへフォーカスを移す(#366)
+      nextVideoLink?.focus();
     };
 
-    nextVideoDismiss?.addEventListener("click", () => {
-      nextVideoOverlay.classList.add("hidden");
-      nextVideoOverlay.classList.remove("flex");
-    });
+    nextVideoDismiss?.addEventListener("click", hideNextVideo);
 
     window.onYouTubeIframeAPIReady = () => {
       const YT = window.YT;
