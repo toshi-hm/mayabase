@@ -49,6 +49,11 @@ interface Props {
 const { category, categoryVideos }: Props = Astro.props;
 const categoryLabel = CATEGORY_LABELS[category];
 
+// 再生回数ソートのトグル(#342)。RSS のみ(YOUTUBE_API_KEY 未設定)の環境では
+// 全動画の viewCount が null になるため、1 件も取得できていなければトグル自体を非表示にする
+// (videos.astro の hasViewCounts と同じフォールバック方針)
+const hasViewCounts = categoryVideos.some((video) => video.viewCount !== null);
+
 // 愛用ガジェットとの相互リンク(videos.astro と同じ #70)
 const { items: gearItems } = parseGearData(gearJson);
 const videoGearMap = buildVideoGearMap(gearItems);
@@ -193,6 +198,28 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           Shorts
         </button>
       </div>
+      {
+        hasViewCounts && (
+          <div role="group" aria-label="並び替え" class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-sort-order="newest"
+              aria-pressed="true"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              新しい順
+            </button>
+            <button
+              type="button"
+              data-sort-order="popular"
+              aria-pressed="false"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              人気順
+            </button>
+          </div>
+        )
+      }
       <div class="max-w-md">
         <label for="archive-search" class="mb-1 block text-sm text-ink-muted">キーワード検索</label>
         <input

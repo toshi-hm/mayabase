@@ -1,32 +1,38 @@
 ---
 /**
- * カテゴリ別ページ・シリーズページ向けの「動画の長さ」絞り込み・キーワード検索(#275)。
- * videos.astro のフィルタースクリプトから、カテゴリ絞り込み・並び替え・段階表示(<template>実体化)を
- * 除いた「長さ + キーワード」部分だけを共通化したもの。カテゴリ別ページはページ自体が既に1カテゴリに
+ * カテゴリ別ページ・シリーズページ向けの「動画の長さ」絞り込み・キーワード検索・人気順並び替え(#275, #342)。
+ * videos.astro のフィルタースクリプトから、カテゴリ絞り込み・段階表示(<template>実体化)を
+ * 除いた「長さ + キーワード + 並び替え」部分だけを共通化したもの。カテゴリ別ページはページ自体が既に1カテゴリに
  * 絞られており、シリーズページにもカテゴリ概念が無いため、カテゴリ絞り込みは対象外にしている。
  *
  * 各ページ側は以下のマークアップ規約に従うことを前提にする:
  * - `#archive-search`: キーワード検索の input[type=search]
  * - `[data-filter-length]`(値: all/video/short): 長さ絞り込みボタン
- * - `#archive-grid`: `<li data-length data-title>`(ArchiveCard.astro が既に付与)を並べたコンテナ
+ * - `#archive-grid`: `<li data-length data-title data-view-count>`(ArchiveCard.astro が既に付与)を並べたコンテナ
  * - `#archive-count`: 該当件数を表示する要素(aria-live 推奨)
  * - `#archive-empty`: 0件時に表示する要素(通常は hidden)
+ * - `[data-sort-order]`(値: newest/popular): 並び替えボタン。viewCount が1件も無い環境では
+ *   ページ側がそもそも描画しない(videos.astro の hasViewCounts と同じ方針)ため任意。
  */
 ---
 
 <script>
-  import { textMatchesKeyword } from "../lib/format";
+  import { parseViewCountAttr, textMatchesKeyword } from "../lib/format";
 
   const grid = document.getElementById("archive-grid");
   const search = document.getElementById("archive-search") as HTMLInputElement | null;
   const lengthButtons = document.querySelectorAll<HTMLButtonElement>("[data-filter-length]");
+  const sortButtons = document.querySelectorAll<HTMLButtonElement>("[data-sort-order]");
   const count = document.getElementById("archive-count");
   const empty = document.getElementById("archive-empty");
-  const cards = grid ? [...grid.querySelectorAll<HTMLLIElement>(":scope > li")] : [];
+  // 並び替え時に「新しい順」へ戻すための元の DOM 順(= 各ページのデータ降順)。
+  const originalOrder = grid ? [...grid.querySelectorAll<HTMLLIElement>(":scope > li")] : [];
+  let cards: HTMLLIElement[] = originalOrder;
 
   // このコントローラーを使うページが無い(該当マークアップが存在しない)場合は何もしない
   if (grid && cards.length > 0) {
     let length: "all" | "video" | "short" = "all";
+    let sortOrder: "newest" | "popular" = "newest";
     const validLengths = new Set(
       [...lengthButtons].map((button) => button.dataset.filterLength ?? "all"),
     );
@@ -37,6 +43,13 @@
           "aria-pressed",
           String((button.dataset.filterLength ?? "all") === nextLength),
         );
+      }
+    }
+
+    function setPressedSortOrder(nextOrder: "newest" | "popular"): void {
+      for (const button of sortButtons) {
+        const buttonOrder = button.dataset.sortOrder === "popular" ? "popular" : "newest";
+        button.setAttribute("aria-pressed", String(buttonOrder === nextOrder));
       }
     }
 
@@ -59,12 +72,29 @@
       if (empty) empty.hidden = matched > 0;
     }
 
-    // 長さ・検索キーワードをURLクエリパラメータ(length/q)へ反映する(videos.astro と同じ方針)。
+    // カードを DOM 上で並び替える(videos.astro の reorderGrid と同じ方針。
+    // appendChild は既存ノードの移動であり複製ではないため、イベントリスナー等はそのまま保たれる)
+    function reorderGrid(order: "newest" | "popular"): void {
+      const sorted =
+        order === "popular"
+          ? [...originalOrder].sort(
+              (a, b) =>
+                parseViewCountAttr(b.dataset.viewCount) - parseViewCountAttr(a.dataset.viewCount),
+            )
+          : originalOrder;
+      for (const card of sorted) {
+        grid?.appendChild(card);
+      }
+      cards = sorted;
+    }
+
+    // 長さ・検索キーワード・並び替えをURLクエリパラメータ(length/q/order)へ反映する(videos.astro と同じ方針)。
     function syncUrl(mode: "push" | "replace"): void {
       const params = new URLSearchParams();
       if (length !== "all") params.set("length", length);
       const query = (search?.value ?? "").trim();
       if (query) params.set("q", query);
+      if (sortOrder !== "newest") params.set("order", sortOrder);
       const queryString = params.toString();
       const newUrl = `${location.pathname}${queryString ? `?${queryString}` : ""}${location.hash}`;
       if (mode === "push") {
@@ -74,7 +104,8 @@
       }
     }
 
-    // クエリパラメータ(length / q)から絞り込み状態を復元する。不正な length はデフォルトへ戻す。
+    // クエリパラメータ(length / q / order)から絞り込み・並び替え状態を復元する。
+    // 不正な length / order はそれぞれデフォルトへ戻す。
     function restoreStateFromUrl(): void {
       const params = new URLSearchParams(location.search);
       const urlLength = params.get("length");
@@ -82,6 +113,13 @@
         urlLength && validLengths.has(urlLength) ? (urlLength as "all" | "video" | "short") : "all";
       setPressedLength(length);
       if (search) search.value = params.get("q") ?? "";
+
+      // 並び替えトグル自体が無い環境(viewCount 未取得)では order パラメータを無視する
+      if (sortButtons.length > 0) {
+        sortOrder = params.get("order") === "popular" ? "popular" : "newest";
+        setPressedSortOrder(sortOrder);
+        reorderGrid(sortOrder);
+      }
     }
 
     for (const button of lengthButtons) {
@@ -89,6 +127,16 @@
         const value = button.dataset.filterLength;
         length = value === "video" || value === "short" ? value : "all";
         setPressedLength(length);
+        applyFilter();
+        syncUrl("push");
+      });
+    }
+
+    for (const button of sortButtons) {
+      button.addEventListener("click", () => {
+        sortOrder = button.dataset.sortOrder === "popular" ? "popular" : "newest";
+        setPressedSortOrder(sortOrder);
+        reorderGrid(sortOrder);
         applyFilter();
         syncUrl("push");
       });

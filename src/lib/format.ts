@@ -21,6 +21,17 @@ export function isRecentlyPublished(publishedAt: string, now: Date): boolean {
   return age >= 0 && age <= sevenDays;
 }
 
+/**
+ * 「人気順」ソート用に、カード要素の `data-view-count` 属性値(文字列)を数値に変換する。
+ * 未取得(空文字・欠損)や不正な値は -1 とし、ソート時に最下位へ回す
+ * (videos.astro / ArchiveFilterController.astro で共通利用・#342)。
+ */
+export function parseViewCountAttr(raw: string | undefined): number {
+  if (!raw) return -1;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : -1;
+}
+
 /** 表示用に本文を切り詰める(コードポイント単位、超過時は「…」を付与) */
 export function truncate(text: string, maxLength: number): string {
   const chars = [...text];
