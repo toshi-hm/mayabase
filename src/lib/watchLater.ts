@@ -36,6 +36,20 @@ export function parseStoredWatchLaterIds(raw: string | null): string[] {
   }
 }
 
+/**
+ * 保存済み動画IDのうち、実際にページ上に存在する(= 削除等でなくなっていない)ものだけを、
+ * 保存順(`storedIds` の順序)のまま取り出す。
+ * `watch-later.astro` の一括再生プレイリスト導線で、表示中カードのDOM順(公開日時降順)ではなく
+ * ユーザーが保存した順を再生順として使うために用いる(#364)。
+ */
+export function orderSavedIdsByStorage(
+  storedIds: readonly string[],
+  availableIds: readonly string[],
+): string[] {
+  const available = new Set(availableIds);
+  return storedIds.filter((id) => available.has(id));
+}
+
 /** 指定した動画IDが保存済みか判定する */
 export function isWatchLaterSaved(ids: readonly string[], id: string): boolean {
   return ids.includes(id);

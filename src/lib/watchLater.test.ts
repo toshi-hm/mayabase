@@ -4,6 +4,7 @@ import {
   buildWatchLaterPlaylistUrl,
   isWatchLaterAddBlockedByLimit,
   isWatchLaterSaved,
+  orderSavedIdsByStorage,
   parseStoredWatchLaterIds,
   removeWatchLaterId,
   toggleWatchLaterId,
@@ -50,6 +51,20 @@ describe("parseStoredWatchLaterIds", () => {
     expect(parseStoredWatchLaterIds("123")).toEqual([]);
     expect(parseStoredWatchLaterIds('["abc",1]')).toEqual([]);
     expect(parseStoredWatchLaterIds('["abc",""]')).toEqual([]);
+  });
+});
+
+describe("orderSavedIdsByStorage", () => {
+  test("保存順(storedIds)を保ったまま、実在するIDのみ残す", () => {
+    expect(orderSavedIdsByStorage(["c", "a", "b"], ["a", "b", "c"])).toEqual(["c", "a", "b"]);
+  });
+
+  test("ページ上に存在しない(削除済み等の)IDは除外する", () => {
+    expect(orderSavedIdsByStorage(["a", "removed", "b"], ["a", "b"])).toEqual(["a", "b"]);
+  });
+
+  test("保存が0件なら空配列", () => {
+    expect(orderSavedIdsByStorage([], ["a", "b"])).toEqual([]);
   });
 });
 
