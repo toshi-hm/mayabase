@@ -71,6 +71,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
     <p
       id="watch-later-empty"
+      hidden
       class="mt-10 rounded-xl bg-surface-raised p-8 text-center text-ink-muted"
     >
       保存された動画はまだありません。動画カードの<span aria-hidden="true">🔖</span
@@ -128,6 +129,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 <script>
   import {
     buildWatchLaterPlaylistUrl,
+    orderSavedIdsByStorage,
     parseStoredWatchLaterIds,
     WATCH_LATER_PLAYLIST_MAX_ITEMS,
     WATCH_LATER_STORAGE_KEY,
@@ -154,18 +156,18 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   function render(): void {
     const storedIds = readStoredIds();
     const idSet = new Set(storedIds);
-    const visibleIds: string[] = [];
+    const cardIds: string[] = [];
     let visibleCount = 0;
     for (const card of cards) {
       const id = card.dataset.videoId;
       const saved = id ? idSet.has(id) : false;
       card.hidden = !saved;
-      if (saved) {
-        visibleCount += 1;
-        if (id) visibleIds.push(id);
-      }
+      if (saved) visibleCount += 1;
+      if (id) cardIds.push(id);
     }
     if (playlistLink) {
+      // 再生順はカードのDOM順(公開日時降順)ではなく、ユーザーが保存した順(storedIds)にする(#364)。
+      const visibleIds = orderSavedIdsByStorage(storedIds, cardIds);
       playlistLink.hidden = visibleIds.length < 2;
       playlistLink.href = buildWatchLaterPlaylistUrl(
         visibleIds.slice(0, WATCH_LATER_PLAYLIST_MAX_ITEMS),
