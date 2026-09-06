@@ -372,7 +372,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
 <script>
   // 絞り込み・検索 + 段階表示
-  import { textMatchesKeyword } from "../lib/format";
+  import { parseViewCountAttr, textMatchesKeyword } from "../lib/format";
 
   const grid = document.getElementById("videos-grid");
   // サーバー側(videos.astro のフロントマター)の値を data 属性経由で受け取り、二重定義を避ける
@@ -628,10 +628,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // レンダリングされない(videos.astro のフロントマター参照)ため sortButtons は空になる。
   // data-view-count は <template> にも付与済みのため、未実体化のままでも並び替えキーとして使える。
   function getViewCount(card: CardSlot): number {
-    const raw = card.dataset.viewCount;
-    if (!raw) return -1; // 未取得の動画は「人気順」で最下位に回す
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) ? parsed : -1;
+    return parseViewCountAttr(card.dataset.viewCount);
   }
 
   // カードを DOM 上で並び替える(appendChild は既存ノードの移動であり、複製ではないため、

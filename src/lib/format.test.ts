@@ -5,6 +5,7 @@ import {
   formatViewCount,
   isRecentlyPublished,
   linkifyText,
+  parseViewCountAttr,
   textMatchesKeyword,
   truncate,
 } from "./format";
@@ -21,6 +22,19 @@ describe("formatDateJa", () => {
 
   test("不正な日時は空文字", () => {
     expect(formatDateJa("invalid")).toBe("");
+  });
+});
+
+describe("parseViewCountAttr", () => {
+  test("数値文字列はそのまま数値に変換する", () => {
+    expect(parseViewCountAttr("12345")).toBe(12345);
+    expect(parseViewCountAttr("0")).toBe(0);
+  });
+
+  test("空文字・未指定・不正な値は -1(最下位扱い)", () => {
+    expect(parseViewCountAttr("")).toBe(-1);
+    expect(parseViewCountAttr(undefined)).toBe(-1);
+    expect(parseViewCountAttr("not-a-number")).toBe(-1);
   });
 });
 
