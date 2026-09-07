@@ -116,4 +116,30 @@ describe("fetch", () => {
     expect(response.status).toBe(400);
     expect(kv.store.size).toBe(0);
   });
+
+  test("KV書き込みが例外を投げた場合は502(未処理例外による非JSON応答にしない、#359)", async () => {
+    const kv = createKv();
+    kv.put = async () => {
+      throw new Error("KV put failed");
+    };
+    const response = await worker.fetch(postJson("/api/push/subscribe", validSubscription), {
+      ASSETS: assets,
+      PUSH_SUBSCRIPTIONS: kv,
+    });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "push subscription storage operation failed" });
+  });
+
+  test("KV削除が例外を投げた場合は502(#359)", async () => {
+    const kv = createKv();
+    kv.delete = async () => {
+      throw new Error("KV delete failed");
+    };
+    const response = await worker.fetch(
+      postJson("/api/push/unsubscribe", { endpoint: validSubscription.endpoint }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "push subscription storage operation failed" });
+  });
 });

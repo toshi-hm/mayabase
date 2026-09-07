@@ -32,6 +32,17 @@ import type { FetchLike, Video } from "../src/lib/youtube";
 
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 const KV_LIST_LIMIT = 1000;
+const FETCH_TIMEOUT_MS = 15_000;
+
+/**
+ * Cloudflare API呼び出しにタイムアウトを設定する(#361)。
+ * `fetch-videos.ts` / `check-links.ts` と同じ「外部API呼び出しには必ずタイムアウトを設定する」
+ * という方針に合わせている。未設定の場合、Cloudflare API が応答しない/遅延した際にこの処理が
+ * 長時間ハングしうる。
+ */
+async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+}
 
 /**
  * scripts/fetch-videos.ts が新着動画一覧を書き出す一時ファイル(#323)。
@@ -134,7 +145,7 @@ async function deleteSubscription(
  */
 export async function sendNewVideoNotifications(
   newlyPublished: readonly Video[],
-  fetchFn: FetchLike = fetch,
+  fetchFn: FetchLike = fetchWithTimeout,
 ): Promise<void> {
   if (newlyPublished.length === 0) return;
 

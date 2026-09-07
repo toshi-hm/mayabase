@@ -10,6 +10,7 @@ import {
   type LinkProbeResult,
   type LinkTarget,
   probeLink,
+  shouldRetryLinkProbe,
 } from "./check-links";
 
 const gear: GearData = {
@@ -158,6 +159,24 @@ describe("probeLink", () => {
       status: null,
       error: "network error",
     });
+  });
+});
+
+describe("shouldRetryLinkProbe", () => {
+  test("ok=true はリトライしない", () => {
+    expect(shouldRetryLinkProbe({ ok: true, status: 200, error: null })).toBe(false);
+  });
+
+  test("ネットワークエラー(error !== null)はリトライする", () => {
+    expect(shouldRetryLinkProbe({ ok: false, status: null, error: "network error" })).toBe(true);
+  });
+
+  test.each([403, 503])("HTTP %d はBot対策の可能性があるためリトライする(#362)", (status) => {
+    expect(shouldRetryLinkProbe({ ok: false, status, error: null })).toBe(true);
+  });
+
+  test.each([404, 410, 500])("HTTP %d(明確なリンク切れ)はリトライしない", (status) => {
+    expect(shouldRetryLinkProbe({ ok: false, status, error: null })).toBe(false);
   });
 });
 

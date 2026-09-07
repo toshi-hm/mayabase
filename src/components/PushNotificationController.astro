@@ -139,7 +139,17 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
         }
 
         const permission = await Notification.requestPermission();
-        if (permission !== "granted") return;
+        if (permission !== "granted") {
+          // ブラウザの通知設定で既にブロック済みの場合、2回目以降のクリックではブラウザが
+          // ダイアログを出さず即座に "denied" を返すため、ボタンを押しても画面上は何も
+          // 起きていないように見えてしまう。他の分岐と同様に必ずフィードバックを返す(#372)。
+          setStatus(
+            permission === "denied"
+              ? "通知が許可されませんでした。ブラウザの設定から通知を許可してください。"
+              : "通知の許可を確認できませんでした。もう一度お試しください。",
+          );
+          return;
+        }
 
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,

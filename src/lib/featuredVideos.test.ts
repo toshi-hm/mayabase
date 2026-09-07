@@ -37,6 +37,14 @@ describe("parseFeaturedVideosData", () => {
     expect(() => parseFeaturedVideosData({ featuredVideoIds: ["a", 1] })).toThrow();
   });
 
+  test("featuredVideoIds に空文字が含まれればエラー", () => {
+    expect(() => parseFeaturedVideosData({ featuredVideoIds: ["a", ""] })).toThrow();
+  });
+
+  test("featuredVideoIds に重複した動画IDが含まれればエラー(#363)", () => {
+    expect(() => parseFeaturedVideosData({ featuredVideoIds: ["a", "b", "a"] })).toThrow("重複");
+  });
+
   test("コミット済みの featured-videos.json が妥当な形式である", () => {
     const data = parseFeaturedVideosData(featuredVideosJson);
     expect(Array.isArray(data.featuredVideoIds)).toBe(true);

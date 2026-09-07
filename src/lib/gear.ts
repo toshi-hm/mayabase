@@ -70,11 +70,18 @@ export function parseGearData(data: unknown): GearData {
   if (!Array.isArray(items)) {
     throw new Error("gear.json: items は配列である必要があります");
   }
+  const seenNames = new Set<string>();
   const parsed: GearItem[] = items.map((raw, i) => {
     const item = raw as Partial<Record<keyof GearItem, unknown>>;
     if (typeof item.name !== "string" || item.name.length === 0) {
       throw new Error(`gear.json: items[${i}].name が不正です`);
     }
+    // resolveGlossaryGear(glossary.ts) が name をキーに引くため、同名の項目が複数あると
+    // 後勝ちで片方の情報がサイレントに失われる(#363)。ビルド時に検知して throw する。
+    if (seenNames.has(item.name)) {
+      throw new Error(`gear.json: items[${i}].name "${item.name}" が重複しています`);
+    }
+    seenNames.add(item.name);
     if (typeof item.brand !== "string" || item.brand.length === 0) {
       throw new Error(`gear.json: items[${i}].brand が不正です`);
     }
@@ -102,6 +109,9 @@ export function parseGearData(data: unknown): GearData {
         item.videoIds.some((id) => typeof id !== "string" || id.length === 0))
     ) {
       throw new Error(`gear.json: items[${i}].videoIds は文字列の配列である必要があります`);
+    }
+    if (Array.isArray(item.videoIds) && new Set(item.videoIds).size !== item.videoIds.length) {
+      throw new Error(`gear.json: items[${i}].videoIds に重複した動画IDがあります`);
     }
     return {
       name: item.name,

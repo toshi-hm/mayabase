@@ -6,11 +6,15 @@
         "/index.html",
         "/videos/index.html",
         "/videos/category/gadget/index.html",
+        "/videos/series/index.html",
         "/videos/series/futatsu-no-waraji/index.html",
         "/videos/tYlBBW3kkfQ/index.html",
         "/videos/q-Fnd4vQoHc/index.html",
         "/gear/index.html",
+        "/glossary/index.html",
         "/faq/index.html",
+        "/topics/index.html",
+        "/watch-later/index.html",
         "/404.html"
       ],
       "numberOfRuns": 5,
@@ -21,7 +25,7 @@
     "assert": {
       "assertMatrix": [
         {
-          "matchingUrlPattern": "^(?!.*/404\\.html$).*$",
+          "matchingUrlPattern": "^(?!.*/404\\.html$)(?!.*/watch-later/).*$",
           "assertions": {
             "categories:performance": ["error", { "minScore": 0.75 }],
             "categories:accessibility": ["error", { "minScore": 0.95 }],
@@ -30,7 +34,7 @@
           }
         },
         {
-          "matchingUrlPattern": ".*/404\\.html$",
+          "matchingUrlPattern": "(.*/404\\.html$)|(.*/watch-later/.*)",
           "assertions": {
             "categories:performance": ["error", { "minScore": 0.75 }],
             "categories:accessibility": ["error", { "minScore": 0.95 }],
