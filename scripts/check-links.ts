@@ -26,6 +26,12 @@ const GEAR_JSON_PATH = fileURLToPath(new URL("../src/data/gear.json", import.met
 const FAQ_JSON_PATH = fileURLToPath(new URL("../src/data/faq.json", import.meta.url));
 const CHECK_CONCURRENCY = 4;
 const FETCH_TIMEOUT_MS = 15_000;
+/**
+ * Amazon等のECサイトが自動化されたリクエストに対してBot対策として一時的に返しうる
+ * ステータスコード(#362)。これらは実際にはリンク切れでない可能性が高いため、通常の
+ * 非2xx(404等)とは異なりリトライ対象に含める。
+ */
+const BOT_PROTECTION_STATUSES = new Set([403, 503]);
 
 /** チェック対象のリンク 1 件。同一 URL が複数箇所から参照される場合は sources にまとめる */
 export interface LinkTarget {
@@ -165,6 +171,19 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
   return fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
 }
 
+/**
+ * probeLink の結果に対し、1回だけリトライすべきかを判定する(純粋関数・#362)。
+ * - ネットワークエラー・タイムアウト(error !== null)は一時的な問題の可能性があるためリトライする。
+ * - 403(Forbidden)/503(Service Unavailable)も、Amazon等のECサイトが自動化されたリクエストに
+ *   対してBot対策として一時的に返すことが知られているステータスのためリトライ対象に含める。
+ * - それ以外の非2xx(404等の明確なリンク切れ)はリトライしない。
+ */
+export function shouldRetryLinkProbe(result: LinkProbeResult): boolean {
+  if (result.ok) return false;
+  if (result.error !== null) return true;
+  return result.status !== null && BOT_PROTECTION_STATUSES.has(result.status);
+}
+
 async function writeGitHubOutput(report: LinkCheckReport): Promise<void> {
   const outputPath = process.env.GITHUB_OUTPUT;
   if (!outputPath) {
@@ -193,10 +212,7 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
 
   const results = await mapWithConcurrency(targets, CHECK_CONCURRENCY, async (target) => {
     let result = await probeLink(target.url, fetchFn);
-    // レスポンス自体は受け取れたが非 2xx(=明確なリンク切れ)の場合はリトライしない。
-    // ネットワークエラー・タイムアウト(error !== null)のみ一時的な問題の可能性があるため
-    // 300ms 後に 1 回だけリトライする(fetch-videos.ts の probeShorts 等と同じパターン)。
-    if (!result.ok && result.error !== null) {
+    if (shouldRetryLinkProbe(result)) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       result = await probeLink(target.url, fetchFn);
     }
