@@ -77,6 +77,21 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       保存された動画はまだありません。動画カードの<span aria-hidden="true">🔖</span
       >ボタンから追加できます(この一覧の表示にはJavaScriptが必要です)。
     </p>
+    {
+      /* 全カードは初期状態で hidden 属性付きで埋め込まれ、保存済みIDとの突き合わせ(render())は
+      クライアントスクリプトでしか行われない。JavaScript無効環境では上記の #watch-later-empty も
+      hidden のままのため、これまでは何も表示されず利用者に状況が伝わらなかった(#371)。
+      videos.astro の <noscript> フォールバック(#177)と同じ方針で、JavaScript無効時にのみ
+      案内文を表示する。 */
+    }
+    <noscript>
+      <p class="mt-10 rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
+        「あとで見る」に保存した動画を表示するにはJavaScriptを有効にしてください。動画は<a
+          href="/videos/"
+          class="text-brand-accent underline-offset-4 hover:underline">動画ライブラリ</a
+        >からも探せます。
+      </p>
+    </noscript>
 
     <h2 class="sr-only">保存した動画一覧</h2>
     <ul id="watch-later-grid" role="list" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
