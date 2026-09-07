@@ -66,6 +66,14 @@ function storageUnavailableResponse(): Response {
   return jsonResponse({ error: "push subscription storage is not configured" }, 503);
 }
 
+/**
+ * KV操作(put/delete)自体が失敗した場合(一時的なKV障害・値サイズ超過等)に、
+ * 未処理例外による(非JSONの)汎用エラーページ応答を避け、意図の伝わる 502 JSONを返す(#359)。
+ */
+function storageOperationFailedResponse(): Response {
+  return jsonResponse({ error: "push subscription storage operation failed" }, 502);
+}
+
 async function handleSubscribe(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
@@ -81,7 +89,11 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
     subscribedAt: new Date().toISOString(),
   };
   const key = await subscriptionKey(payload.endpoint);
-  await kv.put(key, JSON.stringify(record));
+  try {
+    await kv.put(key, JSON.stringify(record));
+  } catch {
+    return storageOperationFailedResponse();
+  }
   return jsonResponse({ ok: true }, 201);
 }
 
@@ -99,7 +111,11 @@ async function handleUnsubscribe(request: Request, env: Env): Promise<Response> 
   }
 
   const key = await subscriptionKey(endpoint);
-  await kv.delete(key);
+  try {
+    await kv.delete(key);
+  } catch {
+    return storageOperationFailedResponse();
+  }
   return jsonResponse({ ok: true });
 }
 
