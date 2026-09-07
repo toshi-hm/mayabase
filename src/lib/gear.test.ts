@@ -58,6 +58,18 @@ describe("parseGearData", () => {
     expect(() => parseGearData({ items: [{ ...validItem, videoIds: [1] }] })).toThrow("videoIds");
   });
 
+  test("同じ videoIds が1項目内で重複していれば throw する(#363)", () => {
+    expect(() =>
+      parseGearData({ items: [{ ...validItem, videoIds: ["abc123", "abc123"] }] }),
+    ).toThrow("重複");
+  });
+
+  test("name が複数項目間で重複していれば throw する(#363)", () => {
+    expect(() =>
+      parseGearData({ items: [validItem, { ...validItem, brand: "別ブランド" }] }),
+    ).toThrow("重複");
+  });
+
   test("オブジェクトでなければ throw する", () => {
     expect(() => parseGearData(null)).toThrow("オブジェクトではありません");
     expect(() => parseGearData([])).toThrow("items は配列");

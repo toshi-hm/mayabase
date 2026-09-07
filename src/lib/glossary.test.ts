@@ -60,6 +60,18 @@ describe("parseGlossaryData", () => {
     );
   });
 
+  test("同じ relatedVideoIds が1項目内で重複していれば throw する(#363)", () => {
+    expect(() =>
+      parseGlossaryData({ items: [{ ...validItem, relatedVideoIds: ["abc123", "abc123"] }] }),
+    ).toThrow("重複");
+  });
+
+  test("同じ relatedGearNames が1項目内で重複していれば throw する(#363)", () => {
+    expect(() =>
+      parseGlossaryData({ items: [{ ...validItem, relatedGearNames: ["HHKB", "HHKB"] }] }),
+    ).toThrow("重複");
+  });
+
   test("オブジェクトでなければ throw する", () => {
     expect(() => parseGlossaryData(null)).toThrow("オブジェクトではありません");
     expect(() => parseGlossaryData({})).toThrow("items は配列");

@@ -15,8 +15,16 @@ export function parseFeaturedVideosData(data: unknown): FeaturedVideosData {
     throw new Error("featured-videos.json: オブジェクトではありません");
   }
   const { featuredVideoIds } = data as { featuredVideoIds?: unknown };
-  if (!Array.isArray(featuredVideoIds) || featuredVideoIds.some((id) => typeof id !== "string")) {
+  if (
+    !Array.isArray(featuredVideoIds) ||
+    featuredVideoIds.some((id) => typeof id !== "string" || id.length === 0)
+  ) {
     throw new Error("featured-videos.json: featuredVideoIds は文字列配列である必要があります");
+  }
+  // 同じ動画IDが重複していると、トップページ等の「注目動画」枠に同じ動画カードが
+  // 2枚重複して表示されてしまう(#363)。ビルド時に検知して throw する。
+  if (new Set(featuredVideoIds).size !== featuredVideoIds.length) {
+    throw new Error("featured-videos.json: featuredVideoIds に重複した動画IDがあります");
   }
   return { featuredVideoIds };
 }

@@ -60,6 +60,12 @@ export function parseGlossaryData(data: unknown): GlossaryData {
       );
     }
     if (
+      Array.isArray(item.relatedVideoIds) &&
+      new Set(item.relatedVideoIds).size !== item.relatedVideoIds.length
+    ) {
+      throw new Error(`glossary.json: items[${i}].relatedVideoIds に重複した動画IDがあります`);
+    }
+    if (
       item.relatedGearNames !== undefined &&
       (!Array.isArray(item.relatedGearNames) ||
         item.relatedGearNames.some((name) => typeof name !== "string" || name.length === 0))
@@ -67,6 +73,12 @@ export function parseGlossaryData(data: unknown): GlossaryData {
       throw new Error(
         `glossary.json: items[${i}].relatedGearNames は文字列の配列である必要があります`,
       );
+    }
+    if (
+      Array.isArray(item.relatedGearNames) &&
+      new Set(item.relatedGearNames).size !== item.relatedGearNames.length
+    ) {
+      throw new Error(`glossary.json: items[${i}].relatedGearNames に重複した名称があります`);
     }
     return {
       term: item.term,
