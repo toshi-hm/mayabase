@@ -1,20 +1,24 @@
 ---
 import Breadcrumb from "../components/Breadcrumb.astro";
-import PreviewButton from "../components/PreviewButton.astro";
-import ShareButton from "../components/ShareButton.astro";
 import SubscribeMilestoneNote from "../components/SubscribeMilestoneNote.astro";
-import WatchLaterButton from "../components/WatchLaterButton.astro";
+import TopicListItem from "../components/TopicListItem.astro";
 import { site } from "../config/site";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
-import { formatChapterTime } from "../lib/chapters";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
 import { buildTopicsIndex } from "../lib/topics";
-import { parseVideosData, thumbnailFallbackUrl, videoUrlAtTime } from "../lib/youtube";
+import { parseVideosData, videoUrlAtTime } from "../lib/youtube";
 
 const { videos } = parseVideosData(videosJson);
 // 全動画の概要欄からチャプター(目次)を集約し、横断検索できるようにする(#280)。
 const topics = buildTopicsIndex(videos);
+
+// INITIAL_COUNT 件を超える分は、通常の <li> ではなく <template> の中身として描画する
+// (videos.astro の同種対策・#177 と同じ方針、#373)。実データで動画数(97本)を大きく
+// 上回る409件のチャプターが存在し、無条件に全展開すると DOM サイズが肥大化するため。
+const INITIAL_COUNT = 40;
+const eagerTopics = topics.slice(0, INITIAL_COUNT);
+const deferredTopics = topics.slice(INITIAL_COUNT);
 
 const pageTitle = `チャプター検索 | ${site.name}`;
 const pageDescription = `${site.name} の動画に付けたチャプター(目次)をキーワードで横断検索できます。気になる話題がどの動画のどの場面で語られているか探して、その場面から直接再生できます。`;
@@ -78,82 +82,62 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </p>
     </section>
 
-    <ol role="list" class="mt-8 flex flex-col divide-y divide-line rounded-xl border border-line">
+    <ol
+      id="topics-list"
+      data-initial-count={INITIAL_COUNT}
+      role="list"
+      class="mt-8 flex flex-col divide-y divide-line rounded-xl border border-line"
+    >
+      {eagerTopics.map((topic) => <TopicListItem topic={topic} />)}
       {
-        topics.map((topic) => {
-          const watchUrl = videoUrlAtTime(
-            { id: topic.videoId, isShort: topic.isShort },
-            topic.seconds,
-          );
-          return (
-            <li
-              data-topic-item
-              data-label={topic.label.toLowerCase()}
-              data-video-title={topic.videoTitle.toLowerCase()}
-              class="flex items-center gap-4 px-4 py-3"
-            >
-              {/* サムネイルには他の一覧ページ(VideoCard 等)と同じくプレビュー再生
-                (PreviewButton)を重ねて配置する(#328)。ただしこの一覧の
-                サムネイルは w-24 と小さく、シェア・あとで見るまで同じ重ね配置
-                (absolute)で載せるとボタン同士が視覚的・操作的に衝突するため、
-                その2つは行内の通常配置(variant="inline")として離して置く。
-                サムネイル自体の <a> はキーボード操作・JS 無効環境からは冗長なため
-                aria-hidden + tabindex="-1" にし、直後のテキスト <a> を実際の
-                視聴リンクとして残す(同じ URL への重複リンクを読み上げさせないため)。 */}
-              <div class="relative w-24 shrink-0">
-                <a
-                  href={watchUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  tabindex="-1"
-                  aria-hidden="true"
-                  class="block"
-                >
-                  <img
-                    src={thumbnailFallbackUrl(topic.videoId)}
-                    alt=""
-                    width="120"
-                    height="68"
-                    loading="lazy"
-                    decoding="async"
-                    class="aspect-video w-24 rounded-lg object-cover"
-                  />
-                </a>
-                <PreviewButton
-                  videoId={topic.videoId}
-                  title={topic.videoTitle}
-                  aspect="video"
-                  startSeconds={topic.seconds}
-                />
-              </div>
-              <a
-                href={watchUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="flex min-w-0 flex-1 items-center gap-4 rounded-lg transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
-              >
-                <span class="min-w-0 flex-1">
-                  <span class="line-clamp-1 font-semibold">{topic.label}</span>
-                  <span class="line-clamp-1 text-sm text-ink-muted">{topic.videoTitle}</span>
-                </span>
-                <span class="w-16 shrink-0 text-right font-mono text-sm text-ink-muted tabular-nums">
-                  {formatChapterTime(topic.seconds)}
-                </span>
-                <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
-              </a>
-              <div class="flex shrink-0 items-center gap-1">
-                <ShareButton title={topic.videoTitle} url={watchUrl} variant="inline" />
-                <WatchLaterButton
-                  videoId={topic.videoId}
-                  title={topic.videoTitle}
-                  variant="inline"
-                />
-              </div>
-            </li>
-          );
-        })
+        /* INITIAL_COUNT 超過分は <template> に格納する(上記コメント参照)。data-* は実体化前の
+        絞り込み判定用に <template> 自身にも複製しておく(TopicListItem 側の <li> にも
+        同じ data-* が付くが、それは実体化されるまで DOM ツリーに現れない)。 */
+      }
+      {
+        deferredTopics.map((topic) => (
+          <template
+            data-topic-slot
+            data-label={topic.label.toLowerCase()}
+            data-video-title={topic.videoTitle.toLowerCase()}
+          >
+            <TopicListItem topic={topic} />
+          </template>
+        ))
       }
     </ol>
+    {
+      /* JS 無効時は上記 <template> の中身が展開されず、絞り込みスクリプトも動かないため、
+      INITIAL_COUNT 超過分のチャプターへたどり着けなくなる。その場合に備え、画像・ボタンを含まない
+      最小限のリンク一覧をフォールバックとして用意する(videos.astro の <noscript> フォールバックと
+      同じ方針、#373)。 */
+    }
+    {
+      deferredTopics.length > 0 && (
+        <noscript>
+          <p class="mt-6 text-sm text-ink-muted">
+            {INITIAL_COUNT} 件目以降のチャプター(JavaScript 無効時の一覧)
+          </p>
+          <ul class="mt-2 flex flex-col gap-2">
+            {deferredTopics.map((topic) => (
+              <li>
+                <a
+                  href={videoUrlAtTime(
+                    { id: topic.videoId, isShort: topic.isShort },
+                    topic.seconds,
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-brand-accent underline-offset-4 hover:underline"
+                >
+                  {topic.label}({topic.videoTitle})
+                </a>
+              </li>
+            ))}
+          </ul>
+        </noscript>
+      )
+    }
     <p
       id="topics-empty"
       hidden
@@ -161,6 +145,20 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     >
       条件に一致するチャプターが見つかりませんでした。キーワードを変えてお試しください。
     </p>
+    {
+      /* 「もっと見る」ボタン。JS 有効時のみスクリプトが必要に応じて表示する。
+      一度押すと以降は全件表示のまま(このボタンは二度と表示されない、videos.astro と同方針)。 */
+    }
+    <div class="mt-6 text-center">
+      <button
+        id="topics-more"
+        type="button"
+        hidden
+        class="cursor-pointer rounded-full border border-ink-muted px-8 py-3 font-semibold transition hover:border-ink hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        もっと見る
+      </button>
+    </div>
 
     <section aria-labelledby="topics-cta-heading" class="pt-16">
       <div class="rounded-2xl bg-surface-raised p-8 text-center">
@@ -194,26 +192,94 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // キーワード検索。JS 無効時は全件表示のまま(絞り込み UI のみ機能しない)
   import { topicTextMatches } from "../lib/topics";
 
+  const list = document.getElementById("topics-list");
+  // サーバー側(topics.astro のフロントマター)の値を data 属性経由で受け取り、二重定義を避ける
+  // (videos.astro の INITIAL_COUNT 受け渡しと同方針・#373)。
+  const INITIAL_COUNT = Number(list?.dataset.initialCount) || 40;
   const search = document.getElementById("topics-search") as HTMLInputElement | null;
-  const items = document.querySelectorAll<HTMLElement>("[data-topic-item]");
   const count = document.getElementById("topics-count");
   const empty = document.getElementById("topics-empty");
+  const moreButton = document.getElementById("topics-more") as HTMLButtonElement | null;
+
+  // INITIAL_COUNT 超過分は <li> ではなく <template data-topic-slot> として描画されている(#373)。
+  // <template> の中身はメインドキュメントの DOM ツリーに含まれないため、表示が必要になるまでは
+  // Lighthouse の DOM サイズ計測やレイアウトの対象にならない。「表示が必要」と判定された時点で
+  // materialize() が template.content を複製して実際の <li> に差し替える(videos.astro と同方針)。
+  type ItemSlot = HTMLLIElement | HTMLTemplateElement;
+  const items: ItemSlot[] = [
+    ...document.querySelectorAll<ItemSlot>(
+      "#topics-list > li, #topics-list > template[data-topic-slot]",
+    ),
+  ];
+  // 一度展開したら以降は全件表示のまま(ボタンは二度と出さない、videos.astro と同方針)
+  let expanded = false;
+
+  function materialize(slot: ItemSlot): HTMLLIElement {
+    if (!(slot instanceof HTMLTemplateElement)) return slot;
+    const li = slot.content.firstElementChild?.cloneNode(true) as HTMLLIElement;
+    slot.replaceWith(li);
+    const index = items.indexOf(slot);
+    if (index !== -1) items[index] = li;
+    document.dispatchEvent(new CustomEvent("mayabase:card-materialized", { detail: { root: li } }));
+    return li;
+  }
+
+  // item は未実体化の <template> の場合もあるため、判定は data-* のみで行う
+  // (data-* は topics.astro 側で <li> と <template> の両方に同じ値を付与している)。
+  function itemMatches(item: ItemSlot, query: string): boolean {
+    return topicTextMatches(item.dataset.label ?? "", item.dataset.videoTitle ?? "", query);
+  }
 
   function applyFilter(): void {
     const query = (search?.value ?? "").trim().toLowerCase();
-    let matched = 0;
-    for (const item of items) {
-      const isMatch = topicTextMatches(
-        item.dataset.label ?? "",
-        item.dataset.videoTitle ?? "",
-        query,
-      );
-      item.hidden = !isMatch;
-      if (isMatch) matched += 1;
+    let matched = 0; // 条件に一致する総数
+    let shown = 0; // 実際に表示している数(未展開時は INITIAL_COUNT で頭打ち)
+    for (let i = 0; i < items.length; i++) {
+      const slot = items[i];
+      if (itemMatches(slot, query)) {
+        matched += 1;
+        const withinLimit = expanded || matched <= INITIAL_COUNT;
+        if (withinLimit) {
+          // 表示が必要になった時点で初めて実体化する。まだ一致していない項目は
+          // template のままにしておくことで、通常時の DOM サイズを抑える。
+          const li = materialize(slot);
+          items[i] = li;
+          li.hidden = false;
+          shown += 1;
+        } else if (slot instanceof HTMLLIElement) {
+          slot.hidden = true;
+        }
+      } else if (slot instanceof HTMLLIElement) {
+        slot.hidden = true;
+      }
     }
     if (count) count.textContent = `${matched} 件`;
     if (empty) empty.hidden = matched > 0;
+
+    const remaining = matched - shown;
+    if (moreButton) {
+      if (!expanded && remaining > 0) {
+        moreButton.hidden = false;
+        moreButton.textContent = `もっと見る(残り ${remaining} 件)`;
+      } else {
+        moreButton.hidden = true;
+      }
+    }
   }
+
+  moreButton?.addEventListener("click", () => {
+    // 展開直前に「これから現れる最初の項目」の位置を控えておき、展開後にフォーカスを移す
+    // (videos.astro の「もっと見る」ボタンと同方針)。
+    const query = (search?.value ?? "").trim().toLowerCase();
+    const firstRevealedIndex = items.findIndex((item) => {
+      const isHidden = item instanceof HTMLTemplateElement || item.hidden;
+      return isHidden && itemMatches(item, query);
+    });
+    expanded = true;
+    applyFilter();
+    const revealed = firstRevealedIndex !== -1 ? items[firstRevealedIndex] : undefined;
+    if (revealed instanceof HTMLLIElement) revealed.querySelector("a")?.focus();
+  });
 
   // 検索キーワードを URL クエリパラメータ(q)へ反映する(videos.astro / faq.astro / glossary.astro と同じ方針)。
   // 検索結果を直接共有・ブックマークできるようにする。空検索時はパラメータごと省略する。
@@ -230,12 +296,18 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     }
   }
 
-  // URL のクエリパラメータ(q)から検索状態を復元する
+  // URL のクエリパラメータ(q)から検索状態を復元する。
+  // expanded(「もっと見る」展開状態)はURLに含めていないため、popstate 時は常に未展開に戻す
+  // (でないと戻る操作後も検索前の全件展開表示が残ってしまう。videos.astro と同方針)。
   function restoreStateFromUrl(): void {
+    expanded = false;
     if (search) search.value = new URLSearchParams(location.search).get("q") ?? "";
   }
 
   search?.addEventListener("input", () => {
+    // 独立した絞り込み状態への切り替えとみなし、展開状態をリセットする(#273 と同方針)。
+    // でないと展開済みのまま新しい検索に切り替わった際、新条件での頭打ち判定が効かなくなる。
+    expanded = false;
     applyFilter();
     // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
     syncUrl("replace");
