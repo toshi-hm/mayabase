@@ -96,7 +96,7 @@ const milestoneRemainingText =
     ? formatSubscriberCount(nextSubscriberMilestone(subscriberCount) - subscriberCount)
     : null;
 // リアルタイム取得ではないため、取得日時を併記する
-const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt) : null;
+const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt, new Date()) : null;
 
 // 登録者数の成長トレンド(スパークライン、#249)。history は日次cronで蓄積されるため、
 // 運用開始直後は1件しか無く折れ線を描けない(2件未満は null)。その間は静かに非表示にする。

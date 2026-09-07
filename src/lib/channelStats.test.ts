@@ -149,16 +149,29 @@ describe("nextSubscriberMilestone", () => {
 });
 
 describe("formatFetchedAt", () => {
-  test("JST の「M/D H:mm時点」形式に整形する", () => {
-    expect(formatFetchedAt("2026-08-01T09:00:00Z")).toBe("8/1 18:00時点");
+  const now = new Date("2026-08-15T00:00:00Z");
+
+  test("now と同じ年なら「M/D H:mm時点」形式(年なし)に整形する", () => {
+    expect(formatFetchedAt("2026-08-01T09:00:00Z", now)).toBe("8/1 18:00時点");
   });
 
   test("日付が変わる境界も JST 換算される", () => {
-    expect(formatFetchedAt("2026-08-01T15:00:00Z")).toBe("8/2 00:00時点");
+    expect(formatFetchedAt("2026-08-01T15:00:00Z", now)).toBe("8/2 00:00時点");
   });
 
   test("不正な日時文字列は例外を投げず空文字を返す(#80)", () => {
-    expect(formatFetchedAt("not-a-date")).toBe("");
-    expect(formatFetchedAt("")).toBe("");
+    expect(formatFetchedAt("not-a-date", now)).toBe("");
+    expect(formatFetchedAt("", now)).toBe("");
+  });
+
+  test("now と異なる年の場合は「YYYY/M/D H:mm時点」形式で年も併記する(#364)", () => {
+    expect(formatFetchedAt("2025-08-01T09:00:00Z", now)).toBe("2025/8/1 18:00時点");
+  });
+
+  test("年の同一判定はUTCではなくJST換算後の年で行う", () => {
+    // now: UTC上は2026年だが、JST換算では2026-01-01 09:30(2026年)
+    const nowNewYear = new Date("2026-01-01T00:30:00Z");
+    // fetchedAt: UTC上は2025年だが、JST換算では2026-01-01 05:00(nowと同じ2026年)
+    expect(formatFetchedAt("2025-12-31T20:00:00Z", nowNewYear)).toBe("1/1 05:00時点");
   });
 });

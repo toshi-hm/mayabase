@@ -126,14 +126,35 @@ const fetchedAtFormatter = new Intl.DateTimeFormat("ja-JP", {
   hour12: false,
 });
 
+const fetchedAtFormatterWithYear = new Intl.DateTimeFormat("ja-JP", {
+  timeZone: "Asia/Tokyo",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+const jstYearFormatter = new Intl.DateTimeFormat("ja-JP", {
+  timeZone: "Asia/Tokyo",
+  year: "numeric",
+});
+
 /**
  * 登録者数の取得日時を表示用に整形する(JST)。
  * リアルタイム取得ではないため、いつ時点の数値かを併記する目的で使う。
  * 不正な日時文字列の場合は空文字を返す(`formatDateJa` と同じ方針。#80)。
- * 例: "2026-08-01T09:00:00Z" → "8/1 18:00時点"
+ * データ取得が長期間止まり、表示対象の日時が現在(`now`)と異なる年になっている場合は
+ * 「今年の日付」との誤認を防ぐため年も併記する(#364)。
+ * 例: "2026-08-01T09:00:00Z" → "8/1 18:00時点"(`now` が2026年の場合)
+ *     "2025-08-01T09:00:00Z" → "2025/8/1 18:00時点"(`now` が2026年の場合)
  */
-export function formatFetchedAt(fetchedAt: string): string {
+export function formatFetchedAt(fetchedAt: string, now: Date): string {
   const time = Date.parse(fetchedAt);
   if (Number.isNaN(time)) return "";
-  return `${fetchedAtFormatter.format(new Date(time))}時点`;
+  const date = new Date(time);
+  const isSameYear = jstYearFormatter.format(date) === jstYearFormatter.format(now);
+  const formatter = isSameYear ? fetchedAtFormatter : fetchedAtFormatterWithYear;
+  return `${formatter.format(date)}時点`;
 }
