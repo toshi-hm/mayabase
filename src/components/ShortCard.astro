@@ -37,8 +37,13 @@ const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
     class="group/card block overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
   >
     {
+      /* Shorts の再生アイコンは無く重なる要素が無いため、他カードのように上部を
+      Shorts/NEW バッジ用に確保する必要は無いが、ShareButton(top-2 right-2)との
+      衝突を避けるため左上に配置する(#378)。 */
+    }
+    {
       recentlyPublished && (
-        <span class="absolute top-2 right-2 rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
+        <span class="absolute top-2 left-2 rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
           NEW
         </span>
       )

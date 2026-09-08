@@ -553,6 +553,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
   // next-video-overlay が存在しない(= 提示できる次の動画が無い)場合は何もしない安全な no-op。
   function hideNextVideo(): void {
+    // オーバーレイ内(閉じるボタン等)にフォーカスがある状態のまま hidden にすると、
+    // display:none の要素にはフォーカスを保持できないため body へ落ちてしまう。
+    // showNextVideo がフォーカスを移す(#366)のと対になる形で、閉じる前にプレイヤーへ戻す(#380)。
+    if (nextVideoOverlay?.contains(document.activeElement)) {
+      frame?.focus();
+    }
     nextVideoOverlay?.classList.add("hidden");
     nextVideoOverlay?.classList.remove("flex");
   }

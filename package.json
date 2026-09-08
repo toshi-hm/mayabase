@@ -9,6 +9,7 @@
     "fetch:check-freshness": "bun run scripts/check-fetch-freshness.ts",
     "notify:new-videos": "bun run scripts/send-push-notifications.ts",
     "check:links": "bun run scripts/check-links.ts",
+    "check:cross-links": "bun run scripts/check-cross-links.ts",
     "build": "astro build",
     "build:full": "bun run fetch && astro build",
     "preview": "astro preview",
