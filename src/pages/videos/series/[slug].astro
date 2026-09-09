@@ -51,7 +51,7 @@ const { series, seriesVideos }: Props = Astro.props;
 const hasViewCounts = seriesVideos.some((video) => video.viewCount !== null);
 
 // 動画の尺バケット絞り込みトグル(#330)。videos.astro の hasDurations と同じフォールバック方針
-const hasDurations = seriesVideos.some((video) => video.duration !== null);
+const hasDurations = seriesVideos.some((video) => !video.isShort && video.duration !== null);
 
 // 愛用ガジェットとの相互リンク(videos.astro と同じ #70)
 const { items: gearItems } = parseGearData(gearJson);

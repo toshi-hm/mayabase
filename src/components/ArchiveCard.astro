@@ -57,7 +57,7 @@ const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
 <li
   class="relative"
   data-category={category}
-  data-duration-bucket={videoDurationBucket(video.duration)}
+  data-duration-bucket={videoDurationBucket(video)}
   data-length={videoLengthFilterValue(video)}
   data-title={video.title.toLowerCase()}
   data-video-id={video.id}

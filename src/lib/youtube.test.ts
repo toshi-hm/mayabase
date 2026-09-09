@@ -368,28 +368,36 @@ describe("formatDurationLabel", () => {
 });
 
 describe("videoDurationBucket(#330)", () => {
+  const regular = (duration: string | null) => ({ duration, isShort: false });
+
   test("5分以下は under5", () => {
-    expect(videoDurationBucket("PT0S")).toBe("under5");
-    expect(videoDurationBucket("PT4M59S")).toBe("under5");
-    expect(videoDurationBucket("PT5M")).toBe("under5");
+    expect(videoDurationBucket(regular("PT0S"))).toBe("under5");
+    expect(videoDurationBucket(regular("PT4M59S"))).toBe("under5");
+    expect(videoDurationBucket(regular("PT5M"))).toBe("under5");
   });
 
   test("5分超15分以下は 5to15", () => {
-    expect(videoDurationBucket("PT5M1S")).toBe("5to15");
-    expect(videoDurationBucket("PT15M")).toBe("5to15");
+    expect(videoDurationBucket(regular("PT5M1S"))).toBe("5to15");
+    expect(videoDurationBucket(regular("PT15M"))).toBe("5to15");
   });
 
   test("15分超は over15", () => {
-    expect(videoDurationBucket("PT15M1S")).toBe("over15");
-    expect(videoDurationBucket("PT1H2M10S")).toBe("over15");
+    expect(videoDurationBucket(regular("PT15M1S"))).toBe("over15");
+    expect(videoDurationBucket(regular("PT1H2M10S"))).toBe("over15");
   });
 
   test("null は空文字(絞り込み対象外)", () => {
-    expect(videoDurationBucket(null)).toBe("");
+    expect(videoDurationBucket(regular(null))).toBe("");
   });
 
   test("パースできない値は空文字(絞り込み対象外)", () => {
-    expect(videoDurationBucket("invalid")).toBe("");
+    expect(videoDurationBucket(regular("invalid"))).toBe("");
+  });
+
+  test("Shorts は尺が該当範囲内でも常に空文字(専用の長さフィルターで絞り込むため・#330)", () => {
+    expect(videoDurationBucket({ duration: "PT0S", isShort: true })).toBe("");
+    expect(videoDurationBucket({ duration: "PT30S", isShort: true })).toBe("");
+    expect(videoDurationBucket({ duration: null, isShort: true })).toBe("");
   });
 });
 

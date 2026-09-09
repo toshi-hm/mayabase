@@ -75,7 +75,7 @@ const hasViewCounts = videos.some((video) => video.viewCount !== null);
 // 動画の尺(再生時間)バケット絞り込みトグル(#330)。RSS のみ(YOUTUBE_API_KEY 未設定)の環境では
 // 全動画の duration が null になるため、1 件も取得できていなければトグル自体を非表示にする
 // (hasViewCounts と同じフォールバック方針)
-const hasDurations = videos.some((video) => video.duration !== null);
+const hasDurations = videos.some((video) => !video.isShort && video.duration !== null);
 
 const pageTitle = `動画ライブラリ | ${site.name}`;
 const pageDescription = `${site.name} の全動画アーカイブ。AI・ガジェット/家電・社会人 Vlog・エンジニアキャリアのカテゴリやキーワードから過去の動画を探せます。`;
@@ -317,7 +317,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <template
             data-video-slot
             data-category={category}
-            data-duration-bucket={videoDurationBucket(video.duration)}
+            data-duration-bucket={videoDurationBucket(video)}
             data-length={videoLengthFilterValue(video)}
             data-title={video.title.toLowerCase()}
             data-video-id={video.id}
