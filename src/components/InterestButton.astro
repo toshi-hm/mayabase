@@ -12,6 +12,13 @@ const { videoId } = Astro.props;
   class="rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-ink-muted transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
 >
   気になる <span data-interest-count>0</span>
+  <span
+    data-interest-popular-badge
+    hidden
+    class="ml-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-accent"
+  >
+    話題
+  </span>
 </button>
 
 <script>
@@ -32,7 +39,14 @@ const { videoId } = Astro.props;
         const countEl = button.querySelector("[data-interest-count]");
         if (countEl) countEl.textContent = String(count);
         button.setAttribute("aria-label", "気になる " + count + "件");
-        if (count >= 10) button.dataset.interestPopular = "true";
+        const badge = button.querySelector<HTMLElement>("[data-interest-popular-badge]");
+        const isPopular = count >= 10;
+        if (isPopular) {
+          button.dataset.interestPopular = "true";
+        } else {
+          delete button.dataset.interestPopular;
+        }
+        if (badge) badge.hidden = !isPopular;
       } finally {
         button.disabled = false;
       }
