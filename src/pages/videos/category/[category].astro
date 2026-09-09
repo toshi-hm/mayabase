@@ -54,6 +54,9 @@ const categoryLabel = CATEGORY_LABELS[category];
 // (videos.astro の hasViewCounts と同じフォールバック方針)
 const hasViewCounts = categoryVideos.some((video) => video.viewCount !== null);
 
+// 動画の尺バケット絞り込みトグル(#330)。videos.astro の hasDurations と同じフォールバック方針
+const hasDurations = categoryVideos.some((video) => !video.isShort && video.duration !== null);
+
 // 愛用ガジェットとの相互リンク(videos.astro と同じ #70)
 const { items: gearItems } = parseGearData(gearJson);
 const videoGearMap = buildVideoGearMap(gearItems);
@@ -198,6 +201,44 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           Shorts
         </button>
       </div>
+      {
+        hasDurations && (
+          <div role="group" aria-label="動画の尺(再生時間)で絞り込み" class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-filter-duration="all"
+              aria-pressed="true"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              すべての尺
+            </button>
+            <button
+              type="button"
+              data-filter-duration="under5"
+              aria-pressed="false"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              〜5分
+            </button>
+            <button
+              type="button"
+              data-filter-duration="5to15"
+              aria-pressed="false"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              5〜15分
+            </button>
+            <button
+              type="button"
+              data-filter-duration="over15"
+              aria-pressed="false"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              15分〜
+            </button>
+          </div>
+        )
+      }
       {
         hasViewCounts && (
           <div role="group" aria-label="並び替え" class="flex flex-wrap gap-2">

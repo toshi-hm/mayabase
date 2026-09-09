@@ -22,6 +22,7 @@ import {
   parseVideosData,
   thumbnailFallbackUrl,
   thumbnailUrl,
+  videoDurationBucket,
   videoLengthFilterValue,
   videoUrl,
 } from "../lib/youtube";
@@ -70,6 +71,11 @@ if (!videos.some((video) => isInSeries(video, featuredSeries.keyword))) {
 // 全動画の viewCount が null になるため、1 件も取得できていなければトグル自体を非表示にする
 // (index.astro の popularVideos / subscriberCount と同じフォールバック方針)
 const hasViewCounts = videos.some((video) => video.viewCount !== null);
+
+// 動画の尺(再生時間)バケット絞り込みトグル(#330)。RSS のみ(YOUTUBE_API_KEY 未設定)の環境では
+// 全動画の duration が null になるため、1 件も取得できていなければトグル自体を非表示にする
+// (hasViewCounts と同じフォールバック方針)
+const hasDurations = videos.some((video) => !video.isShort && video.duration !== null);
 
 const pageTitle = `動画ライブラリ | ${site.name}`;
 const pageDescription = `${site.name} の全動画アーカイブ。AI・ガジェット/家電・社会人 Vlog・エンジニアキャリアのカテゴリやキーワードから過去の動画を探せます。`;
@@ -194,6 +200,44 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         </button>
       </div>
       {
+        hasDurations && (
+          <div role="group" aria-label="動画の尺(再生時間)で絞り込み" class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-filter-duration="all"
+              aria-pressed="true"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              すべての尺
+            </button>
+            <button
+              type="button"
+              data-filter-duration="under5"
+              aria-pressed="false"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              〜5分
+            </button>
+            <button
+              type="button"
+              data-filter-duration="5to15"
+              aria-pressed="false"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              5〜15分
+            </button>
+            <button
+              type="button"
+              data-filter-duration="over15"
+              aria-pressed="false"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              15分〜
+            </button>
+          </div>
+        )
+      }
+      {
         hasViewCounts && (
           <div role="group" aria-label="並び替え" class="flex flex-wrap gap-2">
             <button
@@ -273,6 +317,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <template
             data-video-slot
             data-category={category}
+            data-duration-bucket={videoDurationBucket(video)}
             data-length={videoLengthFilterValue(video)}
             data-title={video.title.toLowerCase()}
             data-video-id={video.id}
@@ -382,6 +427,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     "[data-filter-category]",
   );
   const lengthButtons = document.querySelectorAll<HTMLButtonElement>("[data-filter-length]");
+  const durationButtons = document.querySelectorAll<HTMLButtonElement>("[data-filter-duration]");
   const sortButtons = document.querySelectorAll<HTMLButtonElement>("[data-sort-order]");
   const search = document.getElementById("video-search") as HTMLInputElement | null;
 
@@ -419,6 +465,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   let category = "all";
   // 動画の長さ絞り込み状態(#257: category/q と同じくURLに同期する)
   let length: "all" | "video" | "short" = "all";
+  // 動画の尺(再生時間)バケット絞り込み状態(#330: category/q と同じくURLに同期する)
+  let durationBucket: "all" | "under5" | "5to15" | "over15" = "all";
   // 並び替え状態(#152: category/q と同じくURLに同期する)
   let sortOrder: "newest" | "popular" = "newest";
   // 一度展開したら以降は全件表示のまま(ボタンは二度と出さない)
@@ -450,6 +498,10 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   const validLengths = new Set(
     [...lengthButtons].map((button) => button.dataset.filterLength ?? "all"),
   );
+  // URL 経由で受け取ってよい尺バケット値(同上)
+  const validDurationBuckets = new Set(
+    [...durationButtons].map((button) => button.dataset.filterDuration ?? "all"),
+  );
 
   function setPressedCategory(nextCategory: string): void {
     for (const button of buttons) {
@@ -465,6 +517,15 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       button.setAttribute(
         "aria-pressed",
         String((button.dataset.filterLength ?? "all") === nextLength),
+      );
+    }
+  }
+
+  function setPressedDuration(nextBucket: string): void {
+    for (const button of durationButtons) {
+      button.setAttribute(
+        "aria-pressed",
+        String((button.dataset.filterDuration ?? "all") === nextBucket),
       );
     }
   }
@@ -490,6 +551,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     length =
       urlLength && validLengths.has(urlLength) ? (urlLength as "all" | "video" | "short") : "all";
     setPressedLength(length);
+    const urlDuration = params.get("duration");
+    durationBucket =
+      urlDuration && validDurationBuckets.has(urlDuration)
+        ? (urlDuration as "all" | "under5" | "5to15" | "over15")
+        : "all";
+    setPressedDuration(durationBucket);
     if (search) search.value = params.get("q") ?? "";
 
     // 並び替えトグル自体が無い環境(viewCount 未取得)では order パラメータを無視する
@@ -508,6 +575,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     const params = new URLSearchParams();
     if (category !== "all") params.set("category", category);
     if (length !== "all") params.set("length", length);
+    if (durationBucket !== "all") params.set("duration", durationBucket);
     const query = (search?.value ?? "").trim();
     if (query) params.set("q", query);
     if (sortOrder !== "newest") params.set("order", sortOrder);
@@ -526,6 +594,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     return (
       (category === "all" || card.dataset.category === category) &&
       (length === "all" || card.dataset.length === length) &&
+      (durationBucket === "all" || card.dataset.durationBucket === durationBucket) &&
       (textMatchesKeyword(card.dataset.title ?? "", query) ||
         textMatchesKeyword(descriptions[card.dataset.videoId ?? ""] ?? "", query))
     );
@@ -613,6 +682,19 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       expanded = false;
       applyFilter();
       // カテゴリと同様、独立した絞り込み状態とみなし履歴を1件積む
+      syncUrl("push");
+    });
+  }
+  for (const button of durationButtons) {
+    button.addEventListener("click", () => {
+      const value = button.dataset.filterDuration;
+      durationBucket =
+        value === "under5" || value === "5to15" || value === "over15" ? value : "all";
+      setPressedDuration(durationBucket);
+      // カテゴリ・長さと同様、独立した絞り込み状態への切り替えとみなし展開状態をリセットする(#273)
+      expanded = false;
+      applyFilter();
+      // カテゴリ・長さと同様、独立した絞り込み状態とみなし履歴を1件積む
       syncUrl("push");
     });
   }
