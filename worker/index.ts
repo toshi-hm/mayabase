@@ -20,9 +20,14 @@ import { isValidPushSubscriptionPayload, type StoredPushSubscription } from "../
 /** Cloudflare Workers KV バインディングの必要最小限の型(@cloudflare/workers-types は導入しない) */
 interface PushSubscriptionsKv {
   get(key: string): Promise<string | null>;
-  put(key: string, value: string): Promise<void>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
 }
+
+const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
+const REACTION_RATE_LIMIT_WINDOW_MS = 60_000;
+const REACTION_RATE_LIMIT_MAX = 30;
+const reactionRateLimitEntries = new Map<string, { startedAt: number; count: number }>();
 
 interface Env {
   /** wrangler.jsonc の assets.binding。マッチしないリクエストの静的配信に使う */
@@ -74,6 +79,18 @@ function storageOperationFailedResponse(): Response {
   return jsonResponse({ error: "push subscription storage operation failed" }, 502);
 }
 
+function isReactionRateLimited(request: Request): boolean {
+  const key = request.headers.get("CF-Connecting-IP") ?? "anonymous";
+  const now = Date.now();
+  const current = reactionRateLimitEntries.get(key);
+  if (!current || now - current.startedAt >= REACTION_RATE_LIMIT_WINDOW_MS) {
+    reactionRateLimitEntries.set(key, { startedAt: now, count: 1 });
+    return false;
+  }
+  current.count += 1;
+  return current.count > REACTION_RATE_LIMIT_MAX;
+}
+
 async function handleSubscribe(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
@@ -95,6 +112,32 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
     return storageOperationFailedResponse();
   }
   return jsonResponse({ ok: true }, 201);
+}
+
+async function handleVideoReaction(request: Request, env: Env): Promise<Response> {
+  if (isReactionRateLimited(request)) {
+    return jsonResponse({ error: "rate limit exceeded" }, 429);
+  }
+  const kv = env.PUSH_SUBSCRIPTIONS;
+  if (!kv) return storageUnavailableResponse();
+  const payload = await readJsonBody(request);
+  const videoId =
+    typeof payload === "object" && payload !== null
+      ? (payload as { videoId?: unknown }).videoId
+      : undefined;
+  if (typeof videoId !== "string" || !VIDEO_ID_PATTERN.test(videoId)) {
+    return jsonResponse({ error: "invalid video id" }, 400);
+  }
+  const key = "reaction:" + videoId;
+  try {
+    const current = await kv.get(key);
+    const count = current === null ? 0 : Number.parseInt(current, 10);
+    const nextCount = Number.isSafeInteger(count) && count >= 0 ? count + 1 : 1;
+    await kv.put(key, String(nextCount), { expirationTtl: 365 * 24 * 60 * 60 });
+    return jsonResponse({ count: nextCount });
+  } catch {
+    return storageOperationFailedResponse();
+  }
 }
 
 async function handleUnsubscribe(request: Request, env: Env): Promise<Response> {
@@ -128,6 +171,9 @@ export default {
     }
     if (request.method === "POST" && url.pathname === "/api/push/unsubscribe") {
       return handleUnsubscribe(request, env);
+    }
+    if (request.method === "POST" && url.pathname === "/api/video-reaction") {
+      return handleVideoReaction(request, env);
     }
 
     // /api/push/* 以外は従来通り静的アセット配信に委譲する(挙動は変えない)

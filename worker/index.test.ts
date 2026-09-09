@@ -7,20 +7,24 @@ import worker from "./index";
 
 interface FakeKv {
   store: Map<string, string>;
+  options: Map<string, { expirationTtl?: number }>;
   get(key: string): Promise<string | null>;
-  put(key: string, value: string): Promise<void>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
 }
 
 function createKv(): FakeKv {
   const store = new Map<string, string>();
+  const options = new Map<string, { expirationTtl?: number }>();
   return {
     store,
+    options,
     async get(key) {
       return store.get(key) ?? null;
     },
-    async put(key, value) {
+    async put(key, value, putOptions) {
       store.set(key, value);
+      if (putOptions) options.set(key, putOptions);
     },
     async delete(key) {
       store.delete(key);
@@ -117,6 +121,30 @@ describe("fetch", () => {
     expect(kv.store.size).toBe(0);
   });
 
+  test("動画リアクションをKVで加算する", async () => {
+    const kv = createKv();
+    const request = () =>
+      new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ videoId: "abc123" }),
+      });
+    const first = await worker.fetch(request(), { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv });
+    const second = await worker.fetch(request(), { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv });
+    expect(await first.json()).toEqual({ count: 1 });
+    expect(await second.json()).toEqual({ count: 2 });
+    expect(kv.options.get("reaction:abc123")).toEqual({ expirationTtl: 365 * 24 * 60 * 60 });
+  });
+
+  test("不正な動画IDのリアクションは400", async () => {
+    const kv = createKv();
+    const response = await worker.fetch(
+      postJson("/api/video-reaction", { videoId: "../secrets" }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(response.status).toBe(400);
+  });
+
   test("KV書き込みが例外を投げた場合は502(未処理例外による非JSON応答にしない、#359)", async () => {
     const kv = createKv();
     kv.put = async () => {
@@ -141,5 +169,22 @@ describe("fetch", () => {
     );
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ error: "push subscription storage operation failed" });
+  });
+
+  test("リアクションAPIはIP単位で短時間の過剰連打を429にする", async () => {
+    const kv = createKv();
+    const request = () => {
+      const reactionRequest = postJson("/api/video-reaction", { videoId: "rate-test" });
+      reactionRequest.headers.set("CF-Connecting-IP", "198.51.100.33");
+      return reactionRequest;
+    };
+    for (let index = 0; index < 30; index += 1) {
+      expect(
+        (await worker.fetch(request(), { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv })).status,
+      ).toBe(200);
+    }
+    expect((await worker.fetch(request(), { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv })).status).toBe(
+      429,
+    );
   });
 });
