@@ -2,6 +2,7 @@
 import ArchiveCard from "../components/ArchiveCard.astro";
 import Carousel from "../components/Carousel.astro";
 import PostCard from "../components/PostCard.astro";
+import Onboarding from "../components/Onboarding.astro";
 import Profile from "../components/Profile.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import ShortCard from "../components/ShortCard.astro";
@@ -35,6 +36,7 @@ import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredV
 import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseXPostsData } from "../lib/x";
+import { buildOnboardingPanels } from "../lib/onboarding";
 import {
   embedUrl,
   parseVideosData,
@@ -81,6 +83,10 @@ const topicPanels = CATEGORY_ORDER.filter((category) => category !== "other")
     videos: topVideosByCategory(categorized, category, TOPIC_PANEL_LIMIT),
   }))
   .filter((panel) => panel.videos.length > 0);
+const onboardingPanels = buildOnboardingPanels(
+  topicPanels.map((panel) => ({ ...panel, label: CATEGORY_LABELS[panel.category] })),
+  featuredVideos,
+);
 
 // 未取得(API キー未設定・取得失敗・非公開設定)の場合は null のまま非表示にする
 const { subscriberCount, viewCount, fetchedAt } = parseChannelStats(channelStatsJson);
@@ -428,6 +434,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         </section>
       )
     }
+
+    {onboardingPanels.length > 0 && <Onboarding panels={onboardingPanels} />}
 
     {
       featuredVideos.length > 0 && (
