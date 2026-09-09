@@ -1,1 +1,645 @@
-zsh:1: no matches found: 63aea78:src/pages/videos/[id].astro
+---
+import Breadcrumb from "../../components/Breadcrumb.astro";
+import GearMiniCard from "../../components/GearMiniCard.astro";
+import RelatedVideoCard from "../../components/RelatedVideoCard.astro";
+import ShareButton from "../../components/ShareButton.astro";
+import SubscribeMilestoneNote from "../../components/SubscribeMilestoneNote.astro";
+import WatchLaterButton from "../../components/WatchLaterButton.astro";
+import { site, subscribeUrl } from "../../config/site";
+import gearJson from "../../data/gear.json";
+import glossaryJson from "../../data/glossary.json";
+import seriesJson from "../../data/series.json";
+import videosJson from "../../data/videos.json";
+import transcriptsJson from "../../data/transcripts.json";
+import Base from "../../layouts/Base.astro";
+import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../lib/breadcrumb";
+import { CATEGORY_LABELS, categorizeVideo } from "../../lib/categories";
+import { formatChapterTime, parseChapters } from "../../lib/chapters";
+import {
+  extractSearchableText,
+  formatDateJa,
+  formatViewCount,
+  linkifyText,
+  truncate,
+} from "../../lib/format";
+import { buildVideoGearMap, parseGearData, type GearItem } from "../../lib/gear";
+import {
+  buildVideoGlossaryMap,
+  glossaryTermAnchorId,
+  parseGlossaryData,
+  sortGlossaryTerms,
+} from "../../lib/glossary";
+import { getLightboxContainerClass } from "../../lib/lightbox";
+import { getTranscript, parseTranscriptsData } from "../../lib/transcripts";
+import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "../../lib/relatedVideos";
+import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../lib/series";
+import {
+  buildPlayerCardMeta,
+  embedUrl,
+  parseVideosData,
+  playerEmbedUrl,
+  resolveOgThumbnail,
+  thumbnailFallbackUrl,
+  thumbnailUrl,
+  type Video,
+  videoUrl,
+  videoUrlAtTime,
+} from "../../lib/youtube";
+
+/** 動画詳細ページから用語集への相互リンク 1 件分(#294) */
+interface VideoGlossaryLink {
+  term: string;
+  definition: string;
+  /** /glossary/ 内の該当用語のアンカー ID(glossary.astro の表示順と一致させる) */
+  anchorId: string;
+}
+
+export function getStaticPaths() {
+  const { videos } = parseVideosData(videosJson);
+  // 動画 ID → 紹介ガジェット一覧の逆引きマップ(videos.astro と同じ方針・#134)。
+  // 動画数だけページが生成されるため、マップの構築は getStaticPaths 側で 1 度だけ行う。
+  const { items: gearItems } = parseGearData(gearJson);
+  const videoGearMap = buildVideoGearMap(gearItems);
+  // 動画 ID → 関連用語一覧の逆引きマップ(gearItems と同方針・#294)。
+  // アンカー ID は glossary.astro が表示する並び順(sortGlossaryTerms)から求める必要がある。
+  const { items: glossaryItems } = parseGlossaryData(glossaryJson);
+  const glossaryAnchorByTerm = new Map(
+    sortGlossaryTerms(glossaryItems).map((item, index) => [item.term, glossaryTermAnchorId(index)]),
+  );
+  const videoGlossaryMap = buildVideoGlossaryMap(glossaryItems);
+  // 動画が属するシリーズ(videos.astro / [slug].astro と同じ isInSeries 判定・#295)。
+  const { series } = parseSeriesData(seriesJson);
+  return videos.map((video) => ({
+    params: { id: video.id },
+    props: {
+      video,
+      videos,
+      gearItems: videoGearMap.get(video.id) ?? [],
+      glossaryTerms: (videoGlossaryMap.get(video.id) ?? []).map((item): VideoGlossaryLink => ({
+        term: item.term,
+        definition: item.definition,
+        // glossaryAnchorByTerm は同じ glossaryItems から構築しているため必ず見つかる
+        anchorId: glossaryAnchorByTerm.get(item.term) as string,
+      })),
+      matchedSeries: series.filter((item) => isInSeries(video, item.keyword)),
+    },
+  }));
+}
+
+interface Props {
+  video: Video;
+  videos: Video[];
+  /** この動画で紹介されているガジェット(愛用ガジェットとの相互リンク用・#134) */
+  gearItems: GearItem[];
+  /** この動画に登場する用語(用語集との相互リンク用・#294) */
+  glossaryTerms: VideoGlossaryLink[];
+  /** この動画が属するシリーズ(#295)。該当なしなら空配列 */
+  matchedSeries: SeriesItem[];
+}
+
+const { video, videos, gearItems, glossaryTerms, matchedSeries } = Astro.props;
+const transcript = getTranscript(parseTranscriptsData(transcriptsJson), video);
+const category = categorizeVideo(video);
+const RELATED_LIMIT = 6;
+const relatedVideos = getRelatedVideos(video, videos, category, RELATED_LIMIT);
+// 公開日時順の前後ナビゲーション(#106)。関連動画(同カテゴリ)とは別軸の発見導線。
+const adjacentVideos = getAdjacentVideos(video, videos);
+// 再生終了後に提示する「次の動画」(#175)。無ければ提示UI自体を出さない。
+const nextVideo = pickNextVideo(adjacentVideos, relatedVideos);
+const viewCountText = video.viewCount !== null ? formatViewCount(video.viewCount) : null;
+// 概要欄の段落(空行区切り)を保持したまま表示するため行単位に分割する
+const descriptionParagraphs = video.description.split("\n");
+// 概要欄にYouTubeのチャプター記法(0:00 見出し)があれば目次として表示する(#154)
+const chapters = parseChapters(video.description);
+
+// OGP画像は JSON-LD の thumbnailUrl と同じ「hq720優先・hqdefaultフォールバック」方針だが、
+// meta タグ1本のみで配列を使えないため、ビルド時に存在確認済みの動画だけ高解像度を採用する(#211)
+const ogThumbnail = resolveOgThumbnail(video);
+
+const pageTitle = `${video.title} | ${site.name}`;
+// meta description はハッシュタグ等を含む概要欄をそのまま出すと読みづらいため、
+// 冒頭の署名欄ハッシュタグ・末尾の定型文を除いた本文相当部分を要約する(#125)
+const pageDescription = truncate(extractSearchableText(video.description), 140) || video.title;
+// X(Twitter) Player Card / og:video 用メタ。Shorts では null(#243)
+const playerCardMeta = buildPlayerCardMeta(video);
+
+if (!Astro.site) {
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
+}
+const siteUrl = Astro.site.toString();
+// IFrame Player API の origin パラメータ用(#175)。パスを含まないオリジンのみ渡す。
+const playerOrigin = new URL(siteUrl).origin;
+const breadcrumbItems: BreadcrumbItem[] = [
+  { name: "ホーム", href: "/" },
+  { name: "動画ライブラリ", href: "/videos/" },
+  { name: video.title, href: `/videos/${video.id}/` },
+];
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: buildBreadcrumbJsonLd(breadcrumbItems, siteUrl),
+    },
+    {
+      "@type": "VideoObject",
+      "@id": `${siteUrl}videos/${video.id}/#video`,
+      name: video.title,
+      // 概要欄全文はハッシュタグや定型文が長く JSON-LD を肥大化させるため要約する(videos.astro と同じ方針)。
+      // 冒頭の署名欄ハッシュタグはノイズでしかないため、要約前に除外する(#125)
+      description: truncate(extractSearchableText(video.description), 160) || video.title,
+      thumbnailUrl: [thumbnailUrl(video.id), thumbnailFallbackUrl(video.id)],
+      uploadDate: video.publishedAt,
+      embedUrl: embedUrl(video.id),
+      url: videoUrl(video),
+      // Google 推奨プロパティ。ISO 8601 のまま出力できる(#173)。取得できない動画は省略する
+      // (viewCount と同じ「取得できたものだけ表示」方針)。
+      ...(video.duration !== null && { duration: video.duration }),
+      // 検索結果でのキーモーメント表示を狙い、チャプターを Clip として構造化する(#154)
+      ...(transcript && { transcript: transcript.text }),
+      ...(chapters.length > 0 && {
+        hasPart: chapters.map((chapter) => ({
+          "@type": "Clip",
+          name: chapter.label,
+          startOffset: chapter.seconds,
+          url: videoUrlAtTime(video, chapter.seconds),
+        })),
+      }),
+    },
+  ],
+};
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+---
+
+<Base
+  title={pageTitle}
+  description={pageDescription}
+  ogImagePath={ogThumbnail.url}
+  ogImageAlt={video.title}
+  ogImageWidth={ogThumbnail.width}
+  ogImageHeight={ogThumbnail.height}
+  videoPlayerUrl={playerCardMeta?.playerUrl}
+  videoPlayerWidth={playerCardMeta?.width}
+  videoPlayerHeight={playerCardMeta?.height}
+>
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <main id="main" class="mx-auto max-w-4xl px-4 pt-12 pb-24">
+    <Breadcrumb items={breadcrumbItems} />
+
+    {
+      /* この動画が属するシリーズへの導線(#295)。関連動画(同カテゴリ)とは別軸の回遊導線。
+      該当シリーズが無い動画ではセクション自体を表示しない */
+      matchedSeries.length > 0 && (
+        <p class="mt-2 text-sm text-ink-muted">
+          {matchedSeries.map((item) => (
+            <>
+              この動画は
+              <a
+                href={seriesUrl(item.slug)}
+                class="font-semibold text-brand-accent hover:underline"
+              >
+                「{item.title}」
+              </a>
+              シリーズの一本です。
+            </>
+          ))}
+        </p>
+      )
+    }
+
+    <div class="relative">
+      {
+        /* このページの LCP 要素のため、存在保証のある hqdefault を直接使い、
+        onerror フォールバックの直列リクエストによる遅延を避ける(VideoCard.astro と同じ方針) */
+      }
+      <img
+        src={thumbnailFallbackUrl(video.id)}
+        alt=""
+        width="1280"
+        height="720"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+        class="aspect-video w-full rounded-xl bg-surface-raised object-cover"
+      />
+      {
+        video.isShort && (
+          <span class="absolute top-3 left-3 rounded-full bg-brand px-3 py-1 text-xs font-semibold text-white">
+            Shorts
+          </span>
+        )
+      }
+      <ShareButton title={video.title} url={videoUrl(video)} />
+      <WatchLaterButton videoId={video.id} title={video.title} />
+    </div>
+
+    <h1 class="mt-6 text-2xl font-bold sm:text-3xl">{video.title}</h1>
+    <p class="mt-3 flex flex-wrap items-center gap-3 text-sm text-ink-muted">
+      <time datetime={video.publishedAt}>{formatDateJa(video.publishedAt)}</time>
+      <span class="rounded-full bg-surface-raised px-3 py-1 text-xs font-semibold">
+        {CATEGORY_LABELS[category]}
+      </span>
+      {viewCountText && <span>{viewCountText}視聴</span>}
+    </p>
+
+    <div class="mt-5 flex flex-wrap gap-3">
+      <a
+        href={videoUrl(video)}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-watch-track-id={video.id}
+        class="rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-strong"
+      >
+        YouTube で見る <span aria-hidden="true">↗</span>
+        <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+      </a>
+      <a
+        href={subscribeUrl()}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface-raised"
+      >
+        チャンネル登録する <span aria-hidden="true">↗</span>
+        <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+      </a>
+    </div>
+
+    {/* サイト内プレビュー再生。個別ページのため直接埋め込みでライトボックス等は用いない(#83) */}
+    <section aria-labelledby="preview-heading" class="mt-12">
+      <h2 id="preview-heading" class="sr-only">動画プレビュー</h2>
+      <div
+        class:list={[
+          "relative overflow-hidden rounded-xl",
+          getLightboxContainerClass(video.isShort ? "short" : "video"),
+        ]}
+      >
+        <iframe
+          id="video-player-frame"
+          src={playerEmbedUrl(video.id, playerOrigin)}
+          title={video.title}
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+          class="h-full w-full"></iframe>
+        {
+          /* 再生終了(YouTube IFrame Player API の ENDED イベント)後に表示する「次の動画」提示(#175)。
+          サードパーティスクリプト(iframe_api)の読み込みは、提示先が存在する場合のみ script 側で行う。 */
+          nextVideo && (
+            <div
+              id="next-video-overlay"
+              class="pointer-events-none absolute inset-0 z-10 hidden items-center justify-center bg-black/80 p-4"
+            >
+              <div
+                role="region"
+                aria-label="次の動画"
+                class="pointer-events-auto w-full max-w-xs rounded-xl bg-surface p-4 text-ink shadow-xl"
+              >
+                <p class="text-xs text-ink-muted">次の動画</p>
+                <a
+                  id="next-video-link"
+                  href={`/videos/${nextVideo.id}/`}
+                  class="group/next mt-2 flex gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                  <img
+                    src={thumbnailFallbackUrl(nextVideo.id)}
+                    alt=""
+                    width="160"
+                    height="90"
+                    loading="lazy"
+                    decoding="async"
+                    class="aspect-video w-28 shrink-0 rounded-lg object-cover"
+                  />
+                  <span class="line-clamp-3 text-sm font-semibold group-hover/next:text-brand-accent">
+                    {nextVideo.title}
+                  </span>
+                </a>
+                <button
+                  type="button"
+                  id="next-video-dismiss"
+                  class="mt-3 cursor-pointer text-xs text-ink-muted underline hover:text-ink"
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
+          )
+        }
+      </div>
+    </section>
+
+    {
+      chapters.length > 0 && (
+        <section aria-labelledby="chapters-heading" class="mt-8">
+          <h2 id="chapters-heading" class="text-xl font-bold">
+            チャプター
+          </h2>
+          <ol role="list" class="mt-4 divide-y divide-line rounded-xl border border-line">
+            {chapters.map((chapter) => (
+              <li>
+                <a
+                  href={videoUrlAtTime(video, chapter.seconds)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-chapter-seconds={chapter.seconds}
+                  class="flex items-center gap-4 px-4 py-3 transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
+                >
+                  <span class="w-16 shrink-0 font-mono text-sm text-ink-muted tabular-nums">
+                    {formatChapterTime(chapter.seconds)}
+                  </span>
+                  <span>
+                    {chapter.label}
+                    <span class="sr-only">(この位置から再生します)</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )
+    }
+
+    {
+      transcript && (
+        <section aria-labelledby="transcript-heading" class="mt-12">
+          <details class="rounded-xl border border-line bg-surface-raised">
+            <summary class="cursor-pointer px-5 py-4 font-semibold focus-visible:outline-2 focus-visible:outline-brand">
+              文字起こし（{transcript.language}）
+            </summary>
+            <div class="border-t border-line px-5 py-4 leading-relaxed">
+              <p class="whitespace-pre-line">{transcript.text}</p>
+            </div>
+          </details>
+        </section>
+      )
+    }
+
+    <section aria-labelledby="description-heading" class="mt-12">
+      <h2 id="description-heading" class="text-xl font-bold">概要</h2>
+      <div class="mt-3 leading-relaxed text-ink-muted">
+        {
+          descriptionParagraphs.map((line) =>
+            line === "" ? <br /> : <p set:html={linkifyText(line)} />,
+          )
+        }
+      </div>
+    </section>
+
+    {
+      /* 0 件なら非表示(featuredVideos/popularVideos・関連動画と同じ方針・#134) */
+      gearItems.length > 0 && (
+        <section aria-labelledby="gear-heading" class="mt-12">
+          <h2 id="gear-heading" class="text-xl font-bold">
+            この動画で紹介したガジェット
+          </h2>
+          <p class="mt-2 text-sm text-ink-muted">
+            動画内で使用・紹介した機材です。ほかの愛用ガジェットは
+            <a href="/gear/" class="font-semibold text-brand-accent hover:underline">
+              愛用ガジェット
+            </a>
+            でまとめてチェックできます。
+          </p>
+          <ul role="list" class="mt-5 grid gap-3 sm:grid-cols-2">
+            {gearItems.map((item) => (
+              <GearMiniCard item={item} />
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    {
+      /* この動画に登場する用語(用語集との相互リンク・gear セクションと同方針・#294)。
+      該当する用語が無い動画ではセクション自体を表示しない */
+      glossaryTerms.length > 0 && (
+        <section aria-labelledby="glossary-heading" class="mt-12">
+          <h2 id="glossary-heading" class="text-xl font-bold">
+            この動画に出てくる用語
+          </h2>
+          <p class="mt-2 text-sm text-ink-muted">
+            動画内で登場する用語の解説です。ほかの用語もまとめて
+            <a href="/glossary/" class="font-semibold text-brand-accent hover:underline">
+              用語集
+            </a>
+            でチェックできます。
+          </p>
+          <dl class="mt-5 flex flex-col gap-4">
+            {glossaryTerms.map((item) => (
+              <div class="rounded-xl bg-surface-raised p-4">
+                <dt>
+                  <a
+                    href={`/glossary/#${item.anchorId}`}
+                    class="font-semibold text-brand-accent hover:underline"
+                  >
+                    {item.term}
+                  </a>
+                </dt>
+                <dd class="mt-1 text-sm text-ink-muted">{item.definition}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )
+    }
+
+    {
+      (adjacentVideos.older || adjacentVideos.newer) && (
+        <nav
+          aria-label="公開日順の前後ナビゲーション"
+          class="mt-12 grid gap-3 border-t border-b border-line py-4 sm:grid-cols-2"
+        >
+          {adjacentVideos.older ? (
+            <a
+              href={`/videos/${adjacentVideos.older.id}/`}
+              class="group/pager flex items-center gap-3 rounded-lg p-3 transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand"
+            >
+              <span aria-hidden="true" class="text-ink-muted">
+                ←
+              </span>
+              <span class="min-w-0">
+                <span class="block text-xs text-ink-muted">前の動画</span>
+                <span class="line-clamp-1 font-semibold group-hover/pager:text-brand-accent">
+                  {adjacentVideos.older.title}
+                </span>
+              </span>
+            </a>
+          ) : (
+            <span />
+          )}
+          {adjacentVideos.newer ? (
+            <a
+              href={`/videos/${adjacentVideos.newer.id}/`}
+              class="group/pager flex items-center justify-end gap-3 rounded-lg p-3 text-right transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand sm:col-start-2"
+            >
+              <span class="min-w-0">
+                <span class="block text-xs text-ink-muted">次の動画</span>
+                <span class="line-clamp-1 font-semibold group-hover/pager:text-brand-accent">
+                  {adjacentVideos.newer.title}
+                </span>
+              </span>
+              <span aria-hidden="true" class="text-ink-muted">
+                →
+              </span>
+            </a>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )
+    }
+
+    {
+      relatedVideos.length > 0 && (
+        <section aria-labelledby="related-heading" class="mt-16">
+          <h2 id="related-heading" class="text-xl font-bold">
+            関連動画
+          </h2>
+          <p class="mt-2 text-sm text-ink-muted">
+            「{CATEGORY_LABELS[category]}」カテゴリの他の動画です。
+          </p>
+          <ul role="list" class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {relatedVideos.map((relatedVideo) => (
+              <RelatedVideoCard video={relatedVideo} category={category} />
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    <section aria-labelledby="video-cta-heading" class="mt-16">
+      <div class="rounded-2xl bg-surface-raised p-8 text-center">
+        <h2 id="video-cta-heading" class="text-xl font-bold">もっと動画をチェックする</h2>
+        <p class="mx-auto mt-2 max-w-xl text-ink-muted">
+          {site.name} では AI・ガジェット・社会人 Vlog など幅広いテーマの動画を公開しています。
+        </p>
+        <SubscribeMilestoneNote />
+        <div class="mt-5 flex flex-wrap justify-center gap-4">
+          <a
+            href="/videos/"
+            class="rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-strong"
+          >
+            動画ライブラリを見る
+          </a>
+          <a
+            href={subscribeUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface"
+          >
+            チャンネル登録する <span aria-hidden="true">↗</span>
+            <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<script>
+  // YouTube IFrame Player API の最小限の型(公式 @types パッケージは導入していないため自前で宣言)。
+  // 使用箇所(onStateChange の ENDED 検知)に必要なメンバーのみに絞る。
+  interface YouTubePlayerStateChangeEvent {
+    data: number;
+  }
+  interface YouTubePlayer {
+    destroy: () => void;
+    seekTo: (seconds: number, allowSeekAhead: boolean) => void;
+    playVideo: () => void;
+  }
+  interface YouTubeIframeApi {
+    Player: new (
+      element: HTMLIFrameElement,
+      options: { events: { onStateChange: (event: YouTubePlayerStateChangeEvent) => void } },
+    ) => YouTubePlayer;
+    PlayerState: { ENDED: number };
+  }
+  declare global {
+    interface Window {
+      YT?: YouTubeIframeApi;
+      onYouTubeIframeAPIReady?: () => void;
+    }
+  }
+
+  const frame = document.getElementById("video-player-frame");
+  const chapterLinks = document.querySelectorAll<HTMLAnchorElement>("[data-chapter-seconds]");
+  const nextVideoOverlay = document.getElementById("next-video-overlay");
+  const nextVideoDismiss = document.getElementById("next-video-dismiss");
+  const nextVideoLink = document.getElementById("next-video-link");
+
+  // IFrame Player API 経由で生成したプレイヤー(次の動画提示(#175)がある場合のみ生成)。
+  // 生成済みの間はチャプター遷移もこの player 経由(seekTo)で行う。frame.src を直接
+  // 書き換えるとプレイヤーとの postMessage 通信が切れ、再生終了検知が効かなくなるため(#279)。
+  let player: YouTubePlayer | null = null;
+
+  // next-video-overlay が存在しない(= 提示できる次の動画が無い)場合は何もしない安全な no-op。
+  function hideNextVideo(): void {
+    // オーバーレイ内(閉じるボタン等)にフォーカスがある状態のまま hidden にすると、
+    // display:none の要素にはフォーカスを保持できないため body へ落ちてしまう。
+    // showNextVideo がフォーカスを移す(#366)のと対になる形で、閉じる前にプレイヤーへ戻す(#380)。
+    if (nextVideoOverlay?.contains(document.activeElement)) {
+      frame?.focus();
+    }
+    nextVideoOverlay?.classList.add("hidden");
+    nextVideoOverlay?.classList.remove("flex");
+  }
+
+  // チャプターリンクは通常のYouTube視聴URLへのリンク(JS無効環境・クローラー向けフォールバック)。
+  // JS有効時はページ遷移せず、埋め込みプレイヤーのiframeを該当秒数から再生し直す(#154)
+  if (frame instanceof HTMLIFrameElement) {
+    for (const link of chapterLinks) {
+      link.addEventListener("click", (event) => {
+        const seconds = link.dataset.chapterSeconds;
+        if (!seconds) return;
+        // 修飾キー(Ctrl/Cmd/Shift)クリックや中クリックはブラウザ標準の
+        // 「新しいタブで開く」動作を優先し、iframe差し替えは行わない
+        if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        event.preventDefault();
+        // 再生終了後に表示された「次の動画」オーバーレイが残ったままだと、チャプター再生で
+        // 裏側の動画が再開しても隠れて見えないため、再生し直す前に必ず閉じる(#366)
+        hideNextVideo();
+        if (player) {
+          player.seekTo(Number(seconds), true);
+          player.playVideo();
+        } else {
+          const url = new URL(frame.src);
+          url.searchParams.set("start", seconds);
+          url.searchParams.set("autoplay", "1");
+          frame.src = url.toString();
+        }
+        frame.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+  }
+
+  // 再生終了後の「次の動画」提示(#175)。
+  // next-video-overlay が存在する(= 提示できる次の動画がある)場合のみ、
+  // YouTube IFrame API スクリプトを動的に読み込む。このサイトは方針としてサードパーティ
+  // スクリプトを追加しない(JS最小限)ため、提示先が無い動画では一切読み込ませない。
+  if (frame instanceof HTMLIFrameElement && nextVideoOverlay) {
+    const showNextVideo = (): void => {
+      nextVideoOverlay.classList.remove("hidden");
+      nextVideoOverlay.classList.add("flex");
+      // スクリーンリーダー利用者にもオーバーレイの出現に気付けるよう、案内リンクへフォーカスを移す(#366)
+      nextVideoLink?.focus();
+    };
+
+    nextVideoDismiss?.addEventListener("click", hideNextVideo);
+
+    window.onYouTubeIframeAPIReady = () => {
+      const YT = window.YT;
+      if (!YT) return;
+      // frame は iframe_api 読み込み前後で不変(このスクリプトが差し替えるのは src のみ)。
+      // 既存の iframe を渡すことで API 側が enablejsapi=1 のプレイヤーとして認識する(公式仕様)。
+      player = new YT.Player(frame, {
+        events: {
+          onStateChange: (event) => {
+            if (event.data === YT.PlayerState.ENDED) showNextVideo();
+          },
+        },
+      });
+    };
+
+    const apiScript = document.createElement("script");
+    apiScript.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(apiScript);
+  }
+</script>
