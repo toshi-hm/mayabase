@@ -617,12 +617,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     }
   }
 
-  // 再生終了後の「次の動画」提示(#175)。
-  // next-video-overlay が存在する(= 提示できる次の動画がある)場合のみ、
-  // YouTube IFrame API スクリプトを動的に読み込む。このサイトは方針としてサードパーティ
-  // スクリプトを追加しない(JS最小限)ため、提示先が無い動画では一切読み込ませない。
-  if (frame instanceof HTMLIFrameElement && nextVideoOverlay) {
+  // YouTube IFrame Player API は秒単位レジューム(#345)のため、次動画の提示有無にかかわらず
+  // 動画詳細ページで初期化する。再生終了時のオーバーレイ表示だけを、次動画が存在する場合に限定する。
+  if (frame instanceof HTMLIFrameElement) {
     const showNextVideo = (): void => {
+      if (!nextVideoOverlay) return;
       nextVideoOverlay.classList.remove("hidden");
       nextVideoOverlay.classList.add("flex");
       // スクリーンリーダー利用者にもオーバーレイの出現に気付けるよう、案内リンクへフォーカスを移す(#366)
