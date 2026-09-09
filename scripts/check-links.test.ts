@@ -115,21 +115,7 @@ describe("probeLink", () => {
     });
   });
 
-  test("HEAD が 404 なら ok=false でフォールバックしない", async () => {
-    const calls: string[] = [];
-    const fetchFn: FetchLike = async (_url, init) => {
-      calls.push(init?.method ?? "GET");
-      return new Response(null, { status: 404 });
-    };
-    expect(await probeLink("https://example.com", fetchFn)).toEqual({
-      ok: false,
-      status: 404,
-      error: null,
-    });
-    expect(calls).toEqual(["HEAD"]);
-  });
-
-  test.each([405, 501])("HEAD が %d なら GET にフォールバックする", async (status) => {
+  test.each([403, 404, 405, 500, 501, 503])("HEAD が %d なら GET にフォールバックする", async (status) => {
     const calls: string[] = [];
     const fetchFn: FetchLike = async (_url, init) => {
       calls.push(init?.method ?? "GET");
