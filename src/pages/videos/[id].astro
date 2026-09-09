@@ -271,6 +271,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       >
         <iframe
           id="video-player-frame"
+          data-video-id={video.id}
           src={playerEmbedUrl(video.id, playerOrigin)}
           title={video.title}
           loading="lazy"
@@ -521,10 +522,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   interface YouTubePlayerStateChangeEvent {
     data: number;
   }
+  import {
+    CONTINUE_WATCHING_PROGRESS_STORAGE_KEY,
+    parseStoredContinueWatchingProgress,
+    recordContinueWatchingProgress,
+  } from "../../lib/continueWatching";
+
   interface YouTubePlayer {
     destroy: () => void;
     seekTo: (seconds: number, allowSeekAhead: boolean) => void;
     playVideo: () => void;
+    getCurrentTime: () => number;
   }
   interface YouTubeIframeApi {
     Player: new (
@@ -550,6 +558,24 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // 生成済みの間はチャプター遷移もこの player 経由(seekTo)で行う。frame.src を直接
   // 書き換えるとプレイヤーとの postMessage 通信が切れ、再生終了検知が効かなくなるため(#279)。
   let player: YouTubePlayer | null = null;
+  const videoId = frame instanceof HTMLIFrameElement ? (frame.dataset.videoId ?? "") : "";
+
+  const saveProgress = (): void => {
+    if (!player || !videoId) return;
+    const seconds = player.getCurrentTime();
+    if (!Number.isFinite(seconds) || seconds < 0) return;
+    try {
+      const progress = parseStoredContinueWatchingProgress(
+        localStorage.getItem(CONTINUE_WATCHING_PROGRESS_STORAGE_KEY),
+      );
+      localStorage.setItem(
+        CONTINUE_WATCHING_PROGRESS_STORAGE_KEY,
+        JSON.stringify(recordContinueWatchingProgress(progress, videoId, seconds)),
+      );
+    } catch {
+      // localStorageが使えない環境では視聴を妨げない
+    }
+  };
 
   // next-video-overlay が存在しない(= 提示できる次の動画が無い)場合は何もしない安全な no-op。
   function hideNextVideo(): void {
@@ -617,6 +643,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           },
         },
       });
+      window.setInterval(saveProgress, 15_000);
+      window.addEventListener("pagehide", saveProgress);
     };
 
     const apiScript = document.createElement("script");

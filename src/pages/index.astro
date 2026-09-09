@@ -632,10 +632,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   import {
     CONTINUE_WATCHING_STORAGE_KEY,
     parseContinueWatchingCandidates,
+    CONTINUE_WATCHING_PROGRESS_STORAGE_KEY,
     parseStoredContinueWatchingIds,
+    parseStoredContinueWatchingProgress,
     selectContinueWatchingVideo,
   } from "../lib/continueWatching";
-  import { thumbnailFallbackUrl, videoUrl } from "../lib/youtube";
+  import { thumbnailFallbackUrl, videoUrlAtTime } from "../lib/youtube";
 
   const section = document.getElementById("continue-watching");
   const link = document.getElementById("continue-watching-link");
@@ -663,7 +665,15 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       const candidates = parseContinueWatchingCandidates(dataScript.textContent);
       const video = selectContinueWatchingVideo(storedIds, candidates);
       if (video) {
-        link.href = videoUrl(video);
+        let progress: Record<string, number> = {};
+        try {
+          progress = parseStoredContinueWatchingProgress(
+            localStorage.getItem(CONTINUE_WATCHING_PROGRESS_STORAGE_KEY),
+          );
+        } catch {
+          // プライベートモード等では0秒から再生する
+        }
+        link.href = videoUrlAtTime(video, progress[video.id] ?? 0);
         thumbnail.src = thumbnailFallbackUrl(video.id);
         titleEl.textContent = video.title;
         section.hidden = false;
