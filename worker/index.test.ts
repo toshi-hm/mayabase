@@ -7,20 +7,24 @@ import worker from "./index";
 
 interface FakeKv {
   store: Map<string, string>;
+  expirations: Map<string, number | undefined>;
   get(key: string): Promise<string | null>;
-  put(key: string, value: string): Promise<void>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
 }
 
 function createKv(): FakeKv {
   const store = new Map<string, string>();
+  const expirations = new Map<string, number | undefined>();
   return {
     store,
+    expirations,
     async get(key) {
       return store.get(key) ?? null;
     },
-    async put(key, value) {
+    async put(key, value, options) {
       store.set(key, value);
+      expirations.set(key, options?.expirationTtl);
     },
     async delete(key) {
       store.delete(key);
@@ -91,6 +95,7 @@ describe("fetch", () => {
     const stored = JSON.parse([...kv.store.values()][0] as string);
     expect(stored.endpoint).toBe(validSubscription.endpoint);
     expect(stored.keys).toEqual(validSubscription.keys);
+    expect(kv.expirations.values().next().value).toBe(90 * 24 * 60 * 60);
   });
 
   test("KV設定済みなら解除でKVから削除する", async () => {
@@ -115,6 +120,53 @@ describe("fetch", () => {
     });
     expect(response.status).toBe(400);
     expect(kv.store.size).toBe(0);
+  });
+
+  test("大きすぎるリクエストボディは400として拒否する", async () => {
+    const kv = createKv();
+    const response = await worker.fetch(
+      new Request("https://portal.mayabase.workers.dev/api/push/subscribe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          endpoint: validSubscription.endpoint,
+          keys: validSubscription.keys,
+          padding: "x".repeat(9_000),
+        }),
+      }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(response.status).toBe(400);
+    expect(kv.store.size).toBe(0);
+  });
+
+  test("同一クライアントの短時間の過剰な購読要求は429を返す", async () => {
+    const kv = createKv();
+    const headers = { "content-type": "application/json", "CF-Connecting-IP": "192.0.2.60" };
+    for (let i = 0; i < 10; i += 1) {
+      const response = await worker.fetch(
+        new Request("https://portal.mayabase.workers.dev/api/push/subscribe", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            ...validSubscription,
+            endpoint: `${validSubscription.endpoint}/${i}`,
+          }),
+        }),
+        { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+      );
+      expect(response.status).toBe(201);
+    }
+    const response = await worker.fetch(
+      new Request("https://portal.mayabase.workers.dev/api/push/subscribe", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(validSubscription),
+      }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("60");
   });
 
   test("KV書き込みが例外を投げた場合は502(未処理例外による非JSON応答にしない、#359)", async () => {
