@@ -115,7 +115,9 @@ describe("probeLink", () => {
     });
   });
 
-  test.each([403, 404, 405, 500, 501, 503])("HEAD が %d なら GET にフォールバックする", async (status) => {
+  test.each([
+    403, 404, 405, 500, 501, 503,
+  ])("HEAD が %d なら GET にフォールバックする", async (status) => {
     const calls: string[] = [];
     const fetchFn: FetchLike = async (_url, init) => {
       calls.push(init?.method ?? "GET");
