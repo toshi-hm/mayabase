@@ -140,6 +140,26 @@ describe("fetch", () => {
     expect(kv.store.size).toBe(0);
   });
 
+  test("Content-Lengthなしの大きなストリーム本文も読み込み途中で拒否する", async () => {
+    const kv = createKv();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"endpoint":"https://fcm.googleapis.com/'));
+        controller.enqueue(new TextEncoder().encode("x".repeat(9_000)));
+        controller.close();
+      },
+    });
+    const request = new Request("https://portal.mayabase.workers.dev/api/push/subscribe", {
+      method: "POST",
+      headers: { "content-type": "application/json", "CF-Connecting-IP": "192.0.2.61" },
+      body,
+      duplex: "half",
+    } as RequestInit);
+    const response = await worker.fetch(request, { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv });
+    expect(response.status).toBe(400);
+    expect(kv.store.size).toBe(0);
+  });
+
   test("同一クライアントの短時間の過剰な購読要求は429を返す", async () => {
     const kv = createKv();
     const headers = { "content-type": "application/json", "CF-Connecting-IP": "192.0.2.60" };
