@@ -416,6 +416,22 @@ export function formatDurationLabel(duration: string | null): string | null {
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
 }
 
+/** 通常動画をさらに視聴時間の目安で絞り込むための尺バケット(/videos/ 等のフィルターで使う・#330) */
+export type VideoDurationBucket = "" | "under5" | "5to15" | "over15";
+
+/**
+ * duration(ISO 8601)から尺バケットを求める。duration が null、または ISO 8601 として
+ * パースできない場合は絞り込み対象外として空文字を返す(viewCount 等と同じ「取得できたものだけ表示」方針・#173)。
+ */
+export function videoDurationBucket(duration: string | null): VideoDurationBucket {
+  if (duration === null) return "";
+  const totalSeconds = parseIso8601Duration(duration);
+  if (totalSeconds === null) return "";
+  if (totalSeconds <= 5 * 60) return "under5";
+  if (totalSeconds <= 15 * 60) return "5to15";
+  return "over15";
+}
+
 /**
  * 既存データと RSS の取得結果をマージする。
  * - RSS に存在する動画: タイトル・説明・公開日時を更新(isShort の確定値は維持)

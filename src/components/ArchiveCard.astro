@@ -7,6 +7,7 @@ import {
   thumbnailFallbackUrl,
   thumbnailUrl,
   type Video,
+  videoDurationBucket,
   videoLengthFilterValue,
   videoUrl,
 } from "../lib/youtube";
@@ -46,6 +47,8 @@ const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
   表示・非表示は `hidden` 属性(DOM の `.hidden`)で一元的に制御する。
   data-view-count は「人気順」ソートの並び替えキー。未取得(null)の動画は空文字にし、
   クライアント側でソート時に最下位扱いにする。
+  data-duration-bucket は「尺(再生時間)」の絞り込みキー(#330)。duration 未取得の動画は
+  空文字にし、特定バケットが選択された際は非表示扱いにする(data-view-count と同じ方針)。
   この <li> は videos.astro から直接描画される場合と、DOM 肥大化対策で <template> の中身として
   描画され、必要になった時点でのみクライアント側で複製・挿入される場合がある(#177)。
   後者のケースでも同じ data-* を <template> 自体にも付与しておくことで、実体化前でも
@@ -54,6 +57,7 @@ const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
 <li
   class="relative"
   data-category={category}
+  data-duration-bucket={videoDurationBucket(video.duration)}
   data-length={videoLengthFilterValue(video)}
   data-title={video.title.toLowerCase()}
   data-video-id={video.id}

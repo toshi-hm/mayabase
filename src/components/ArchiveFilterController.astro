@@ -8,7 +8,10 @@
  * 各ページ側は以下のマークアップ規約に従うことを前提にする:
  * - `#archive-search`: キーワード検索の input[type=search]
  * - `[data-filter-length]`(値: all/video/short): 長さ絞り込みボタン
- * - `#archive-grid`: `<li data-length data-title data-view-count>`(ArchiveCard.astro が既に付与)を並べたコンテナ
+ * - `[data-filter-duration]`(値: all/under5/5to15/over15): 尺(再生時間)絞り込みボタン(#330)。
+ *   duration が1件も無い環境ではページ側がそもそも描画しない(hasViewCounts と同じ方針)ため任意。
+ * - `#archive-grid`: `<li data-length data-duration-bucket data-title data-view-count>`
+ *   (ArchiveCard.astro が既に付与)を並べたコンテナ
  * - `#archive-count`: 該当件数を表示する要素(aria-live 推奨)
  * - `#archive-empty`: 0件時に表示する要素(通常は hidden)
  * - `[data-sort-order]`(値: newest/popular): 並び替えボタン。viewCount が1件も無い環境では
@@ -22,6 +25,7 @@
   const grid = document.getElementById("archive-grid");
   const search = document.getElementById("archive-search") as HTMLInputElement | null;
   const lengthButtons = document.querySelectorAll<HTMLButtonElement>("[data-filter-length]");
+  const durationButtons = document.querySelectorAll<HTMLButtonElement>("[data-filter-duration]");
   const sortButtons = document.querySelectorAll<HTMLButtonElement>("[data-sort-order]");
   const count = document.getElementById("archive-count");
   const empty = document.getElementById("archive-empty");
@@ -32,9 +36,13 @@
   // このコントローラーを使うページが無い(該当マークアップが存在しない)場合は何もしない
   if (grid && cards.length > 0) {
     let length: "all" | "video" | "short" = "all";
+    let durationBucket: "all" | "under5" | "5to15" | "over15" = "all";
     let sortOrder: "newest" | "popular" = "newest";
     const validLengths = new Set(
       [...lengthButtons].map((button) => button.dataset.filterLength ?? "all"),
+    );
+    const validDurationBuckets = new Set(
+      [...durationButtons].map((button) => button.dataset.filterDuration ?? "all"),
     );
 
     function setPressedLength(nextLength: string): void {
@@ -42,6 +50,15 @@
         button.setAttribute(
           "aria-pressed",
           String((button.dataset.filterLength ?? "all") === nextLength),
+        );
+      }
+    }
+
+    function setPressedDuration(nextBucket: string): void {
+      for (const button of durationButtons) {
+        button.setAttribute(
+          "aria-pressed",
+          String((button.dataset.filterDuration ?? "all") === nextBucket),
         );
       }
     }
@@ -56,6 +73,7 @@
     function cardMatches(card: HTMLLIElement, query: string): boolean {
       return (
         (length === "all" || card.dataset.length === length) &&
+        (durationBucket === "all" || card.dataset.durationBucket === durationBucket) &&
         textMatchesKeyword(card.dataset.title ?? "", query)
       );
     }
@@ -92,6 +110,7 @@
     function syncUrl(mode: "push" | "replace"): void {
       const params = new URLSearchParams();
       if (length !== "all") params.set("length", length);
+      if (durationBucket !== "all") params.set("duration", durationBucket);
       const query = (search?.value ?? "").trim();
       if (query) params.set("q", query);
       if (sortOrder !== "newest") params.set("order", sortOrder);
@@ -112,6 +131,12 @@
       length =
         urlLength && validLengths.has(urlLength) ? (urlLength as "all" | "video" | "short") : "all";
       setPressedLength(length);
+      const urlDuration = params.get("duration");
+      durationBucket =
+        urlDuration && validDurationBuckets.has(urlDuration)
+          ? (urlDuration as "all" | "under5" | "5to15" | "over15")
+          : "all";
+      setPressedDuration(durationBucket);
       if (search) search.value = params.get("q") ?? "";
 
       // 並び替えトグル自体が無い環境(viewCount 未取得)では order パラメータを無視する
@@ -127,6 +152,17 @@
         const value = button.dataset.filterLength;
         length = value === "video" || value === "short" ? value : "all";
         setPressedLength(length);
+        applyFilter();
+        syncUrl("push");
+      });
+    }
+
+    for (const button of durationButtons) {
+      button.addEventListener("click", () => {
+        const value = button.dataset.filterDuration;
+        durationBucket =
+          value === "under5" || value === "5to15" || value === "over15" ? value : "all";
+        setPressedDuration(durationBucket);
         applyFilter();
         syncUrl("push");
       });
