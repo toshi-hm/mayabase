@@ -15,7 +15,11 @@
  * 静的配信は通常どおり行い、/api/push/* だけが 503 を返す(リポジトリ内の他の連携と同様、
  * 未設定なら機能だけが無効になる方針。scripts/send-push-notifications.ts / .env.example 参照)。
  */
-import { isValidPushSubscriptionPayload, type StoredPushSubscription } from "../src/lib/push";
+import {
+  isValidPushSubscriptionPayload,
+  PUSH_ENDPOINT_MAX_LENGTH,
+  type StoredPushSubscription,
+} from "../src/lib/push";
 
 /** Cloudflare Workers KV バインディングの必要最小限の型(@cloudflare/workers-types は導入しない) */
 interface PushSubscriptionsKv {
@@ -52,6 +56,7 @@ const REQUEST_BODY_MAX_BYTES = 8 * 1024;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 10;
 const SUBSCRIPTION_TTL_SECONDS = 90 * 24 * 60 * 60;
+const RATE_LIMIT_MAX_ENTRIES = 1_000;
 
 interface RateLimitEntry {
   count: number;
@@ -68,6 +73,13 @@ function clientRateLimitKey(request: Request): string {
 }
 
 function isRateLimited(request: Request, now = Date.now()): boolean {
+  for (const [key, entry] of rateLimitEntries) {
+    if (now - entry.windowStartedAt >= RATE_LIMIT_WINDOW_MS) rateLimitEntries.delete(key);
+  }
+  if (rateLimitEntries.size >= RATE_LIMIT_MAX_ENTRIES) {
+    const oldestKey = rateLimitEntries.keys().next().value;
+    if (oldestKey) rateLimitEntries.delete(oldestKey);
+  }
   const key = clientRateLimitKey(request);
   const current = rateLimitEntries.get(key);
   if (!current || now - current.windowStartedAt >= RATE_LIMIT_WINDOW_MS) {
@@ -92,10 +104,35 @@ function rateLimitedResponse(): Response {
 async function readJsonBody(request: Request): Promise<unknown> {
   const contentLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > REQUEST_BODY_MAX_BYTES) return undefined;
+  if (!request.body) return undefined;
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
   try {
-    const body = await request.text();
-    if (new TextEncoder().encode(body).byteLength > REQUEST_BODY_MAX_BYTES) return undefined;
-    return JSON.parse(body);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      totalBytes += value.byteLength;
+      if (totalBytes > REQUEST_BODY_MAX_BYTES) {
+        await reader.cancel();
+        return undefined;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return undefined;
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
   } catch {
     return undefined;
   }
@@ -155,7 +192,11 @@ async function handleUnsubscribe(request: Request, env: Env): Promise<Response> 
     typeof payload === "object" && payload !== null
       ? (payload as { endpoint?: unknown }).endpoint
       : undefined;
-  if (typeof endpoint !== "string" || endpoint.length === 0 || endpoint.length > 2048) {
+  if (
+    typeof endpoint !== "string" ||
+    endpoint.length === 0 ||
+    endpoint.length > PUSH_ENDPOINT_MAX_LENGTH
+  ) {
     return jsonResponse({ error: "invalid endpoint" }, 400);
   }
 
