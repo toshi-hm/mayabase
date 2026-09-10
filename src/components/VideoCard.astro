@@ -23,9 +23,19 @@ interface Props {
   featured?: boolean;
   /** 指定時、公開日の前に再生回数(整形済み文字列)を表示する(#35) */
   viewCountLabel?: string;
+  /** カルーセル以外のGrid表示ではスライド用の幅・ARIAを付けない */
+  layout?: "carousel" | "grid";
 }
 
-const { video, position, total, eager = false, featured = false, viewCountLabel } = Astro.props;
+const {
+  video,
+  position,
+  total,
+  eager = false,
+  featured = false,
+  viewCountLabel,
+  layout = "carousel",
+} = Astro.props;
 // RSS のみ(YOUTUBE_API_KEY 未設定)の環境では取得できず null になる(viewCount と同じ方針・#173)
 const durationLabel = formatDurationLabel(video.duration);
 const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
@@ -33,12 +43,17 @@ const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
 
 <li
   class:list={[
-    "relative flex-none",
-    featured ? "w-[88%] sm:w-[68%] lg:w-[56%]" : "w-[80%] sm:w-[47%] lg:w-[31.5%]",
+    "relative",
+    layout === "carousel" && "flex-none",
+    layout === "carousel"
+      ? featured
+        ? "w-[88%] sm:w-[68%] lg:w-[56%]"
+        : "w-[80%] sm:w-[47%] lg:w-[31.5%]"
+      : "w-full",
   ]}
   role="listitem"
-  aria-roledescription="スライド"
-  aria-label={`${position} / ${total}`}
+  aria-roledescription={layout === "carousel" ? "スライド" : undefined}
+  aria-label={layout === "carousel" ? String(position) + " / " + String(total) : undefined}
 >
   {
     /* data-watch-track-id は「前回の続きから」導線(#188)向け。クリックを
