@@ -27,6 +27,7 @@ interface PushSubscriptionsKv {
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
 const REACTION_RATE_LIMIT_WINDOW_MS = 60_000;
 const REACTION_RATE_LIMIT_MAX = 30;
+const REACTION_RATE_LIMIT_MAX_ENTRIES = 1_000;
 const reactionRateLimitEntries = new Map<string, { startedAt: number; count: number }>();
 
 interface Env {
@@ -106,16 +107,44 @@ function storageOperationFailedResponse(): Response {
   return jsonResponse({ error: "push subscription storage operation failed" }, 502);
 }
 
-function isReactionRateLimited(request: Request): boolean {
-  const key = request.headers.get("CF-Connecting-IP") ?? "anonymous";
+function reactionClientKey(request: Request): string {
+  return request.headers.get("CF-Connecting-IP")?.trim() || "unknown";
+}
+
+function isFallbackReactionRateLimited(request: Request): boolean {
   const now = Date.now();
+  for (const [key, entry] of reactionRateLimitEntries) {
+    if (now - entry.startedAt >= REACTION_RATE_LIMIT_WINDOW_MS) {
+      reactionRateLimitEntries.delete(key);
+    }
+  }
+  if (reactionRateLimitEntries.size >= REACTION_RATE_LIMIT_MAX_ENTRIES) {
+    const oldestKey = reactionRateLimitEntries.keys().next().value;
+    if (oldestKey) reactionRateLimitEntries.delete(oldestKey);
+  }
+
+  const key = reactionClientKey(request);
   const current = reactionRateLimitEntries.get(key);
   if (!current || now - current.startedAt >= REACTION_RATE_LIMIT_WINDOW_MS) {
     reactionRateLimitEntries.set(key, { startedAt: now, count: 1 });
     return false;
   }
+  if (current.count >= REACTION_RATE_LIMIT_MAX) return true;
   current.count += 1;
-  return current.count > REACTION_RATE_LIMIT_MAX;
+  return false;
+}
+
+async function isReactionRateLimited(request: Request, env: Env): Promise<boolean> {
+  const key = reactionClientKey(request);
+  if (env.REACTION_RATE_LIMITER) {
+    try {
+      const result = await env.REACTION_RATE_LIMITER.limit({ key });
+      return !result.success;
+    } catch {
+      return isFallbackReactionRateLimited(request);
+    }
+  }
+  return isFallbackReactionRateLimited(request);
 }
 
 async function handleSubscribe(request: Request, env: Env): Promise<Response> {
@@ -142,9 +171,6 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleVideoReaction(request: Request, env: Env): Promise<Response> {
-  if (request.method === "POST" && isReactionRateLimited(request)) {
-    return jsonResponse({ error: "rate limit exceeded" }, 429);
-  }
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
   const payload =
@@ -159,6 +185,9 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
         : undefined;
   if (typeof videoId !== "string" || !VIDEO_ID_PATTERN.test(videoId)) {
     return jsonResponse({ error: "invalid video id" }, 400);
+  }
+  if (await isReactionRateLimited(request, env)) {
+    return jsonResponse({ error: "rate limit exceeded" }, 429);
   }
   const key = "reaction:" + videoId;
   try {
