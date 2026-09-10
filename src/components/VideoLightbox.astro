@@ -14,17 +14,10 @@ import { site, subscribeUrl } from "../config/site";
   aria-labelledby="video-lightbox-title"
   class="video-lightbox m-auto w-[min(56rem,92vw)] max-w-none rounded-2xl border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/70"
 >
-  <div
-    class="flex items-center justify-between gap-4 border-b border-line px-4 py-3"
-  >
+  <div class="flex items-center justify-between gap-4 border-b border-line px-4 py-3">
     <div class="min-w-0">
-      <h2
-        id="video-lightbox-title"
-        class="line-clamp-1 text-sm font-semibold sm:text-base"
-      >
-      </h2>
-      <p id="video-lightbox-queue-status" hidden class="text-xs text-ink-muted">
-      </p>
+      <h2 id="video-lightbox-title" class="line-clamp-1 text-sm font-semibold sm:text-base"></h2>
+      <p id="video-lightbox-queue-status" hidden class="text-xs text-ink-muted"></p>
     </div>
     <button
       type="button"
@@ -59,9 +52,7 @@ import { site, subscribeUrl } from "../config/site";
     /* プレビュー再生に集中してもらいつつ、視聴後(あるいは視聴中)にそのまま登録に進める
     導線を用意する(#326)。動画本編の視聴に対して控えめな見た目に留める。 */
   }
-  <div
-    class="flex items-center justify-between gap-4 border-t border-line px-4 py-3"
-  >
+  <div class="flex items-center justify-between gap-4 border-t border-line px-4 py-3">
     <p class="text-sm text-ink-muted">{site.name}が気に入ったら</p>
     <a
       href={subscribeUrl()}
@@ -117,9 +108,7 @@ import { site, subscribeUrl } from "../config/site";
   const iframeElement = document.getElementById("video-lightbox-iframe");
   const titleEl = document.getElementById("video-lightbox-title");
   const queueStatusEl = document.getElementById("video-lightbox-queue-status");
-  const closeButton = dialog?.querySelector<HTMLButtonElement>(
-    "[data-lightbox-close]",
-  );
+  const closeButton = dialog?.querySelector<HTMLButtonElement>("[data-lightbox-close]");
 
   if (
     dialog instanceof HTMLDialogElement &&
@@ -139,21 +128,18 @@ import { site, subscribeUrl } from "../config/site";
     const loadYouTubeApi = (): Promise<LightboxYouTubeIframeApi> => {
       if (browserWindow.YT) return Promise.resolve(browserWindow.YT);
       if (youtubeApiPromise) return youtubeApiPromise;
-      youtubeApiPromise = new Promise<LightboxYouTubeIframeApi>(
-        (resolve, reject) => {
-          const previousReady = browserWindow.onYouTubeIframeAPIReady;
-          browserWindow.onYouTubeIframeAPIReady = () => {
-            previousReady?.();
-            if (browserWindow.YT) resolve(browserWindow.YT);
-            else reject(new Error("YouTube IFrame API is unavailable"));
-          };
-          const apiScript = document.createElement("script");
-          apiScript.src = "https://www.youtube.com/iframe_api";
-          apiScript.onerror = () =>
-            reject(new Error("YouTube IFrame API failed to load"));
-          document.head.appendChild(apiScript);
-        },
-      );
+      youtubeApiPromise = new Promise<LightboxYouTubeIframeApi>((resolve, reject) => {
+        const previousReady = browserWindow.onYouTubeIframeAPIReady;
+        browserWindow.onYouTubeIframeAPIReady = () => {
+          previousReady?.();
+          if (browserWindow.YT) resolve(browserWindow.YT);
+          else reject(new Error("YouTube IFrame API is unavailable"));
+        };
+        const apiScript = document.createElement("script");
+        apiScript.src = "https://www.youtube.com/iframe_api";
+        apiScript.onerror = () => reject(new Error("YouTube IFrame API failed to load"));
+        document.head.appendChild(apiScript);
+      });
       return youtubeApiPromise;
     };
 
@@ -168,17 +154,14 @@ import { site, subscribeUrl } from "../config/site";
       queueStatusEl.textContent = `一気見 ${index + 1} / ${activeQueue.length}`;
     };
 
-    const getVisibleQueue = (
-      queueRoot: HTMLElement | null,
-    ): VideoQueueItem[] => {
+    const getVisibleQueue = (queueRoot: HTMLElement | null): VideoQueueItem[] => {
       if (!queueRoot) return [];
       return createVisibleVideoQueue(
         [...queueRoot.querySelectorAll<HTMLElement>("[data-lightbox-video-id]")]
           .map((trigger) => ({
             id: trigger.dataset.lightboxVideoId ?? "",
             title: trigger.dataset.lightboxTitle ?? "",
-            aspect:
-              trigger.dataset.lightboxAspect === "short" ? "short" : "video",
+            aspect: trigger.dataset.lightboxAspect === "short" ? "short" : "video",
             hidden: trigger.closest<HTMLElement>("li")?.hidden ?? false,
           }))
           .filter((item) => item.id && item.title),
@@ -189,25 +172,13 @@ import { site, subscribeUrl } from "../config/site";
       if (activeQueue.length < 2) return;
       try {
         const YT = await loadYouTubeApi();
-        if (
-          !dialog.open ||
-          generation !== openGeneration ||
-          !activeQueue.length
-        )
-          return;
+        if (!dialog.open || generation !== openGeneration || !activeQueue.length) return;
         youtubePlayer = new YT.Player(iframe, {
           events: {
             onStateChange: (event) => {
               if (event.data !== YT.PlayerState.ENDED) return;
               const next = nextVideoInQueue(activeQueue, activeVideoId);
-              if (next)
-                openLightbox(
-                  next.id,
-                  next.title,
-                  next.aspect,
-                  undefined,
-                  activeQueue,
-                );
+              if (next) openLightbox(next.id, next.title, next.aspect, undefined, activeQueue);
             },
           },
         });
@@ -228,8 +199,7 @@ import { site, subscribeUrl } from "../config/site";
       const nextIframe = document.createElement("iframe");
       nextIframe.id = "video-lightbox-iframe";
       nextIframe.className = "h-full w-full";
-      nextIframe.allow =
-        "autoplay; encrypted-media; picture-in-picture; web-share";
+      nextIframe.allow = "autoplay; encrypted-media; picture-in-picture; web-share";
       nextIframe.allowFullscreen = true;
       if (iframe.isConnected) iframe.replaceWith(nextIframe);
       else player.append(nextIframe);
@@ -238,9 +208,7 @@ import { site, subscribeUrl } from "../config/site";
       activeQueue = queue;
       activeVideoId = videoId;
       player.className = getLightboxContainerClass(parseLightboxAspect(aspect));
-      const url = new URL(
-        buildLightboxSrc(videoId, parseLightboxStartSeconds(startSeconds)),
-      );
+      const url = new URL(buildLightboxSrc(videoId, parseLightboxStartSeconds(startSeconds)));
       url.searchParams.set("enablejsapi", "1");
       url.searchParams.set("origin", browserWindow.location.origin);
       iframe.src = url.toString();
