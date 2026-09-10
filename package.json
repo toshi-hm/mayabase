@@ -21,7 +21,8 @@
     "font:subset": "bun run scripts/subset-fonts.ts",
     "test": "bun test",
     "deploy": "bun run build:full && wrangler deploy",
-    "preview:worker": "bun run build && wrangler dev"
+    "preview:worker": "bun run build && wrangler dev",
+    "check:video-availability": "bun run scripts/check-video-availability.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "3.7.3",
