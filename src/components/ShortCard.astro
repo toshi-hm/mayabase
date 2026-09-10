@@ -1,6 +1,7 @@
 ---
 import { formatDateJa, isRecentlyPublished } from "../lib/format";
 import { thumbnailFallbackUrl, type Video, videoUrl } from "../lib/youtube";
+import InterestButton from "./InterestButton.astro";
 import PreviewButton from "./PreviewButton.astro";
 import ShareButton from "./ShareButton.astro";
 import WatchLaterButton from "./WatchLaterButton.astro";
@@ -74,4 +75,5 @@ const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
   <PreviewButton videoId={video.id} title={video.title} aspect="short" />
   <ShareButton title={video.title} url={videoUrl(video)} />
   <WatchLaterButton videoId={video.id} title={video.title} aspect="short" />
+  <InterestButton videoId={video.id} />
 </li>

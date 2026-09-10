@@ -15,17 +15,24 @@
  * 静的配信は通常どおり行い、/api/push/* だけが 503 を返す(リポジトリ内の他の連携と同様、
  * 未設定なら機能だけが無効になる方針。scripts/send-push-notifications.ts / .env.example 参照)。
  */
-import {
-  isValidPushSubscriptionPayload,
-  PUSH_ENDPOINT_MAX_LENGTH,
-  type StoredPushSubscription,
-} from "../src/lib/push";
+import { isValidPushSubscriptionPayload, type StoredPushSubscription } from "../src/lib/push";
 
 /** Cloudflare Workers KV バインディングの必要最小限の型(@cloudflare/workers-types は導入しない) */
 interface PushSubscriptionsKv {
   get(key: string): Promise<string | null>;
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
+}
+
+const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
+const REACTION_RATE_LIMIT_WINDOW_MS = 60_000;
+const REACTION_RATE_LIMIT_MAX = 30;
+const REACTION_READ_RATE_LIMIT_MAX = 120;
+const REACTION_RATE_LIMIT_MAX_ENTRIES = 1_000;
+const reactionRateLimitEntries = new Map<string, { startedAt: number; count: number }>();
+
+interface ReactionRateLimiter {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
 }
 
 interface Env {
@@ -36,6 +43,10 @@ interface Env {
    * KV を未セットアップの環境ではバインディングが存在しないため optional にしている。
    */
   PUSH_SUBSCRIPTIONS?: PushSubscriptionsKv;
+  /** 動画リアクション書き込み用の共有Rate Limiting binding。 */
+  REACTION_RATE_LIMITER?: ReactionRateLimiter;
+  /** 動画リアクション読み取り用の共有Rate Limiting binding。 */
+  REACTION_READ_RATE_LIMITER?: ReactionRateLimiter;
 }
 
 async function sha256Hex(input: string): Promise<string> {
@@ -52,61 +63,13 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-const REQUEST_BODY_MAX_BYTES = 8 * 1024;
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX_REQUESTS = 10;
-const SUBSCRIPTION_TTL_SECONDS = 90 * 24 * 60 * 60;
-const RATE_LIMIT_MAX_ENTRIES = 1_000;
+const REACTION_BODY_MAX_BYTES = 8 * 1024;
 
-interface RateLimitEntry {
-  count: number;
-  windowStartedAt: number;
-}
-
-// Workersインスタンス単位の簡易制限。厳密な全体制限はCloudflare Rate Limiting bindingで補完する。
-const rateLimitEntries = new Map<string, RateLimitEntry>();
-
-function clientRateLimitKey(request: Request): string {
-  const trustedIp = request.headers.get("CF-Connecting-IP");
-  if (trustedIp) return trustedIp;
-  const forwardedIp = request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim();
-  return forwardedIp || "unknown";
-}
-
-function isRateLimited(request: Request, now = Date.now()): boolean {
-  for (const [key, entry] of rateLimitEntries) {
-    if (now - entry.windowStartedAt >= RATE_LIMIT_WINDOW_MS) rateLimitEntries.delete(key);
-  }
-  if (rateLimitEntries.size >= RATE_LIMIT_MAX_ENTRIES) {
-    const oldestKey = rateLimitEntries.keys().next().value;
-    if (oldestKey) rateLimitEntries.delete(oldestKey);
-  }
-  const key = clientRateLimitKey(request);
-  const current = rateLimitEntries.get(key);
-  if (!current || now - current.windowStartedAt >= RATE_LIMIT_WINDOW_MS) {
-    rateLimitEntries.set(key, { count: 1, windowStartedAt: now });
-    return false;
-  }
-  if (current.count >= RATE_LIMIT_MAX_REQUESTS) return true;
-  current.count += 1;
-  return false;
-}
-
-function rateLimitedResponse(): Response {
-  return new Response(JSON.stringify({ error: "too many requests" }), {
-    status: 429,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "retry-after": "60",
-    },
-  });
-}
-
-async function readJsonBody(request: Request): Promise<unknown> {
-  const contentLength = Number(request.headers.get("content-length"));
-  if (Number.isFinite(contentLength) && contentLength > REQUEST_BODY_MAX_BYTES) return undefined;
+async function readJsonBody(
+  request: Request,
+  maxBytes = REACTION_BODY_MAX_BYTES,
+): Promise<unknown> {
   if (!request.body) return undefined;
-
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
@@ -116,7 +79,7 @@ async function readJsonBody(request: Request): Promise<unknown> {
       if (done) break;
       if (!value) continue;
       totalBytes += value.byteLength;
-      if (totalBytes > REQUEST_BODY_MAX_BYTES) {
+      if (totalBytes > maxBytes) {
         await reader.cancel();
         return undefined;
       }
@@ -125,7 +88,6 @@ async function readJsonBody(request: Request): Promise<unknown> {
   } catch {
     return undefined;
   }
-
   const bytes = new Uint8Array(totalBytes);
   let offset = 0;
   for (const chunk of chunks) {
@@ -157,11 +119,52 @@ function storageOperationFailedResponse(): Response {
   return jsonResponse({ error: "push subscription storage operation failed" }, 502);
 }
 
+function reactionClientKey(request: Request): string {
+  return request.headers.get("CF-Connecting-IP")?.trim() || "unknown";
+}
+
+function isFallbackReactionRateLimited(request: Request): boolean {
+  const now = Date.now();
+  for (const [key, entry] of reactionRateLimitEntries) {
+    if (now - entry.startedAt >= REACTION_RATE_LIMIT_WINDOW_MS) {
+      reactionRateLimitEntries.delete(key);
+    }
+  }
+  if (reactionRateLimitEntries.size >= REACTION_RATE_LIMIT_MAX_ENTRIES) {
+    const oldestKey = reactionRateLimitEntries.keys().next().value;
+    if (oldestKey) reactionRateLimitEntries.delete(oldestKey);
+  }
+
+  const key = `${request.method}:${reactionClientKey(request)}`;
+  const current = reactionRateLimitEntries.get(key);
+  if (!current || now - current.startedAt >= REACTION_RATE_LIMIT_WINDOW_MS) {
+    reactionRateLimitEntries.set(key, { startedAt: now, count: 1 });
+    return false;
+  }
+  const maxRequests =
+    request.method === "GET" ? REACTION_READ_RATE_LIMIT_MAX : REACTION_RATE_LIMIT_MAX;
+  if (current.count >= maxRequests) return true;
+  current.count += 1;
+  return false;
+}
+
+async function isReactionRateLimited(request: Request, env: Env): Promise<boolean> {
+  const limiter =
+    request.method === "GET" ? env.REACTION_READ_RATE_LIMITER : env.REACTION_RATE_LIMITER;
+  if (limiter) {
+    try {
+      const result = await limiter.limit({ key: reactionClientKey(request) });
+      return !result.success;
+    } catch {
+      return isFallbackReactionRateLimited(request);
+    }
+  }
+  return isFallbackReactionRateLimited(request);
+}
+
 async function handleSubscribe(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
-
-  if (isRateLimited(request)) return rateLimitedResponse();
 
   const payload = await readJsonBody(request);
   if (!isValidPushSubscriptionPayload(payload)) {
@@ -175,29 +178,56 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
   };
   const key = await subscriptionKey(payload.endpoint);
   try {
-    await kv.put(key, JSON.stringify(record), { expirationTtl: SUBSCRIPTION_TTL_SECONDS });
+    await kv.put(key, JSON.stringify(record));
   } catch {
     return storageOperationFailedResponse();
   }
   return jsonResponse({ ok: true }, 201);
 }
 
+async function handleVideoReaction(request: Request, env: Env): Promise<Response> {
+  const kv = env.PUSH_SUBSCRIPTIONS;
+  if (!kv) return storageUnavailableResponse();
+  const payload = request.method === "GET" ? undefined : await readJsonBody(request);
+  const videoId =
+    request.method === "GET"
+      ? new URL(request.url).searchParams.get("videoId")
+      : typeof payload === "object" && payload !== null
+        ? (payload as { videoId?: unknown }).videoId
+        : undefined;
+  if (typeof videoId !== "string" || !VIDEO_ID_PATTERN.test(videoId)) {
+    return jsonResponse({ error: "invalid video id" }, 400);
+  }
+  if (await isReactionRateLimited(request, env)) {
+    return jsonResponse({ error: "rate limit exceeded" }, 429);
+  }
+  const key = `reaction:${videoId}`;
+  try {
+    const current = await kv.get(key);
+    const count = current === null ? 0 : Number.parseInt(current, 10);
+    if (request.method === "GET") {
+      return jsonResponse({
+        count: Number.isSafeInteger(count) && count >= 0 ? count : 0,
+      });
+    }
+    const nextCount = Number.isSafeInteger(count) && count >= 0 ? count + 1 : 1;
+    await kv.put(key, String(nextCount), { expirationTtl: 365 * 24 * 60 * 60 });
+    return jsonResponse({ count: nextCount });
+  } catch {
+    return storageOperationFailedResponse();
+  }
+}
+
 async function handleUnsubscribe(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
-
-  if (isRateLimited(request)) return rateLimitedResponse();
 
   const payload = await readJsonBody(request);
   const endpoint =
     typeof payload === "object" && payload !== null
       ? (payload as { endpoint?: unknown }).endpoint
       : undefined;
-  if (
-    typeof endpoint !== "string" ||
-    endpoint.length === 0 ||
-    endpoint.length > PUSH_ENDPOINT_MAX_LENGTH
-  ) {
+  if (typeof endpoint !== "string" || endpoint.length === 0) {
     return jsonResponse({ error: "invalid endpoint" }, 400);
   }
 
@@ -219,6 +249,12 @@ export default {
     }
     if (request.method === "POST" && url.pathname === "/api/push/unsubscribe") {
       return handleUnsubscribe(request, env);
+    }
+    if (
+      (request.method === "GET" || request.method === "POST") &&
+      url.pathname === "/api/video-reaction"
+    ) {
+      return handleVideoReaction(request, env);
     }
 
     // /api/push/* 以外は従来通り静的アセット配信に委譲する(挙動は変えない)

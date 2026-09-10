@@ -1,0 +1,130 @@
+---
+interface Props {
+  videoId: string;
+}
+const { videoId } = Astro.props;
+---
+
+<button
+  type="button"
+  data-interest-video-id={videoId}
+  aria-label="気になるに追加"
+  class="rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-ink-muted transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
+>
+  気になる <span data-interest-count aria-live="polite">0</span>
+  <span
+    data-interest-popular-badge
+    hidden
+    class="ml-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-accent"
+  >
+    話題
+  </span>
+</button>
+
+<script>
+  const requestVersions = new WeakMap<HTMLButtonElement, number>();
+
+  // 静的プレビューにはWorker APIがないため、Lighthouse/ローカル確認時の不要な404を避ける。
+  const isStaticPreview = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+
+  const applyCount = (button: HTMLButtonElement, count: number) => {
+    const countEl = button.querySelector("[data-interest-count]");
+    if (countEl) countEl.textContent = String(count);
+    button.setAttribute("aria-label", "気になる " + count + "件");
+    const badge = button.querySelector<HTMLElement>("[data-interest-popular-badge]");
+    const isPopular = count >= 10;
+    if (isPopular) {
+      button.dataset.interestPopular = "true";
+    } else {
+      delete button.dataset.interestPopular;
+    }
+    if (badge) badge.hidden = !isPopular;
+  };
+
+  const loadCount = async (button: HTMLButtonElement, videoId: string) => {
+    const version = requestVersions.get(button) ?? 0;
+    try {
+      const response = await fetch("/api/video-reaction?videoId=" + encodeURIComponent(videoId));
+      if (!response.ok) return;
+      const data = (await response.json()) as { count?: unknown };
+      if (typeof data.count === "number" && requestVersions.get(button) === version) {
+        applyCount(button, data.count);
+      }
+    } catch {
+      // Initial count is best-effort and must not block the viewing experience.
+    }
+  };
+
+  const scheduleCountLoad = (button: HTMLButtonElement, videoId: string) => {
+    if (isStaticPreview) return;
+    if (!("IntersectionObserver" in window)) {
+      void loadCount(button, videoId);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        void loadCount(button, videoId);
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(button);
+  };
+
+  const initializeButton = (button: HTMLButtonElement) => {
+    if (button.dataset.interestInitialized === "true") return;
+    const videoId = button.dataset.interestVideoId;
+    if (!videoId) return;
+    button.dataset.interestInitialized = "true";
+    scheduleCountLoad(button, videoId);
+  };
+
+  const submitReaction = async (button: HTMLButtonElement) => {
+    const videoId = button.dataset.interestVideoId;
+    if (!videoId || button.disabled) return;
+    const version = (requestVersions.get(button) ?? 0) + 1;
+    requestVersions.set(button, version);
+    button.disabled = true;
+    try {
+      const response = await fetch("/api/video-reaction", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ videoId }),
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as { count?: unknown };
+      if (typeof data.count === "number" && requestVersions.get(button) === version) {
+        applyCount(button, data.count);
+      }
+    } finally {
+      button.disabled = false;
+    }
+  };
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-interest-video-id]")
+    .forEach(initializeButton);
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest<HTMLButtonElement>("[data-interest-video-id]");
+    if (button) void submitReaction(button);
+  });
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (!(node instanceof Element)) continue;
+        if (node instanceof HTMLButtonElement && node.matches("[data-interest-video-id]")) {
+          initializeButton(node);
+        }
+        node.querySelectorAll("[data-interest-video-id]").forEach((candidate) => {
+          if (candidate instanceof HTMLButtonElement) initializeButton(candidate);
+        });
+      }
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+</script>
