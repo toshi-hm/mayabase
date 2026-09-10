@@ -53,9 +53,36 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-async function readJsonBody(request: Request): Promise<unknown> {
+const REACTION_BODY_MAX_BYTES = 8 * 1024;
+
+async function readJsonBody(request: Request, maxBytes = REACTION_BODY_MAX_BYTES): Promise<unknown> {
+  if (!request.body) return undefined;
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
   try {
-    return await request.json();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        return undefined;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return undefined;
+  }
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
   } catch {
     return undefined;
   }
@@ -115,16 +142,21 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleVideoReaction(request: Request, env: Env): Promise<Response> {
-  if (isReactionRateLimited(request)) {
+  if (request.method === "POST" && isReactionRateLimited(request)) {
     return jsonResponse({ error: "rate limit exceeded" }, 429);
   }
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
-  const payload = await readJsonBody(request);
+  const payload =
+    request.method === "GET"
+      ? undefined
+      : await readJsonBody(request);
   const videoId =
-    typeof payload === "object" && payload !== null
-      ? (payload as { videoId?: unknown }).videoId
-      : undefined;
+    request.method === "GET"
+      ? new URL(request.url).searchParams.get("videoId")
+      : typeof payload === "object" && payload !== null
+        ? (payload as { videoId?: unknown }).videoId
+        : undefined;
   if (typeof videoId !== "string" || !VIDEO_ID_PATTERN.test(videoId)) {
     return jsonResponse({ error: "invalid video id" }, 400);
   }
@@ -132,6 +164,9 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
   try {
     const current = await kv.get(key);
     const count = current === null ? 0 : Number.parseInt(current, 10);
+    if (request.method === "GET") {
+      return jsonResponse({ count: Number.isSafeInteger(count) && count >= 0 ? count : 0 });
+    }
     const nextCount = Number.isSafeInteger(count) && count >= 0 ? count + 1 : 1;
     await kv.put(key, String(nextCount), { expirationTtl: 365 * 24 * 60 * 60 });
     return jsonResponse({ count: nextCount });
@@ -172,7 +207,7 @@ export default {
     if (request.method === "POST" && url.pathname === "/api/push/unsubscribe") {
       return handleUnsubscribe(request, env);
     }
-    if (request.method === "POST" && url.pathname === "/api/video-reaction") {
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/video-reaction") {
       return handleVideoReaction(request, env);
     }
 
