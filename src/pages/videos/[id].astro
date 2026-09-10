@@ -537,9 +537,14 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   interface YouTubeIframeApi {
     Player: new (
       element: HTMLIFrameElement,
-      options: { events: { onStateChange: (event: YouTubePlayerStateChangeEvent) => void } },
+      options: {
+        events: {
+          onReady: () => void;
+          onStateChange: (event: YouTubePlayerStateChangeEvent) => void;
+        };
+      },
     ) => YouTubePlayer;
-    PlayerState: { ENDED: number };
+    PlayerState: { ENDED: number; PLAYING: number };
   }
   declare global {
     interface Window {
@@ -558,13 +563,15 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // 生成済みの間はチャプター遷移もこの player 経由(seekTo)で行う。frame.src を直接
   // 書き換えるとプレイヤーとの postMessage 通信が切れ、再生終了検知が効かなくなるため(#279)。
   let player: YouTubePlayer | null = null;
+  let playerReady = false;
+  let hasStarted = false;
   const videoId = frame instanceof HTMLIFrameElement ? (frame.dataset.videoId ?? "") : "";
 
   const saveProgress = (): void => {
-    if (!player || !videoId) return;
-    const seconds = player.getCurrentTime();
-    if (!Number.isFinite(seconds) || seconds < 0) return;
+    if (!player || !playerReady || !hasStarted || !videoId) return;
     try {
+      const seconds = player.getCurrentTime();
+      if (!Number.isFinite(seconds) || seconds < 0) return;
       const progress = parseStoredContinueWatchingProgress(
         localStorage.getItem(CONTINUE_WATCHING_PROGRESS_STORAGE_KEY),
       );
@@ -573,7 +580,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         JSON.stringify(recordContinueWatchingProgress(progress, videoId, seconds)),
       );
     } catch {
-      // localStorageが使えない環境では視聴を妨げない
+      // localStorage/APIが使えない環境では視聴を妨げない
     }
   };
 
@@ -637,13 +644,20 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       // 既存の iframe を渡すことで API 側が enablejsapi=1 のプレイヤーとして認識する(公式仕様)。
       player = new YT.Player(frame, {
         events: {
+          onReady: () => {
+            playerReady = true;
+            window.setInterval(saveProgress, 15_000);
+            window.addEventListener("pagehide", saveProgress);
+            document.addEventListener("visibilitychange", () => {
+              if (document.visibilityState === "hidden") saveProgress();
+            });
+          },
           onStateChange: (event) => {
+            if (event.data === YT.PlayerState.PLAYING) hasStarted = true;
             if (event.data === YT.PlayerState.ENDED) showNextVideo();
           },
         },
       });
-      window.setInterval(saveProgress, 15_000);
-      window.addEventListener("pagehide", saveProgress);
     };
 
     const apiScript = document.createElement("script");
