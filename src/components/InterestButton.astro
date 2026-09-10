@@ -97,12 +97,12 @@ const { videoId } = Astro.props;
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (!(node instanceof Element)) continue;
-        if (node.matches<HTMLButtonElement>("[data-interest-video-id]")) {
+        if (node instanceof HTMLButtonElement && node.matches("[data-interest-video-id]")) {
           initializeButton(node);
         }
-        node
-          .querySelectorAll<HTMLButtonElement>("[data-interest-video-id]")
-          .forEach(initializeButton);
+        node.querySelectorAll("[data-interest-video-id]").forEach((candidate) => {
+          if (candidate instanceof HTMLButtonElement) initializeButton(candidate);
+        });
       }
     }
   });
