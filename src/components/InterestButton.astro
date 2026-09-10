@@ -47,26 +47,55 @@ const { videoId } = Astro.props;
     }
   };
 
-  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-interest-video-id]")) {
+  const initializeButton = (button: HTMLButtonElement) => {
+    if (button.dataset.interestInitialized === "true") return;
     const videoId = button.dataset.interestVideoId;
-    if (!videoId) continue;
+    if (!videoId) return;
+    button.dataset.interestInitialized = "true";
     void loadCount(button, videoId);
+  };
 
-    button.addEventListener("click", async () => {
-      if (button.disabled) return;
-      button.disabled = true;
-      try {
-        const response = await fetch("/api/video-reaction", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ videoId }),
-        });
-        if (!response.ok) return;
-        const data = (await response.json()) as { count?: unknown };
-        if (typeof data.count === "number") applyCount(button, data.count);
-      } finally {
-        button.disabled = false;
+  const submitReaction = async (button: HTMLButtonElement) => {
+    const videoId = button.dataset.interestVideoId;
+    if (!videoId || button.disabled) return;
+    button.disabled = true;
+    try {
+      const response = await fetch("/api/video-reaction", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ videoId }),
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as { count?: unknown };
+      if (typeof data.count === "number") applyCount(button, data.count);
+    } finally {
+      button.disabled = false;
+    }
+  };
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-interest-video-id]")
+    .forEach(initializeButton);
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest<HTMLButtonElement>("[data-interest-video-id]");
+    if (button) void submitReaction(button);
+  });
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (!(node instanceof Element)) continue;
+        if (node.matches<HTMLButtonElement>("[data-interest-video-id]")) {
+          initializeButton(node);
+        }
+        node
+          .querySelectorAll<HTMLButtonElement>("[data-interest-video-id]")
+          .forEach(initializeButton);
       }
-    });
-  }
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
 </script>
