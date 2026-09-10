@@ -27,6 +27,7 @@ interface PushSubscriptionsKv {
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
 const REACTION_RATE_LIMIT_WINDOW_MS = 60_000;
 const REACTION_RATE_LIMIT_MAX = 30;
+const REACTION_READ_RATE_LIMIT_MAX = 120;
 const REACTION_RATE_LIMIT_MAX_ENTRIES = 1_000;
 const reactionRateLimitEntries = new Map<string, { startedAt: number; count: number }>();
 
@@ -123,13 +124,15 @@ function isFallbackReactionRateLimited(request: Request): boolean {
     if (oldestKey) reactionRateLimitEntries.delete(oldestKey);
   }
 
-  const key = reactionClientKey(request);
+  const key = request.method + ":" + reactionClientKey(request);
   const current = reactionRateLimitEntries.get(key);
   if (!current || now - current.startedAt >= REACTION_RATE_LIMIT_WINDOW_MS) {
     reactionRateLimitEntries.set(key, { startedAt: now, count: 1 });
     return false;
   }
-  if (current.count >= REACTION_RATE_LIMIT_MAX) return true;
+  const maxRequests =
+    request.method === "GET" ? REACTION_READ_RATE_LIMIT_MAX : REACTION_RATE_LIMIT_MAX;
+  if (current.count >= maxRequests) return true;
   current.count += 1;
   return false;
 }
@@ -236,7 +239,10 @@ export default {
     if (request.method === "POST" && url.pathname === "/api/push/unsubscribe") {
       return handleUnsubscribe(request, env);
     }
-    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/video-reaction") {
+    if (
+      (request.method === "GET" || request.method === "POST") &&
+      url.pathname === "/api/video-reaction"
+    ) {
       return handleVideoReaction(request, env);
     }
 
