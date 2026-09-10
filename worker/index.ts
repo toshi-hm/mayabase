@@ -15,19 +15,12 @@
  * 静的配信は通常どおり行い、/api/push/* だけが 503 を返す(リポジトリ内の他の連携と同様、
  * 未設定なら機能だけが無効になる方針。scripts/send-push-notifications.ts / .env.example 参照)。
  */
-import {
-  isValidPushSubscriptionPayload,
-  type StoredPushSubscription,
-} from "../src/lib/push";
+import { isValidPushSubscriptionPayload, type StoredPushSubscription } from "../src/lib/push";
 
 /** Cloudflare Workers KV バインディングの必要最小限の型(@cloudflare/workers-types は導入しない) */
 interface PushSubscriptionsKv {
   get(key: string): Promise<string | null>;
-  put(
-    key: string,
-    value: string,
-    options?: { expirationTtl?: number },
-  ): Promise<void>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
 }
 
@@ -36,10 +29,7 @@ const REACTION_RATE_LIMIT_WINDOW_MS = 60_000;
 const REACTION_RATE_LIMIT_MAX = 30;
 const REACTION_READ_RATE_LIMIT_MAX = 120;
 const REACTION_RATE_LIMIT_MAX_ENTRIES = 1_000;
-const reactionRateLimitEntries = new Map<
-  string,
-  { startedAt: number; count: number }
->();
+const reactionRateLimitEntries = new Map<string, { startedAt: number; count: number }>();
 
 interface Env {
   /** wrangler.jsonc の assets.binding。マッチしないリクエストの静的配信に使う */
@@ -52,10 +42,7 @@ interface Env {
 }
 
 async function sha256Hex(input: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(input),
-  );
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
@@ -113,10 +100,7 @@ async function subscriptionKey(endpoint: string): Promise<string> {
 
 /** KV 未設定の環境で undefined へのアクセスによる 500 を避け、意図の伝わる 503 を返す */
 function storageUnavailableResponse(): Response {
-  return jsonResponse(
-    { error: "push subscription storage is not configured" },
-    503,
-  );
+  return jsonResponse({ error: "push subscription storage is not configured" }, 503);
 }
 
 /**
@@ -124,10 +108,7 @@ function storageUnavailableResponse(): Response {
  * 未処理例外による(非JSONの)汎用エラーページ応答を避け、意図の伝わる 502 JSONを返す(#359)。
  */
 function storageOperationFailedResponse(): Response {
-  return jsonResponse(
-    { error: "push subscription storage operation failed" },
-    502,
-  );
+  return jsonResponse({ error: "push subscription storage operation failed" }, 502);
 }
 
 function reactionClientKey(request: Request): string {
@@ -153,18 +134,13 @@ function isFallbackReactionRateLimited(request: Request): boolean {
     return false;
   }
   const maxRequests =
-    request.method === "GET"
-      ? REACTION_READ_RATE_LIMIT_MAX
-      : REACTION_RATE_LIMIT_MAX;
+    request.method === "GET" ? REACTION_READ_RATE_LIMIT_MAX : REACTION_RATE_LIMIT_MAX;
   if (current.count >= maxRequests) return true;
   current.count += 1;
   return false;
 }
 
-async function isReactionRateLimited(
-  request: Request,
-  env: Env,
-): Promise<boolean> {
+async function isReactionRateLimited(request: Request, env: Env): Promise<boolean> {
   const key = reactionClientKey(request);
   if (env.REACTION_RATE_LIMITER) {
     try {
@@ -200,14 +176,10 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
   return jsonResponse({ ok: true }, 201);
 }
 
-async function handleVideoReaction(
-  request: Request,
-  env: Env,
-): Promise<Response> {
+async function handleVideoReaction(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
-  const payload =
-    request.method === "GET" ? undefined : await readJsonBody(request);
+  const payload = request.method === "GET" ? undefined : await readJsonBody(request);
   const videoId =
     request.method === "GET"
       ? new URL(request.url).searchParams.get("videoId")
@@ -237,10 +209,7 @@ async function handleVideoReaction(
   }
 }
 
-async function handleUnsubscribe(
-  request: Request,
-  env: Env,
-): Promise<Response> {
+async function handleUnsubscribe(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
 
