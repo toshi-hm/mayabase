@@ -67,9 +67,10 @@ interface RateLimitEntry {
 const rateLimitEntries = new Map<string, RateLimitEntry>();
 
 function clientRateLimitKey(request: Request): string {
-  return (
-    request.headers.get("CF-Connecting-IP") ?? request.headers.get("X-Forwarded-For") ?? "unknown"
-  );
+  const trustedIp = request.headers.get("CF-Connecting-IP");
+  if (trustedIp) return trustedIp;
+  const forwardedIp = request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim();
+  return forwardedIp || "unknown";
 }
 
 function isRateLimited(request: Request, now = Date.now()): boolean {
