@@ -11,30 +11,61 @@ const { videoId, aspect = "video" } = Astro.props;
   /* 親要素(カード全体)は視聴リンクの <a> のため、PreviewButton/WatchLaterButton と同じく
   入れ子のインタラクティブ要素(a > button)を避けて兄弟要素として重ねて配置する。
   サムネイル上の4隅(Shorts/NEWバッジ・共有・あとで見る・プレビュー再生)は既に埋まっているため、
-  唯一空いている下部中央に配置する。以前は配置指定が無く裸のインライン要素としてカード本体の下に
-  はみ出しており、カルーセル(embla, overflow:hidden)では実際に表示すらされていなかった(#393)。 */
+  下部中央に配置する。以前は配置指定が無く裸のインライン要素としてカード本体の下にはみ出しており、
+  カルーセル(embla, overflow:hidden)では実際に表示すらされていなかった(#393)。
+  ただし ShortCard(aspect="short")はモバイル幅で thumbnail が非常に狭く(~130px)、
+  テキスト付きピルのままだと bottom-right の WatchLaterButton(h-9 w-9)と重なってしまう
+  (レビュー指摘)。ShortCard は durationLabel を表示せず bottom-left が空いているため、
+  そちらへ寄せた上で、WatchLaterButton と同じ h-9 w-9 の円形アイコンボタンに縮小し、
+  件数が増えても重ならないようにする。 */
 }
 <div
   class:list={[
-    "pointer-events-none absolute inset-x-0 top-0 z-10 flex items-end justify-center p-2",
-    aspect === "short" ? "aspect-[9/16]" : "aspect-video",
+    "pointer-events-none absolute inset-x-0 top-0 z-10 flex items-end p-2",
+    aspect === "short" ? "justify-start aspect-[9/16]" : "justify-center aspect-video",
   ]}
 >
-  <button
-    type="button"
-    data-interest-video-id={videoId}
-    aria-label="気になるに追加"
-    class="pointer-events-auto cursor-pointer rounded-full border border-line bg-surface/95 px-3 py-1 text-xs font-semibold text-ink-muted backdrop-blur transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
-  >
-    気になる <span data-interest-count aria-live="polite">0</span>
-    <span
-      data-interest-popular-badge
-      hidden
-      class="ml-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-accent"
-    >
-      話題
-    </span>
-  </button>
+  {
+    aspect === "short" ? (
+      // テキストラベルを付けると幅が入り切らないため、件数のみを表示する円形バッジにする
+      // (WatchLaterButton と同じ h-9 w-9 で、件数が増えても大きさが変わらず重ならない)
+      <button
+        type="button"
+        data-interest-video-id={videoId}
+        aria-label="気になるに追加"
+        class="pointer-events-auto relative grid h-9 w-9 cursor-pointer place-items-center rounded-full border border-line bg-surface/95 text-xs font-bold text-ink-muted backdrop-blur transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        <span data-interest-count aria-live="polite">
+          0
+        </span>
+        <span
+          data-interest-popular-badge
+          hidden
+          aria-hidden="true"
+          class="absolute -top-1 -right-1 h-3 w-3 rounded-full border border-surface bg-brand-accent"
+        />
+      </button>
+    ) : (
+      <button
+        type="button"
+        data-interest-video-id={videoId}
+        aria-label="気になるに追加"
+        class="pointer-events-auto cursor-pointer rounded-full border border-line bg-surface/95 px-3 py-1 text-xs font-semibold text-ink-muted backdrop-blur transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        気になる{" "}
+        <span data-interest-count aria-live="polite">
+          0
+        </span>
+        <span
+          data-interest-popular-badge
+          hidden
+          class="ml-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-accent"
+        >
+          話題
+        </span>
+      </button>
+    )
+  }
 </div>
 
 <script>
