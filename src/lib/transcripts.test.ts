@@ -23,5 +23,14 @@ describe("parseTranscriptsData", () => {
     expect(() =>
       parseTranscriptsData({ transcripts: { abc123: { ...valid, language: "" } } }),
     ).toThrow("language");
+    expect(() =>
+      parseTranscriptsData({ transcripts: { "short-id": valid } }),
+    ).toThrow("動画ID");
+    expect(() =>
+      parseTranscriptsData({ transcripts: { abc123: { ...valid, language: "not a language" } } }),
+    ).toThrow("language");
+    expect(
+      parseTranscriptsData({ transcripts: { abc123: { ...valid, language: "en-US" } } }),
+    ).toEqual({ transcripts: { abc123: { ...valid, language: "en-US" } } });
   });
 });
