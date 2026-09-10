@@ -27,6 +27,15 @@ export function nextVideoInQueue(
   return index >= 0 && index + 1 < queue.length ? (queue[index + 1] ?? null) : null;
 }
 
+/** 表示中のトリガーだけをDOM順で一気見キューへ変換する。 */
+export function createVisibleVideoQueue(
+  items: readonly (VideoQueueItem & { hidden?: boolean })[],
+): VideoQueueItem[] {
+  return items
+    .filter((item) => !item.hidden)
+    .map(({ hidden: _hidden, ...item }) => item);
+}
+
 /** data-binge-queue の値を検証し、不正値は空キューとして扱う。 */
 export function parseVideoQueue(value: string | undefined): VideoQueueItem[] {
   if (!value) return [];
