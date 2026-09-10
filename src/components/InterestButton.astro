@@ -10,14 +10,17 @@ const { videoId, aspect = "video" } = Astro.props;
 {
   /* 親要素(カード全体)は視聴リンクの <a> のため、PreviewButton/WatchLaterButton と同じく
   入れ子のインタラクティブ要素(a > button)を避けて兄弟要素として重ねて配置する。
-  サムネイル上の4隅(Shorts/NEWバッジ・共有・あとで見る・プレビュー再生)は既に埋まっているため、
-  唯一空いている下部中央に配置する。以前は配置指定が無く裸のインライン要素としてカード本体の下に
-  はみ出しており、カルーセル(embla, overflow:hidden)では実際に表示すらされていなかった(#393)。 */
+  aspect="video"(ArchiveCard/VideoCard)は尺表示がbottom-leftにあるため唯一空いている
+  下部中央に配置する。以前は配置指定が無く裸のインライン要素としてカード本体の下にはみ出しており、
+  カルーセル(embla, overflow:hidden)では実際に表示すらされていなかった(#393)。
+  aspect="short"(ShortCard)は尺表示が無くbottom-leftが空いている一方、幅が狭く
+  (モバイルで実測約140px)bottom-centerだとbottom-rightのWatchLaterButtonと重なってしまうため
+  bottom-leftに配置する。 */
 }
 <div
   class:list={[
-    "pointer-events-none absolute inset-x-0 top-0 z-10 flex items-end justify-center p-2",
-    aspect === "short" ? "aspect-[9/16]" : "aspect-video",
+    "pointer-events-none absolute inset-x-0 top-0 z-10 flex items-end p-2",
+    aspect === "short" ? "aspect-[9/16] justify-start" : "aspect-video justify-center",
   ]}
 >
   <button
