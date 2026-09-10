@@ -31,9 +31,7 @@ export function nextVideoInQueue(
 export function createVisibleVideoQueue(
   items: readonly (VideoQueueItem & { hidden?: boolean })[],
 ): VideoQueueItem[] {
-  return items
-    .filter((item) => !item.hidden)
-    .map(({ hidden: _hidden, ...item }) => item);
+  return items.filter((item) => !item.hidden).map(({ hidden: _hidden, ...item }) => item);
 }
 
 /** data-binge-queue の値を検証し、不正値は空キューとして扱う。 */
