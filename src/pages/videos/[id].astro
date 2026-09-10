@@ -155,8 +155,8 @@ const jsonLd = {
       // Google 推奨プロパティ。ISO 8601 のまま出力できる(#173)。取得できない動画は省略する
       // (viewCount と同じ「取得できたものだけ表示」方針)。
       ...(video.duration !== null && { duration: video.duration }),
-      // 検索結果でのキーモーメント表示を狙い、チャプターを Clip として構造化する(#154)
       ...(transcript && { transcript: transcript.text }),
+      // 検索結果でのキーモーメント表示を狙い、チャプターを Clip として構造化する(#154)
       ...(chapters.length > 0 && {
         hasPart: chapters.map((chapter) => ({
           "@type": "Clip",
@@ -275,6 +275,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       >
         <iframe
           id="video-player-frame"
+          data-video-id={video.id}
           src={playerEmbedUrl(video.id, playerOrigin)}
           title={video.title}
           loading="lazy"
@@ -541,17 +542,29 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   interface YouTubePlayerStateChangeEvent {
     data: number;
   }
+  import {
+    CONTINUE_WATCHING_PROGRESS_STORAGE_KEY,
+    parseStoredContinueWatchingProgress,
+    recordContinueWatchingProgress,
+  } from "../../lib/continueWatching";
+
   interface YouTubePlayer {
     destroy: () => void;
     seekTo: (seconds: number, allowSeekAhead: boolean) => void;
     playVideo: () => void;
+    getCurrentTime: () => number;
   }
   interface YouTubeIframeApi {
     Player: new (
       element: HTMLIFrameElement,
-      options: { events: { onStateChange: (event: YouTubePlayerStateChangeEvent) => void } },
+      options: {
+        events: {
+          onReady: () => void;
+          onStateChange: (event: YouTubePlayerStateChangeEvent) => void;
+        };
+      },
     ) => YouTubePlayer;
-    PlayerState: { ENDED: number };
+    PlayerState: { ENDED: number; PLAYING: number };
   }
   declare global {
     interface Window {
@@ -570,6 +583,26 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // 生成済みの間はチャプター遷移もこの player 経由(seekTo)で行う。frame.src を直接
   // 書き換えるとプレイヤーとの postMessage 通信が切れ、再生終了検知が効かなくなるため(#279)。
   let player: YouTubePlayer | null = null;
+  let playerReady = false;
+  let hasStarted = false;
+  const videoId = frame instanceof HTMLIFrameElement ? (frame.dataset.videoId ?? "") : "";
+
+  const saveProgress = (): void => {
+    if (!player || !playerReady || !hasStarted || !videoId) return;
+    try {
+      const seconds = player.getCurrentTime();
+      if (!Number.isFinite(seconds) || seconds < 0) return;
+      const progress = parseStoredContinueWatchingProgress(
+        localStorage.getItem(CONTINUE_WATCHING_PROGRESS_STORAGE_KEY),
+      );
+      localStorage.setItem(
+        CONTINUE_WATCHING_PROGRESS_STORAGE_KEY,
+        JSON.stringify(recordContinueWatchingProgress(progress, videoId, seconds)),
+      );
+    } catch {
+      // localStorage/APIが使えない環境では視聴を妨げない
+    }
+  };
 
   // next-video-overlay が存在しない(= 提示できる次の動画が無い)場合は何もしない安全な no-op。
   function hideNextVideo(): void {
@@ -611,12 +644,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     }
   }
 
-  // 再生終了後の「次の動画」提示(#175)。
-  // next-video-overlay が存在する(= 提示できる次の動画がある)場合のみ、
-  // YouTube IFrame API スクリプトを動的に読み込む。このサイトは方針としてサードパーティ
-  // スクリプトを追加しない(JS最小限)ため、提示先が無い動画では一切読み込ませない。
-  if (frame instanceof HTMLIFrameElement && nextVideoOverlay) {
+  // YouTube IFrame Player API は秒単位レジューム(#345)のため、次動画の提示有無にかかわらず
+  // 動画詳細ページで初期化する。再生終了時のオーバーレイ表示だけを、次動画が存在する場合に限定する。
+  if (frame instanceof HTMLIFrameElement) {
     const showNextVideo = (): void => {
+      if (!nextVideoOverlay) return;
       nextVideoOverlay.classList.remove("hidden");
       nextVideoOverlay.classList.add("flex");
       // スクリーンリーダー利用者にもオーバーレイの出現に気付けるよう、案内リンクへフォーカスを移す(#366)
@@ -632,7 +664,16 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       // 既存の iframe を渡すことで API 側が enablejsapi=1 のプレイヤーとして認識する(公式仕様)。
       player = new YT.Player(frame, {
         events: {
+          onReady: () => {
+            playerReady = true;
+            window.setInterval(saveProgress, 15_000);
+            window.addEventListener("pagehide", saveProgress);
+            document.addEventListener("visibilitychange", () => {
+              if (document.visibilityState === "hidden") saveProgress();
+            });
+          },
           onStateChange: (event) => {
+            if (event.data === YT.PlayerState.PLAYING) hasStarted = true;
             if (event.data === YT.PlayerState.ENDED) showNextVideo();
           },
         },
