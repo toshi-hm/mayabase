@@ -136,6 +136,39 @@ describe("fetch", () => {
     expect(kv.options.get("reaction:abc123")).toEqual({ expirationTtl: 365 * 24 * 60 * 60 });
   });
 
+  test("保存済みリアクション件数をGETで取得する", async () => {
+    const kv = createKv();
+    const request = postJson("/api/video-reaction", { videoId: "get-test" });
+    request.headers.set("CF-Connecting-IP", "198.51.100.34");
+    expect(
+      (await worker.fetch(request, { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv })).status,
+    ).toBe(200);
+
+    const response = await worker.fetch(
+      new Request(
+        "https://portal.mayabase.workers.dev/api/video-reaction?videoId=get-test",
+        { headers: { "CF-Connecting-IP": "198.51.100.34" } },
+      ),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ count: 1 });
+  });
+
+  test("大きすぎるリアクション本文は400で拒否する", async () => {
+    const kv = createKv();
+    const response = await worker.fetch(
+      new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ videoId: "large-body", padding: "x".repeat(9_000) }),
+      }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(response.status).toBe(400);
+    expect(kv.store.has("reaction:large-body")).toBe(false);
+  });
+
   test("不正な動画IDのリアクションは400", async () => {
     const kv = createKv();
     const response = await worker.fetch(
