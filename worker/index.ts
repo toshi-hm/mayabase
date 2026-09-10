@@ -192,7 +192,7 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
   if (await isReactionRateLimited(request, env)) {
     return jsonResponse({ error: "rate limit exceeded" }, 429);
   }
-  const key = `${videoId}`;
+  const key = `reaction:${videoId}`;
   try {
     const current = await kv.get(key);
     const count = current === null ? 0 : Number.parseInt(current, 10);
