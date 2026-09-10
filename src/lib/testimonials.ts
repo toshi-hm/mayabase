@@ -14,6 +14,16 @@ const ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 const MAX_QUOTE_LENGTH = 1000;
 const MAX_AUTHOR_LENGTH = 100;
 
+function isValidSourceUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function parseTestimonialsData(data: unknown): TestimonialsData {
   if (typeof data !== "object" || data === null) {
     throw new Error("testimonials.json: オブジェクトではありません");
@@ -47,10 +57,7 @@ export function parseTestimonialsData(data: unknown): TestimonialsData {
     ) {
       throw new Error(`testimonials.json: testimonials[${index}].author が不正です`);
     }
-    if (
-      item.sourceUrl !== undefined &&
-      (typeof item.sourceUrl !== "string" || !item.sourceUrl.startsWith("https://"))
-    ) {
+    if (item.sourceUrl !== undefined && !isValidSourceUrl(item.sourceUrl)) {
       throw new Error(
         `testimonials.json: testimonials[${index}].sourceUrl は https:// で始まる必要があります`,
       );
