@@ -83,6 +83,7 @@ import { site, subscribeUrl } from "../config/site";
     parseLightboxStartSeconds,
   } from "../lib/lightbox";
   import {
+    createVisibleVideoQueue,
     nextVideoInQueue,
     parseVideoQueue,
     type VideoQueueItem,
@@ -171,17 +172,19 @@ import { site, subscribeUrl } from "../config/site";
       queueRoot: HTMLElement | null,
     ): VideoQueueItem[] => {
       if (!queueRoot) return [];
-      return [
-        ...queueRoot.querySelectorAll<HTMLElement>("[data-lightbox-video-id]"),
-      ]
-        .filter((trigger) => !trigger.closest<HTMLElement>("li")?.hidden)
-        .map((trigger) => ({
-          id: trigger.dataset.lightboxVideoId ?? "",
-          title: trigger.dataset.lightboxTitle ?? "",
-          aspect:
-            trigger.dataset.lightboxAspect === "short" ? "short" : "video",
-        }))
-        .filter((item) => item.id && item.title);
+      return createVisibleVideoQueue(
+        [
+          ...queueRoot.querySelectorAll<HTMLElement>("[data-lightbox-video-id]"),
+        ]
+          .map((trigger) => ({
+            id: trigger.dataset.lightboxVideoId ?? "",
+            title: trigger.dataset.lightboxTitle ?? "",
+            aspect:
+              trigger.dataset.lightboxAspect === "short" ? "short" : "video",
+            hidden: trigger.closest<HTMLElement>("li")?.hidden ?? false,
+          }))
+          .filter((item) => item.id && item.title),
+      );
     };
 
     const attachPlayer = async (generation: number): Promise<void> => {
