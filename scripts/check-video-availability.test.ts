@@ -13,6 +13,17 @@ describe("probeVideo", () => {
     const fetchFn: FetchLike = async () => new Response(null, { status: 404 });
     expect(await probeVideo(video, fetchFn)).toMatchObject({ ok: false, status: 404 });
   });
+  test("429を再試行して成功すれば取得可能とする", async () => {
+    let calls = 0;
+    const fetchFn: FetchLike = async () => {
+      calls += 1;
+      return calls === 1
+        ? new Response(null, { status: 429, headers: { "retry-after": "0" } })
+        : new Response("{}", { status: 200 });
+    };
+    expect(await probeVideo(video, fetchFn)).toMatchObject({ ok: true, status: 200 });
+    expect(calls).toBe(2);
+  });
   test("ネットワーク失敗は取得失敗として記録する", async () => {
     const fetchFn: FetchLike = async () => {
       throw new Error("timeout");
