@@ -9,8 +9,17 @@ export interface TranscriptsData {
   transcripts: Record<string, Transcript>;
 }
 
-const ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+const ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 const MAX_TEXT_LENGTH = 500_000;
+
+function isLanguageTag(value: unknown): value is string {
+  if (typeof value !== "string" || value.trim().length === 0 || value.length > 35) return false;
+  try {
+    return Intl.getCanonicalLocales(value).length === 1;
+  } catch {
+    return false;
+  }
+}
 
 export function parseTranscriptsData(data: unknown): TranscriptsData {
   if (typeof data !== "object" || data === null) {
@@ -34,7 +43,7 @@ export function parseTranscriptsData(data: unknown): TranscriptsData {
     ) {
       throw new Error(`transcripts.json: ${id}.text が不正です`);
     }
-    if (typeof item.language !== "string" || item.language.trim().length === 0) {
+    if (!isLanguageTag(item.language)) {
       throw new Error(`transcripts.json: ${id}.language が不正です`);
     }
     transcripts[id] = { text: item.text, language: item.language };
