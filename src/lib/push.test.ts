@@ -84,6 +84,23 @@ describe("isValidPushSubscriptionPayload", () => {
     expect(isValidPushSubscriptionPayload({ endpoint: "https://", keys })).toBe(false);
   });
 
+  test("endpoint・keys の上限を超える値は false", () => {
+    const endpoint = "https://fcm.googleapis.com/fcm/send/xyz";
+    const keys = { p256dh: "p256dh-value", auth: "auth-value" };
+    expect(
+      isValidPushSubscriptionPayload({
+        endpoint: `https://fcm.googleapis.com/${"x".repeat(2049)}`,
+        keys,
+      }),
+    ).toBe(false);
+    expect(
+      isValidPushSubscriptionPayload({
+        endpoint,
+        keys: { p256dh: "x".repeat(257), auth: "auth" },
+      }),
+    ).toBe(false);
+  });
+
   test("keys.p256dh / keys.auth が欠落・空文字は false", () => {
     const endpoint = "https://fcm.googleapis.com/fcm/send/xyz";
     expect(isValidPushSubscriptionPayload({ endpoint })).toBe(false);

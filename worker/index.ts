@@ -15,12 +15,16 @@
  * 静的配信は通常どおり行い、/api/push/* だけが 503 を返す(リポジトリ内の他の連携と同様、
  * 未設定なら機能だけが無効になる方針。scripts/send-push-notifications.ts / .env.example 参照)。
  */
-import { isValidPushSubscriptionPayload, type StoredPushSubscription } from "../src/lib/push";
+import {
+  isValidPushSubscriptionPayload,
+  PUSH_ENDPOINT_MAX_LENGTH,
+  type StoredPushSubscription,
+} from "../src/lib/push";
 
 /** Cloudflare Workers KV バインディングの必要最小限の型(@cloudflare/workers-types は導入しない) */
 interface PushSubscriptionsKv {
   get(key: string): Promise<string | null>;
-  put(key: string, value: string): Promise<void>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
 }
 
@@ -48,9 +52,88 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+const REQUEST_BODY_MAX_BYTES = 8 * 1024;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 10;
+const SUBSCRIPTION_TTL_SECONDS = 90 * 24 * 60 * 60;
+const RATE_LIMIT_MAX_ENTRIES = 1_000;
+
+interface RateLimitEntry {
+  count: number;
+  windowStartedAt: number;
+}
+
+// Workersインスタンス単位の簡易制限。厳密な全体制限はCloudflare Rate Limiting bindingで補完する。
+const rateLimitEntries = new Map<string, RateLimitEntry>();
+
+function clientRateLimitKey(request: Request): string {
+  const trustedIp = request.headers.get("CF-Connecting-IP");
+  if (trustedIp) return trustedIp;
+  const forwardedIp = request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim();
+  return forwardedIp || "unknown";
+}
+
+function isRateLimited(request: Request, now = Date.now()): boolean {
+  for (const [key, entry] of rateLimitEntries) {
+    if (now - entry.windowStartedAt >= RATE_LIMIT_WINDOW_MS) rateLimitEntries.delete(key);
+  }
+  if (rateLimitEntries.size >= RATE_LIMIT_MAX_ENTRIES) {
+    const oldestKey = rateLimitEntries.keys().next().value;
+    if (oldestKey) rateLimitEntries.delete(oldestKey);
+  }
+  const key = clientRateLimitKey(request);
+  const current = rateLimitEntries.get(key);
+  if (!current || now - current.windowStartedAt >= RATE_LIMIT_WINDOW_MS) {
+    rateLimitEntries.set(key, { count: 1, windowStartedAt: now });
+    return false;
+  }
+  if (current.count >= RATE_LIMIT_MAX_REQUESTS) return true;
+  current.count += 1;
+  return false;
+}
+
+function rateLimitedResponse(): Response {
+  return new Response(JSON.stringify({ error: "too many requests" }), {
+    status: 429,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "retry-after": "60",
+    },
+  });
+}
+
 async function readJsonBody(request: Request): Promise<unknown> {
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > REQUEST_BODY_MAX_BYTES) return undefined;
+  if (!request.body) return undefined;
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
   try {
-    return await request.json();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      totalBytes += value.byteLength;
+      if (totalBytes > REQUEST_BODY_MAX_BYTES) {
+        await reader.cancel();
+        return undefined;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return undefined;
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
   } catch {
     return undefined;
   }
@@ -78,6 +161,8 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
 
+  if (isRateLimited(request)) return rateLimitedResponse();
+
   const payload = await readJsonBody(request);
   if (!isValidPushSubscriptionPayload(payload)) {
     return jsonResponse({ error: "invalid subscription payload" }, 400);
@@ -90,7 +175,7 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
   };
   const key = await subscriptionKey(payload.endpoint);
   try {
-    await kv.put(key, JSON.stringify(record));
+    await kv.put(key, JSON.stringify(record), { expirationTtl: SUBSCRIPTION_TTL_SECONDS });
   } catch {
     return storageOperationFailedResponse();
   }
@@ -101,12 +186,18 @@ async function handleUnsubscribe(request: Request, env: Env): Promise<Response> 
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
 
+  if (isRateLimited(request)) return rateLimitedResponse();
+
   const payload = await readJsonBody(request);
   const endpoint =
     typeof payload === "object" && payload !== null
       ? (payload as { endpoint?: unknown }).endpoint
       : undefined;
-  if (typeof endpoint !== "string" || endpoint.length === 0) {
+  if (
+    typeof endpoint !== "string" ||
+    endpoint.length === 0 ||
+    endpoint.length > PUSH_ENDPOINT_MAX_LENGTH
+  ) {
     return jsonResponse({ error: "invalid endpoint" }, 400);
   }
 

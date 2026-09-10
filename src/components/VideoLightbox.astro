@@ -15,7 +15,10 @@ import { site, subscribeUrl } from "../config/site";
   class="video-lightbox m-auto w-[min(56rem,92vw)] max-w-none rounded-2xl border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/70"
 >
   <div class="flex items-center justify-between gap-4 border-b border-line px-4 py-3">
-    <h2 id="video-lightbox-title" class="line-clamp-1 text-sm font-semibold sm:text-base"></h2>
+    <div class="min-w-0">
+      <h2 id="video-lightbox-title" class="line-clamp-1 text-sm font-semibold sm:text-base"></h2>
+      <p id="video-lightbox-queue-status" hidden class="text-xs text-ink-muted"></p>
+    </div>
     <button
       type="button"
       data-lightbox-close
@@ -70,57 +73,179 @@ import { site, subscribeUrl } from "../config/site";
     parseLightboxAspect,
     parseLightboxStartSeconds,
   } from "../lib/lightbox";
+  import {
+    createVisibleVideoQueue,
+    nextVideoInQueue,
+    parseVideoQueue,
+    type VideoQueueItem,
+  } from "../lib/videoQueue";
+
+  interface LightboxYouTubePlayerStateChangeEvent {
+    data: number;
+  }
+  interface LightboxYouTubePlayer {
+    destroy: () => void;
+  }
+  interface LightboxYouTubeIframeApi {
+    Player: new (
+      element: HTMLIFrameElement,
+      options: {
+        events: {
+          onStateChange: (event: LightboxYouTubePlayerStateChangeEvent) => void;
+        };
+      },
+    ) => LightboxYouTubePlayer;
+    PlayerState: { ENDED: number };
+  }
+  type LightboxWindow = Window & {
+    YT?: LightboxYouTubeIframeApi;
+    onYouTubeIframeAPIReady?: () => void;
+  };
+  const browserWindow = window as LightboxWindow;
 
   const dialog = document.getElementById("video-lightbox");
   const player = document.getElementById("video-lightbox-player");
-  const iframe = document.getElementById("video-lightbox-iframe");
+  const iframeElement = document.getElementById("video-lightbox-iframe");
   const titleEl = document.getElementById("video-lightbox-title");
+  const queueStatusEl = document.getElementById("video-lightbox-queue-status");
   const closeButton = dialog?.querySelector<HTMLButtonElement>("[data-lightbox-close]");
 
   if (
     dialog instanceof HTMLDialogElement &&
     player &&
-    iframe instanceof HTMLIFrameElement &&
+    iframeElement instanceof HTMLIFrameElement &&
     titleEl &&
+    queueStatusEl &&
     closeButton
   ) {
+    let iframe = iframeElement;
+    let activeQueue: VideoQueueItem[] = [];
+    let activeVideoId = "";
+    let youtubePlayer: LightboxYouTubePlayer | null = null;
+    let youtubeApiPromise: Promise<LightboxYouTubeIframeApi> | null = null;
+    let openGeneration = 0;
+
+    const loadYouTubeApi = (): Promise<LightboxYouTubeIframeApi> => {
+      if (browserWindow.YT) return Promise.resolve(browserWindow.YT);
+      if (youtubeApiPromise) return youtubeApiPromise;
+      youtubeApiPromise = new Promise<LightboxYouTubeIframeApi>((resolve, reject) => {
+        const previousReady = browserWindow.onYouTubeIframeAPIReady;
+        browserWindow.onYouTubeIframeAPIReady = () => {
+          previousReady?.();
+          if (browserWindow.YT) resolve(browserWindow.YT);
+          else reject(new Error("YouTube IFrame API is unavailable"));
+        };
+        const apiScript = document.createElement("script");
+        apiScript.src = "https://www.youtube.com/iframe_api";
+        apiScript.onerror = () => reject(new Error("YouTube IFrame API failed to load"));
+        document.head.appendChild(apiScript);
+      });
+      return youtubeApiPromise;
+    };
+
+    const updateQueueStatus = (): void => {
+      const index = activeQueue.findIndex((item) => item.id === activeVideoId);
+      if (index < 0 || activeQueue.length < 2) {
+        queueStatusEl.hidden = true;
+        queueStatusEl.textContent = "";
+        return;
+      }
+      queueStatusEl.hidden = false;
+      queueStatusEl.textContent = `一気見 ${index + 1} / ${activeQueue.length}`;
+    };
+
+    const getVisibleQueue = (queueRoot: HTMLElement | null): VideoQueueItem[] => {
+      if (!queueRoot) return [];
+      return createVisibleVideoQueue(
+        [...queueRoot.querySelectorAll<HTMLElement>("[data-lightbox-video-id]")]
+          .map((trigger) => {
+            const aspect: VideoQueueItem["aspect"] =
+              trigger.dataset.lightboxAspect === "short" ? "short" : "video";
+            return {
+              id: trigger.dataset.lightboxVideoId ?? "",
+              title: trigger.dataset.lightboxTitle ?? "",
+              aspect,
+              hidden: trigger.closest<HTMLElement>("li")?.hidden === true,
+            };
+          })
+          .filter((item) => item.id && item.title),
+      );
+    };
+
+    const attachPlayer = async (generation: number): Promise<void> => {
+      if (activeQueue.length < 2) return;
+      try {
+        const YT = await loadYouTubeApi();
+        if (!dialog.open || generation !== openGeneration || !activeQueue.length) return;
+        youtubePlayer = new YT.Player(iframe, {
+          events: {
+            onStateChange: (event) => {
+              if (event.data !== YT.PlayerState.ENDED) return;
+              const next = nextVideoInQueue(activeQueue, activeVideoId);
+              if (next) openLightbox(next.id, next.title, next.aspect, undefined, activeQueue);
+            },
+          },
+        });
+      } catch {
+        // APIが読み込めない場合は現在の動画だけ再生し、通常の閉じる操作を維持する。
+      }
+    };
+
     const openLightbox = (
       videoId: string,
       title: string,
       aspect: string | undefined,
       startSeconds: string | undefined,
+      queue: VideoQueueItem[] = [],
     ): void => {
+      youtubePlayer?.destroy();
+      youtubePlayer = null;
+      const nextIframe = document.createElement("iframe");
+      nextIframe.id = "video-lightbox-iframe";
+      nextIframe.className = "h-full w-full";
+      nextIframe.allow = "autoplay; encrypted-media; picture-in-picture; web-share";
+      nextIframe.allowFullscreen = true;
+      if (iframe.isConnected) iframe.replaceWith(nextIframe);
+      else player.append(nextIframe);
+      iframe = nextIframe;
+      openGeneration += 1;
+      activeQueue = queue;
+      activeVideoId = videoId;
       player.className = getLightboxContainerClass(parseLightboxAspect(aspect));
-      iframe.src = buildLightboxSrc(videoId, parseLightboxStartSeconds(startSeconds));
+      const url = new URL(buildLightboxSrc(videoId, parseLightboxStartSeconds(startSeconds)));
+      url.searchParams.set("enablejsapi", "1");
+      url.searchParams.set("origin", browserWindow.location.origin);
+      iframe.src = url.toString();
       iframe.title = title;
       titleEl.textContent = title;
-      dialog.showModal();
+      updateQueueStatus();
+      if (!dialog.open) dialog.showModal();
+      void attachPlayer(openGeneration);
     };
 
     const closeLightbox = (): void => {
       if (dialog.open) dialog.close();
     };
 
-    // 再生停止(バックグラウンド再生防止)は close イベントに一元化する。
-    // Esc キー・閉じるボタン・backdrop クリックのいずれで閉じても close() 経由でここに届く。
     dialog.addEventListener("close", () => {
+      youtubePlayer?.destroy();
+      youtubePlayer = null;
+      activeQueue = [];
+      activeVideoId = "";
+      openGeneration += 1;
       iframe.src = "";
       iframe.title = "";
       titleEl.textContent = "";
+      queueStatusEl.hidden = true;
+      queueStatusEl.textContent = "";
     });
 
     closeButton.addEventListener("click", closeLightbox);
 
-    // ::backdrop のクリックは dialog 要素自身への click として届く。
-    // パネル内クリックとの誤判定を避けるため target === dialog のときだけ閉じる。
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) closeLightbox();
     });
 
-    // イベント委譲: WatchLaterController.astro と同じ方針で、ページ内に何百枚カードがあっても
-    // リスナーは1つで済む。videos.astro(#177)や index.astro の「気になるテーマは?」導線(#217)
-    // のように <template> から後からカードを実体化するページでも、個別に登録し直す必要がなく
-    // そのまま動作する。
     document.addEventListener("click", (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
@@ -128,11 +253,16 @@ import { site, subscribeUrl } from "../config/site";
       if (!trigger) return;
       const videoId = trigger.dataset.lightboxVideoId;
       if (!videoId) return;
+      const queueRoot = trigger.closest<HTMLElement>("[data-binge-queue]");
+      const queue = getVisibleQueue(queueRoot).length
+        ? getVisibleQueue(queueRoot)
+        : parseVideoQueue(queueRoot?.dataset.bingeQueue);
       openLightbox(
         videoId,
         trigger.dataset.lightboxTitle ?? "",
         trigger.dataset.lightboxAspect,
         trigger.dataset.lightboxStart,
+        queue,
       );
     });
   }

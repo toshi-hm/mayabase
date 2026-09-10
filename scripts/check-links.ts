@@ -6,7 +6,7 @@
  * - `scripts/check-fetch-freshness.ts`(#201)と同じ「サイレント障害を Issue 通知で顕在化する」
  *   設計思想を、対象を「動画データの取得停滞」から「リンク切れ」に変えて適用する。
  * - 各 URL は `src/lib/youtube.ts` の `probeIsShort` / `probeHqThumbnail` と同じ方針で
- *   HEAD リクエストを行い、HEAD 非対応(405 / 501)の場合のみ GET にフォールバックする。
+ *   まず HEAD リクエストを行い、HEAD が非2xxの場合は GET にフォールバックする。
  * - 実行: `bun run scripts/check-links.ts`
  *   GitHub Actions の `$GITHUB_OUTPUT` に `has_broken`(true/false)・`broken_count`・
  *   `total_count`・`summary` を書き出す。ローカル実行等で `$GITHUB_OUTPUT` が無い場合は
@@ -90,8 +90,9 @@ export interface LinkProbeResult {
 /**
  * 1 件のリンクの生存確認を行う。
  * `probeIsShort` / `probeHqThumbnail`(src/lib/youtube.ts)と同じ方針で、
- * HEAD が 405(Method Not Allowed)/ 501(Not Implemented)を返した場合のみ GET にフォールバックする。
- * それ以外の非 2xx はリンク切れの判定として扱う(フォールバックしない)。
+ * HEAD が非2xxを返した場合は、ステータスコードにかかわらず GET にフォールバックする。
+ * 短縮URLサービス等では、HEAD だけが 404/403 になり、GET ならリダイレクト先のページを
+ * 正常に返すことがあるため。GET の非2xxはリンク切れの判定として扱う。
  */
 export async function probeLink(url: string, fetchFn: FetchLike = fetch): Promise<LinkProbeResult> {
   let lastStatus: number | null = null;
@@ -100,7 +101,7 @@ export async function probeLink(url: string, fetchFn: FetchLike = fetch): Promis
       const res = await fetchFn(url, { method, redirect: "follow" });
       lastStatus = res.status;
       if (res.ok) return { ok: true, status: res.status, error: null };
-      if (method === "HEAD" && (res.status === 405 || res.status === 501)) continue;
+      if (method === "HEAD") continue;
       return { ok: false, status: res.status, error: null };
     } catch (error) {
       return {
