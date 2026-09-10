@@ -34,6 +34,10 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
 }
 
+/** 公開APIから受け入れるWeb Push値の上限。異常に大きなKVレコードの保存を防ぐ。 */
+export const PUSH_ENDPOINT_MAX_LENGTH = 2048;
+export const PUSH_KEY_MAX_LENGTH = 256;
+
 /**
  * Web Push の endpoint として正当な主要プッシュサービスのホスト名(完全一致)。
  * ここに無いホストは拒否する(#312。認証・レート制限の無い /api/push/subscribe に
@@ -64,7 +68,7 @@ function isAllowedPushEndpointHost(hostname: string): boolean {
 export function isValidPushSubscriptionPayload(value: unknown): value is PushSubscriptionPayload {
   if (typeof value !== "object" || value === null) return false;
   const { endpoint, keys } = value as { endpoint?: unknown; keys?: unknown };
-  if (!isNonEmptyString(endpoint)) return false;
+  if (!isNonEmptyString(endpoint) || endpoint.length > PUSH_ENDPOINT_MAX_LENGTH) return false;
   let endpointUrl: URL;
   try {
     endpointUrl = new URL(endpoint);
@@ -76,7 +80,12 @@ export function isValidPushSubscriptionPayload(value: unknown): value is PushSub
   }
   if (typeof keys !== "object" || keys === null) return false;
   const { p256dh, auth } = keys as { p256dh?: unknown; auth?: unknown };
-  return isNonEmptyString(p256dh) && isNonEmptyString(auth);
+  return (
+    isNonEmptyString(p256dh) &&
+    p256dh.length <= PUSH_KEY_MAX_LENGTH &&
+    isNonEmptyString(auth) &&
+    auth.length <= PUSH_KEY_MAX_LENGTH
+  );
 }
 
 /**
