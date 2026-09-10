@@ -173,9 +173,7 @@ import { site, subscribeUrl } from "../config/site";
     ): VideoQueueItem[] => {
       if (!queueRoot) return [];
       return createVisibleVideoQueue(
-        [
-          ...queueRoot.querySelectorAll<HTMLElement>("[data-lightbox-video-id]"),
-        ]
+        [...queueRoot.querySelectorAll<HTMLElement>("[data-lightbox-video-id]")]
           .map((trigger) => ({
             id: trigger.dataset.lightboxVideoId ?? "",
             title: trigger.dataset.lightboxTitle ?? "",
