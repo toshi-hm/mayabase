@@ -28,9 +28,7 @@ const { videoId } = Astro.props;
     const countEl = button.querySelector("[data-interest-count]");
     if (countEl) countEl.textContent = String(count);
     button.setAttribute("aria-label", "気になる " + count + "件");
-    const badge = button.querySelector<HTMLElement>(
-      "[data-interest-popular-badge]",
-    );
+    const badge = button.querySelector<HTMLElement>("[data-interest-popular-badge]");
     const isPopular = count >= 10;
     if (isPopular) {
       button.dataset.interestPopular = "true";
@@ -43,15 +41,10 @@ const { videoId } = Astro.props;
   const loadCount = async (button: HTMLButtonElement, videoId: string) => {
     const version = requestVersions.get(button) ?? 0;
     try {
-      const response = await fetch(
-        "/api/video-reaction?videoId=" + encodeURIComponent(videoId),
-      );
+      const response = await fetch("/api/video-reaction?videoId=" + encodeURIComponent(videoId));
       if (!response.ok) return;
       const data = (await response.json()) as { count?: unknown };
-      if (
-        typeof data.count === "number" &&
-        requestVersions.get(button) === version
-      ) {
+      if (typeof data.count === "number" && requestVersions.get(button) === version) {
         applyCount(button, data.count);
       }
     } catch {
@@ -81,10 +74,7 @@ const { videoId } = Astro.props;
       });
       if (!response.ok) return;
       const data = (await response.json()) as { count?: unknown };
-      if (
-        typeof data.count === "number" &&
-        requestVersions.get(button) === version
-      ) {
+      if (typeof data.count === "number" && requestVersions.get(button) === version) {
         applyCount(button, data.count);
       }
     } finally {
@@ -99,9 +89,7 @@ const { videoId } = Astro.props;
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
-    const button = target.closest<HTMLButtonElement>(
-      "[data-interest-video-id]",
-    );
+    const button = target.closest<HTMLButtonElement>("[data-interest-video-id]");
     if (button) void submitReaction(button);
   });
 
