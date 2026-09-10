@@ -32,15 +32,8 @@ import {
   parseChannelStatsHistory,
   sparklinePointsToPolyline,
 } from "../lib/channelStatsHistory";
-import {
-  parseFeaturedVideosData,
-  resolveFeaturedVideos,
-} from "../lib/featuredVideos";
-import {
-  extractSearchableText,
-  formatViewCount,
-  truncate,
-} from "../lib/format";
+import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredVideos";
+import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseXPostsData } from "../lib/x";
 import { buildOnboardingPanels } from "../lib/onboarding";
@@ -57,17 +50,12 @@ const { maxItems } = site.carousel;
 const { videos } = parseVideosData(videosJson);
 
 // isShort: null(未判定)は横動画として表示する(docs/02-design.md)
-const regularVideos = videos
-  .filter((v) => v.isShort !== true)
-  .slice(0, maxItems);
+const regularVideos = videos.filter((v) => v.isShort !== true).slice(0, maxItems);
 const shortVideos = videos.filter((v) => v.isShort === true).slice(0, maxItems);
 
 // 運営者が手動でキュレーションする代表動画。未設定(空配列)ならセクションごと非表示にする
 const { featuredVideoIds } = parseFeaturedVideosData(featuredVideosJson);
-const featuredVideos = resolveFeaturedVideos(featuredVideoIds, videos).slice(
-  0,
-  maxItems,
-);
+const featuredVideos = resolveFeaturedVideos(featuredVideoIds, videos).slice(0, maxItems);
 
 // 再生回数上位の動画(#35)。RSSのみ(YOUTUBE_API_KEY未設定)の環境では再生回数が
 // 取得できないため、1件も取得できていなければセクション自体を非表示にする
@@ -107,28 +95,20 @@ const onboardingPanels = buildOnboardingPanels(
 );
 
 // 未取得(API キー未設定・取得失敗・非公開設定)の場合は null のまま非表示にする
-const { subscriberCount, viewCount, fetchedAt } =
-  parseChannelStats(channelStatsJson);
-const subscriberText =
-  subscriberCount !== null ? formatSubscriberCount(subscriberCount) : null;
+const { subscriberCount, viewCount, fetchedAt } = parseChannelStats(channelStatsJson);
+const subscriberText = subscriberCount !== null ? formatSubscriberCount(subscriberCount) : null;
 // チャンネル総再生回数(#60)。登録者数と同じフォールバック方針で、未取得時は非表示にする
-const totalViewCountText =
-  viewCount !== null ? formatViewCount(viewCount) : null;
+const totalViewCountText = viewCount !== null ? formatViewCount(viewCount) : null;
 // 次のマイルストーン(#200)。目標値は常に計算値のため、運用コストなしで最新の目標を維持できる。
 // 登録者数を取得できない環境(subscriberCount === null)では既存方針どおり非表示にする。
 const nextMilestoneText =
-  subscriberCount !== null
-    ? formatSubscriberCount(nextSubscriberMilestone(subscriberCount))
-    : null;
+  subscriberCount !== null ? formatSubscriberCount(nextSubscriberMilestone(subscriberCount)) : null;
 const milestoneRemainingText =
   subscriberCount !== null
-    ? formatSubscriberCount(
-        nextSubscriberMilestone(subscriberCount) - subscriberCount,
-      )
+    ? formatSubscriberCount(nextSubscriberMilestone(subscriberCount) - subscriberCount)
     : null;
 // リアルタイム取得ではないため、取得日時を併記する
-const fetchedAtText =
-  fetchedAt !== null ? formatFetchedAt(fetchedAt, new Date()) : null;
+const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt, new Date()) : null;
 
 // 登録者数の成長トレンド(スパークライン、#249)。history は日次cronで蓄積されるため、
 // 運用開始直後は1件しか無く折れ線を描けない(2件未満は null)。その間は静かに非表示にする。
@@ -140,9 +120,7 @@ const sparklinePoints = buildSparklinePoints(
   SPARKLINE_WIDTH,
   SPARKLINE_HEIGHT,
 );
-const sparklinePolyline = sparklinePoints
-  ? sparklinePointsToPolyline(sparklinePoints)
-  : null;
+const sparklinePolyline = sparklinePoints ? sparklinePointsToPolyline(sparklinePoints) : null;
 
 // 「前回の続きから」導線(#188)。どの動画を前回見ていたかは訪問者の localStorage にしか
 // わからないため、ビルド時には「表示に必要な最小限の情報(id/title/isShort)」のみを
@@ -153,9 +131,10 @@ const continueWatchingCandidates = videos.map((v) => ({
   title: v.title,
   isShort: v.isShort,
 }));
-const continueWatchingCandidatesSafe = JSON.stringify(
-  continueWatchingCandidates,
-).replace(/</g, "\\u003c");
+const continueWatchingCandidatesSafe = JSON.stringify(continueWatchingCandidates).replace(
+  /</g,
+  "\\u003c",
+);
 
 // 更新頻度の目安(#187)。初回訪問者が登録を判断する材料として提示する。
 // データ不足・ペースが低すぎる・間隔が不規則、のいずれかの場合は算出結果を出さない
@@ -164,9 +143,7 @@ const updateFrequencyText = computeUpdateFrequencyLabel(videos);
 
 // JSON-LD 構造化データ(VideoObject は Google 必須の name / description / thumbnailUrl / uploadDate を含む)
 if (!Astro.site) {
-  throw new Error(
-    "astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)",
-  );
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
 }
 const siteUrl = Astro.site.toString();
 const displayedVideos = [...regularVideos, ...shortVideos];
@@ -215,13 +192,8 @@ const jsonLd = {
                 name: video.title,
                 // 概要欄全文はハッシュタグや定型文が長く JSON-LD を肥大化させるため要約する(videos.astro と同じ方針)。
                 // 冒頭の署名欄ハッシュタグはノイズでしかないため、要約前に除外する(#125)
-                description:
-                  truncate(extractSearchableText(video.description), 160) ||
-                  video.title,
-                thumbnailUrl: [
-                  thumbnailUrl(video.id),
-                  thumbnailFallbackUrl(video.id),
-                ],
+                description: truncate(extractSearchableText(video.description), 160) || video.title,
+                thumbnailUrl: [thumbnailUrl(video.id), thumbnailFallbackUrl(video.id)],
                 uploadDate: video.publishedAt,
                 embedUrl: embedUrl(video.id),
                 url: videoUrl(video),
@@ -238,31 +210,20 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 ---
 
 <Base>
-  <script
-    is:inline
-    type="application/ld+json"
-    set:html={jsonLdSafe}
-    slot="head"
-  />
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
   <main id="main">
-    <section
-      aria-labelledby="videos-heading"
-      class="overflow-hidden border-b border-line pb-14"
-    >
+    <section aria-labelledby="videos-heading" class="overflow-hidden border-b border-line pb-14">
       <div class="mx-auto max-w-6xl px-4 pt-8 sm:pt-10">
         <div class="mb-8 grid gap-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
           <div>
-            <p class="mb-2 text-sm font-bold text-brand-accent">
-              ITで日常をより便利に
-            </p>
+            <p class="mb-2 text-sm font-bold text-brand-accent">ITで日常をより便利に</p>
             <h1 class="text-4xl font-black sm:text-6xl">{site.name}</h1>
             {
               (subscriberText || totalViewCountText) && (
                 <p class="mt-2 text-sm font-semibold text-ink-muted">
                   {subscriberText && (
                     <>
-                      チャンネル登録者数{" "}
-                      <span class="text-ink">{subscriberText}</span>
+                      チャンネル登録者数 <span class="text-ink">{subscriberText}</span>
                       {sparklinePolyline && (
                         <svg
                           width={SPARKLINE_WIDTH}
@@ -287,8 +248,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                   {subscriberText && totalViewCountText && " / "}
                   {totalViewCountText && (
                     <>
-                      総再生回数{" "}
-                      <span class="text-ink">{totalViewCountText}</span>
+                      総再生回数 <span class="text-ink">{totalViewCountText}</span>
                     </>
                   )}
                   {fetchedAtText && ` (${fetchedAtText})`}
@@ -310,8 +270,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             {
               updateFrequencyText && (
                 <p class="mt-2 text-sm font-semibold text-ink-muted">
-                  更新頻度の目安{" "}
-                  <span class="text-ink">{updateFrequencyText}</span>
+                  更新頻度の目安 <span class="text-ink">{updateFrequencyText}</span>
                 </p>
               )
             }
@@ -358,10 +317,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           hidden
           class="mb-8 border-t border-line pt-6"
         >
-          <p
-            id="continue-watching-heading"
-            class="mb-3 text-sm font-bold text-brand-accent"
-          >
+          <p id="continue-watching-heading" class="mb-3 text-sm font-bold text-brand-accent">
             前回の続きから
           </p>
           <a
@@ -384,8 +340,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             <span class="min-w-0">
               <span
                 id="continue-watching-title"
-                class="line-clamp-2 font-semibold group-hover/continue:text-brand-accent"
-              ></span>
+                class="line-clamp-2 font-semibold group-hover/continue:text-brand-accent"></span>
               <span class="sr-only">(YouTube・新しいタブで開きます)</span>
             </span>
           </a>
@@ -397,12 +352,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           set:html={continueWatchingCandidatesSafe}
         />
 
-        <div
-          class="mb-5 flex items-end justify-between gap-4 border-t border-line pt-5"
-        >
-          <h2 id="videos-heading" class="text-xl font-black sm:text-2xl">
-            最新動画
-          </h2>
+        <div class="mb-5 flex items-end justify-between gap-4 border-t border-line pt-5">
+          <h2 id="videos-heading" class="text-xl font-black sm:text-2xl">最新動画</h2>
           <p class="hidden text-sm text-ink-muted sm:block">NEW RELEASES</p>
         </div>
         {
@@ -439,10 +390,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
     {
       featuredVideos.length > 0 && (
-        <section
-          aria-labelledby="featured-heading"
-          class="bg-surface-sun py-16"
-        >
+        <section aria-labelledby="featured-heading" class="bg-surface-sun py-16">
           <div class="mx-auto max-w-6xl px-4">
             <SectionHeading
               id="featured-heading"
@@ -451,11 +399,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             />
             <Carousel label="はじめての方へのおすすめ動画">
               {featuredVideos.map((video, index) => (
-                <VideoCard
-                  video={video}
-                  position={index + 1}
-                  total={featuredVideos.length}
-                />
+                <VideoCard video={video} position={index + 1} total={featuredVideos.length} />
               ))}
             </Carousel>
           </div>
@@ -465,10 +409,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
     {
       popularVideos.length > 0 && (
-        <section
-          aria-labelledby="popular-heading"
-          class="bg-surface-raised py-16"
-        >
+        <section aria-labelledby="popular-heading" class="bg-surface-raised py-16">
           <div class="mx-auto max-w-6xl px-4">
             <SectionHeading
               id="popular-heading"
@@ -501,11 +442,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           shortVideos.length > 0 ? (
             <Carousel label="Shorts の一覧">
               {shortVideos.map((video, index) => (
-                <ShortCard
-                  video={video}
-                  position={index + 1}
-                  total={shortVideos.length}
-                />
+                <ShortCard video={video} position={index + 1} total={shortVideos.length} />
               ))}
             </Carousel>
           ) : (
@@ -576,9 +513,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // 「気になるテーマは?」導線(#156)。テーマボタンは /videos/category/{category}/ への
   // 実リンクを兼ねる(role="button" の <a>、videos.astro のカテゴリチップと同じパターン)。
   // JS 無効時・クローラーはそのままカテゴリ別静的ページへ遷移/到達できる。
-  const buttons = document.querySelectorAll<HTMLAnchorElement>(
-    "[data-topic-category]",
-  );
+  const buttons = document.querySelectorAll<HTMLAnchorElement>("[data-topic-category]");
   const results = document.getElementById("topic-picker-results");
   const countLabel = document.getElementById("topic-picker-count");
 
@@ -615,10 +550,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
   function selectTopic(category: string, label: string): void {
     for (const button of buttons) {
-      button.setAttribute(
-        "aria-pressed",
-        String(button.dataset.topicCategory === category),
-      );
+      button.setAttribute("aria-pressed", String(button.dataset.topicCategory === category));
     }
     const selectedPanel = materializePanel(category);
     for (const panel of realizedPanels.values()) {
@@ -626,8 +558,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     }
     if (results) results.hidden = false;
     if (countLabel) {
-      const videoCount =
-        selectedPanel?.querySelector("ul")?.children.length ?? 0;
+      const videoCount = selectedPanel?.querySelector("ul")?.children.length ?? 0;
       countLabel.textContent = `${label}のおすすめ動画 ${videoCount} 件`;
     }
     // 絞り込み結果の先頭カードへフォーカスを移す(videos.astro の「もっと見る」と同じ方針)
@@ -637,12 +568,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   for (const button of buttons) {
     button.addEventListener("click", (event) => {
       // 修飾キー付きクリック・中クリックはブラウザ標準の「新しいタブで開く」に任せる
-      if (
-        event.button !== 0 ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.shiftKey
-      ) {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) {
         return;
       }
       const category = button.dataset.topicCategory;
@@ -695,9 +621,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     }
 
     if (storedIds.length > 0) {
-      const candidates = parseContinueWatchingCandidates(
-        dataScript.textContent,
-      );
+      const candidates = parseContinueWatchingCandidates(dataScript.textContent);
       const video = selectContinueWatchingVideo(storedIds, candidates);
       if (video) {
         link.href = videoUrl(video);
