@@ -1,5 +1,4 @@
 ---
-import ArchiveCard from "../components/ArchiveCard.astro";
 import Carousel from "../components/Carousel.astro";
 import PostCard from "../components/PostCard.astro";
 import Onboarding from "../components/Onboarding.astro";
@@ -18,7 +17,6 @@ import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   categorizeVideo,
-  categoryUrl,
   topVideosByCategory,
 } from "../lib/categories";
 import {
@@ -387,6 +385,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         }
       </div>
     </section>
+
+    {onboardingPanels.length > 0 && <Onboarding panels={onboardingPanels} />}
 
     {
       featuredVideos.length > 0 && (
