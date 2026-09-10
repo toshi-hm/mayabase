@@ -1,0 +1,82 @@
+---
+import type { OnboardingPanel } from "../lib/onboarding";
+import VideoCard from "./VideoCard.astro";
+
+interface Props {
+  panels: OnboardingPanel[];
+}
+const { panels } = Astro.props;
+const panelId = (category: string): string => "onboarding-panel-" + category;
+const buttonId = (category: string): string => "onboarding-button-" + category;
+---
+
+<section aria-labelledby="onboarding-heading" class="bg-surface-mint py-16">
+  <div class="mx-auto max-w-6xl px-4">
+    <h2 id="onboarding-heading" class="text-2xl font-black sm:text-3xl">あなたにおすすめ診断</h2>
+    <p class="mt-2 text-ink-muted">気になるテーマを選ぶと、最初に見る動画を提案します。</p>
+    <div role="group" aria-label="興味のあるテーマ" class="mt-5 flex flex-wrap gap-2">
+      {
+        panels.map((panel, index) => (
+          <button
+            type="button"
+            id={buttonId(panel.category)}
+            data-onboarding-category={panel.category}
+            aria-controls={panelId(panel.category)}
+            aria-pressed={index === 0 ? "true" : "false"}
+            class="rounded-full border border-ink-muted px-4 py-2 text-sm transition hover:border-ink aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            {panel.label}
+          </button>
+        ))
+      }
+    </div>
+    <div class="mt-6">
+      {
+        panels.map((panel, index) => (
+          <div
+            id={panelId(panel.category)}
+            data-onboarding-panel={panel.category}
+            role="tabpanel"
+            aria-labelledby={buttonId(panel.category)}
+            hidden={index !== 0}
+          >
+            <ul role="list" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {panel.videos.map((video, videoIndex) => (
+                <VideoCard
+                  video={video}
+                  position={videoIndex + 1}
+                  total={panel.videos.length}
+                  layout="grid"
+                />
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+    <p class="mt-6 text-sm text-ink-muted">
+      もっと見たい方は
+      <a href="/videos/" class="font-semibold text-brand-accent underline underline-offset-4"
+        >動画ライブラリ</a
+      >
+      へ。
+    </p>
+  </div>
+</section>
+
+<script>
+  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-onboarding-category]");
+  const panels = document.querySelectorAll<HTMLElement>("[data-onboarding-panel]");
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      const category = button.dataset.onboardingCategory;
+      if (!category) return;
+      for (const item of buttons) {
+        item.setAttribute("aria-pressed", String(item === button));
+      }
+      for (const panel of panels) {
+        panel.hidden = panel.dataset.onboardingPanel !== category;
+      }
+    });
+  }
+</script>
