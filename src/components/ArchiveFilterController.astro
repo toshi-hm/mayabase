@@ -63,6 +63,21 @@
       }
     }
 
+    // Shorts は尺バケットを持たない(videoDurationBucket)ため、「Shorts」×「特定の尺」は
+    // 構造的に常に0件になる。selectできてしまうこと自体を防ぐため、
+    // 「Shorts」選択中は尺フィルターを無効化し、選択状態も「すべての尺」へ戻す(#400)。
+    function applyDurationAvailability(): void {
+      const disabled = length === "short";
+      for (const button of durationButtons) {
+        button.disabled = disabled;
+        button.setAttribute("aria-disabled", String(disabled));
+      }
+      if (disabled && durationBucket !== "all") {
+        durationBucket = "all";
+        setPressedDuration(durationBucket);
+      }
+    }
+
     function setPressedSortOrder(nextOrder: "newest" | "popular"): void {
       for (const button of sortButtons) {
         const buttonOrder = button.dataset.sortOrder === "popular" ? "popular" : "newest";
@@ -133,10 +148,11 @@
       setPressedLength(length);
       const urlDuration = params.get("duration");
       durationBucket =
-        urlDuration && validDurationBuckets.has(urlDuration)
+        length !== "short" && urlDuration && validDurationBuckets.has(urlDuration)
           ? (urlDuration as "all" | "under5" | "5to15" | "over15")
           : "all";
       setPressedDuration(durationBucket);
+      applyDurationAvailability();
       if (search) search.value = params.get("q") ?? "";
 
       // 並び替えトグル自体が無い環境(viewCount 未取得)では order パラメータを無視する
@@ -152,6 +168,7 @@
         const value = button.dataset.filterLength;
         length = value === "video" || value === "short" ? value : "all";
         setPressedLength(length);
+        applyDurationAvailability();
         applyFilter();
         syncUrl("push");
       });

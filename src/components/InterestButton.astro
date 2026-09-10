@@ -1,25 +1,41 @@
 ---
 interface Props {
   videoId: string;
+  /** サムネイルのアスペクト比。Shorts の縦型サムネイル(ShortCard)は "short" を指定する */
+  aspect?: "video" | "short";
 }
-const { videoId } = Astro.props;
+const { videoId, aspect = "video" } = Astro.props;
 ---
 
-<button
-  type="button"
-  data-interest-video-id={videoId}
-  aria-label="気になるに追加"
-  class="rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-ink-muted transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
+{
+  /* 親要素(カード全体)は視聴リンクの <a> のため、PreviewButton/WatchLaterButton と同じく
+  入れ子のインタラクティブ要素(a > button)を避けて兄弟要素として重ねて配置する。
+  サムネイル上の4隅(Shorts/NEWバッジ・共有・あとで見る・プレビュー再生)は既に埋まっているため、
+  唯一空いている下部中央に配置する。以前は配置指定が無く裸のインライン要素としてカード本体の下に
+  はみ出しており、カルーセル(embla, overflow:hidden)では実際に表示すらされていなかった(#393)。 */
+}
+<div
+  class:list={[
+    "pointer-events-none absolute inset-x-0 top-0 z-10 flex items-end justify-center p-2",
+    aspect === "short" ? "aspect-[9/16]" : "aspect-video",
+  ]}
 >
-  気になる <span data-interest-count aria-live="polite">0</span>
-  <span
-    data-interest-popular-badge
-    hidden
-    class="ml-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-accent"
+  <button
+    type="button"
+    data-interest-video-id={videoId}
+    aria-label="気になるに追加"
+    class="pointer-events-auto cursor-pointer rounded-full border border-line bg-surface/95 px-3 py-1 text-xs font-semibold text-ink-muted backdrop-blur transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
   >
-    話題
-  </span>
-</button>
+    気になる <span data-interest-count aria-live="polite">0</span>
+    <span
+      data-interest-popular-badge
+      hidden
+      class="ml-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-accent"
+    >
+      話題
+    </span>
+  </button>
+</div>
 
 <script>
   const requestVersions = new WeakMap<HTMLButtonElement, number>();
@@ -41,6 +57,15 @@ const { videoId } = Astro.props;
     if (badge) badge.hidden = !isPopular;
   };
 
+  // 同じ動画のボタンがページ内に複数存在する場合(例: トップページの「はじめての方へ」と
+  // 「あなたにおすすめ診断」に同じfeatured動画が重複して表示されるケース)、片方の操作結果を
+  // 全インスタンスへ反映する(#394: 件数が同期しなかったバグ修正)。
+  const applyCountToVideo = (videoId: string, count: number) => {
+    document
+      .querySelectorAll<HTMLButtonElement>(`[data-interest-video-id="${CSS.escape(videoId)}"]`)
+      .forEach((button) => applyCount(button, count));
+  };
+
   const loadCount = async (button: HTMLButtonElement, videoId: string) => {
     const version = requestVersions.get(button) ?? 0;
     try {
@@ -48,7 +73,7 @@ const { videoId } = Astro.props;
       if (!response.ok) return;
       const data = (await response.json()) as { count?: unknown };
       if (typeof data.count === "number" && requestVersions.get(button) === version) {
-        applyCount(button, data.count);
+        applyCountToVideo(videoId, data.count);
       }
     } catch {
       // Initial count is best-effort and must not block the viewing experience.
@@ -95,7 +120,7 @@ const { videoId } = Astro.props;
       if (!response.ok) return;
       const data = (await response.json()) as { count?: unknown };
       if (typeof data.count === "number" && requestVersions.get(button) === version) {
-        applyCount(button, data.count);
+        applyCountToVideo(videoId, data.count);
       }
     } finally {
       button.disabled = false;

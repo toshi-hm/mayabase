@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   CONTINUE_WATCHING_MAX_ITEMS,
+  CONTINUE_WATCHING_PROGRESS_MAX_ITEMS,
+  clearContinueWatchingProgress,
   parseContinueWatchingCandidates,
   parseStoredContinueWatchingIds,
   parseStoredContinueWatchingProgress,
@@ -140,5 +142,49 @@ describe("再生位置", () => {
       abc123: 2,
       def456: 42,
     });
+  });
+
+  test(`上限(${CONTINUE_WATCHING_PROGRESS_MAX_ITEMS}件)を超えた古いエントリは間引く(#397)`, () => {
+    const full = Object.fromEntries(
+      Array.from({ length: CONTINUE_WATCHING_PROGRESS_MAX_ITEMS }, (_, i) => [`id${i}`, i]),
+    );
+    const result = recordContinueWatchingProgress(full, "new-id", 10);
+    expect(Object.keys(result)).toHaveLength(CONTINUE_WATCHING_PROGRESS_MAX_ITEMS);
+    expect(result["new-id"]).toBe(10);
+    expect(result.id0).toBeUndefined();
+    expect(result.id1).toBe(1);
+  });
+
+  test("既存動画IDの更新は件数を増やさない", () => {
+    const full = Object.fromEntries(
+      Array.from({ length: CONTINUE_WATCHING_PROGRESS_MAX_ITEMS }, (_, i) => [`id${i}`, i]),
+    );
+    const result = recordContinueWatchingProgress(full, "id0", 99);
+    expect(Object.keys(result)).toHaveLength(CONTINUE_WATCHING_PROGRESS_MAX_ITEMS);
+    expect(result.id0).toBe(99);
+  });
+
+  test("元のオブジェクトを変更しない", () => {
+    const original = { abc123: 2 };
+    recordContinueWatchingProgress(original, "def456", 10);
+    expect(original).toEqual({ abc123: 2 });
+  });
+});
+
+describe("clearContinueWatchingProgress", () => {
+  test("指定した動画IDのエントリを取り除く", () => {
+    expect(clearContinueWatchingProgress({ abc123: 2, def456: 5 }, "abc123")).toEqual({
+      def456: 5,
+    });
+  });
+
+  test("存在しない動画IDを指定しても他のエントリはそのまま", () => {
+    expect(clearContinueWatchingProgress({ abc123: 2 }, "zzz")).toEqual({ abc123: 2 });
+  });
+
+  test("元のオブジェクトを変更しない", () => {
+    const original = { abc123: 2 };
+    clearContinueWatchingProgress(original, "abc123");
+    expect(original).toEqual({ abc123: 2 });
   });
 });

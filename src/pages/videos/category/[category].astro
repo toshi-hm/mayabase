@@ -206,11 +206,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       {
         hasDurations && (
           <div role="group" aria-label="動画の尺(再生時間)で絞り込み" class="flex flex-wrap gap-2">
+            {/* 「Shorts」×「特定の尺」は構造的に常に0件になるため、
+              「Shorts」選択中はこのグループ全体を無効化する(#400) */}
             <button
               type="button"
               data-filter-duration="all"
               aria-pressed="true"
-              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink-muted"
             >
               すべての尺
             </button>
@@ -218,7 +220,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               type="button"
               data-filter-duration="under5"
               aria-pressed="false"
-              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink-muted"
             >
               〜5分
             </button>
@@ -226,7 +228,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               type="button"
               data-filter-duration="5to15"
               aria-pressed="false"
-              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink-muted"
             >
               5〜15分
             </button>
@@ -234,7 +236,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               type="button"
               data-filter-duration="over15"
               aria-pressed="false"
-              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink-muted"
             >
               15分〜
             </button>
