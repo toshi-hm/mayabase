@@ -10,14 +10,13 @@ const { videoId, aspect = "video" } = Astro.props;
 {
   /* 親要素(カード全体)は視聴リンクの <a> のため、PreviewButton/WatchLaterButton と同じく
   入れ子のインタラクティブ要素(a > button)を避けて兄弟要素として重ねて配置する。
-  サムネイル上の4隅(Shorts/NEWバッジ・共有・あとで見る・プレビュー再生)は既に埋まっているため、
+  aspect="video"(ArchiveCard/VideoCard)は尺表示がbottom-leftにあるため唯一空いている
   下部中央に配置する。以前は配置指定が無く裸のインライン要素としてカード本体の下にはみ出しており、
   カルーセル(embla, overflow:hidden)では実際に表示すらされていなかった(#393)。
-  ただし ShortCard(aspect="short")はモバイル幅で thumbnail が非常に狭く(~130px)、
-  テキスト付きピルのままだと bottom-right の WatchLaterButton(h-9 w-9)と重なってしまう
-  (レビュー指摘)。ShortCard は durationLabel を表示せず bottom-left が空いているため、
-  そちらへ寄せた上で、WatchLaterButton と同じ h-9 w-9 の円形アイコンボタンに縮小し、
-  件数が増えても重ならないようにする。 */
+  aspect="short"(ShortCard)は尺表示が無くbottom-leftが空いているが、モバイル実測(~140px)では
+  テキスト付きピルのままだと bottom-right の WatchLaterButton(h-9 w-9)と依然として重なるため
+  (レビュー指摘)、WatchLaterButton と同じ h-9 w-9 の円形バッジ(件数のみ表示)に縮小した上で
+  bottom-leftへ配置する。件数の桁数が増えても幅が変わらないため再発しない。 */
 }
 <div
   class:list={[
