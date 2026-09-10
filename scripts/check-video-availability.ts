@@ -45,7 +45,13 @@ export async function probeVideo(
       });
       lastStatus = response.status;
       if (response.ok || (response.status !== 429 && response.status < 500)) {
-        return { id: video.id, title: video.title, ok: response.ok, status: response.status, error: null };
+        return {
+          id: video.id,
+          title: video.title,
+          ok: response.ok,
+          status: response.status,
+          error: null,
+        };
       }
       lastError = `HTTP ${response.status}`;
       if (attempt + 1 < MAX_ATTEMPTS) await wait(retryDelayMs(response));
