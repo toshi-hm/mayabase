@@ -102,19 +102,19 @@ async function main(): Promise<void> {
   console.log(`[check-video-availability] ${report.summary}`);
   const output = process.env.GITHUB_OUTPUT;
   if (output) {
+    let delimiter = `CHECK_VIDEO_AVAILABILITY_${crypto.randomUUID()}`;
+    while (report.summary.includes(delimiter)) {
+      delimiter = `CHECK_VIDEO_AVAILABILITY_${crypto.randomUUID()}`;
+    }
     await appendFile(
       output,
       [
         `has_unavailable=${report.unavailableCount > 0}`,
         `unavailable_count=${report.unavailableCount}`,
         `total_count=${report.totalCount}`,
-        (() => {
-          let delimiter = `CHECK_VIDEO_AVAILABILITY_${crypto.randomUUID()}`;
-          while (report.summary.includes(delimiter)) {
-            delimiter = `CHECK_VIDEO_AVAILABILITY_${crypto.randomUUID()}`;
-          }
-          return [`summary<<${delimiter}`, report.summary, delimiter];
-        })(),
+        `summary<<${delimiter}`,
+        report.summary,
+        delimiter,
         "",
       ].join("\n"),
     );
