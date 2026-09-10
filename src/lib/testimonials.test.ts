@@ -33,6 +33,12 @@ describe("parseTestimonialsData", () => {
     expect(() =>
       parseTestimonialsData({ testimonials: [{ ...valid, sourceUrl: "javascript:alert(1)" }] }),
     ).toThrow("sourceUrl");
+    expect(() =>
+      parseTestimonialsData({ testimonials: [{ ...valid, sourceUrl: "https://" }] }),
+    ).toThrow("sourceUrl");
+    expect(() =>
+      parseTestimonialsData({ testimonials: [{ ...valid, sourceUrl: "https://?x" }] }),
+    ).toThrow("sourceUrl");
   });
 
   test("初期の手動データがスキーマを満たす", () => {
