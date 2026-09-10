@@ -12,17 +12,9 @@ const buttonId = (category: string): string => "onboarding-button-" + category;
 
 <section aria-labelledby="onboarding-heading" class="bg-surface-mint py-16">
   <div class="mx-auto max-w-6xl px-4">
-    <h2 id="onboarding-heading" class="text-2xl font-black sm:text-3xl">
-      あなたにおすすめ診断
-    </h2>
-    <p class="mt-2 text-ink-muted">
-      気になるテーマを選ぶと、最初に見る動画を提案します。
-    </p>
-    <div
-      role="group"
-      aria-label="興味のあるテーマ"
-      class="mt-5 flex flex-wrap gap-2"
-    >
+    <h2 id="onboarding-heading" class="text-2xl font-black sm:text-3xl">あなたにおすすめ診断</h2>
+    <p class="mt-2 text-ink-muted">気になるテーマを選ぶと、最初に見る動画を提案します。</p>
+    <div role="group" aria-label="興味のあるテーマ" class="mt-5 flex flex-wrap gap-2">
       {
         panels.map((panel, index) => (
           <button
@@ -64,9 +56,7 @@ const buttonId = (category: string): string => "onboarding-button-" + category;
     </div>
     <p class="mt-6 text-sm text-ink-muted">
       もっと見たい方は
-      <a
-        href="/videos/"
-        class="font-semibold text-brand-accent underline underline-offset-4"
+      <a href="/videos/" class="font-semibold text-brand-accent underline underline-offset-4"
         >動画ライブラリ</a
       >
       へ。
@@ -75,12 +65,8 @@ const buttonId = (category: string): string => "onboarding-button-" + category;
 </section>
 
 <script>
-  const buttons = document.querySelectorAll<HTMLButtonElement>(
-    "[data-onboarding-category]",
-  );
-  const panels = document.querySelectorAll<HTMLElement>(
-    "[data-onboarding-panel]",
-  );
+  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-onboarding-category]");
+  const panels = document.querySelectorAll<HTMLElement>("[data-onboarding-panel]");
   for (const button of buttons) {
     button.addEventListener("click", () => {
       const category = button.dataset.onboardingCategory;
