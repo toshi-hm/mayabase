@@ -362,13 +362,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     {
       transcript && (
         <section aria-labelledby="transcript-heading" class="mt-12">
-          <h2 id="transcript-heading" class="text-xl font-bold">文字起こし</h2>
+          <h2 id="transcript-heading" class="text-xl font-bold">
+            文字起こし
+          </h2>
           <details class="rounded-xl border border-line bg-surface-raised">
             <summary class="cursor-pointer px-5 py-4 font-semibold focus-visible:outline-2 focus-visible:outline-brand">
               文字起こし（{transcript.language}）
             </summary>
             <div class="border-t border-line px-5 py-4 leading-relaxed">
-              <p lang={transcript.language} class="whitespace-pre-line">{transcript.text}</p>
+              <p lang={transcript.language} class="whitespace-pre-line">
+                {transcript.text}
+              </p>
             </div>
           </details>
         </section>
