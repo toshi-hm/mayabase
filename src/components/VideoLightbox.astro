@@ -159,7 +159,7 @@ import { site, subscribeUrl } from "../config/site";
         .filter((item) => item.id && item.title);
     };
 
-    const attachPlayer = async (generation: number): Promise<void> =>
+    const attachPlayer = async (generation: number): Promise<void> => {
       if (activeQueue.length < 2) return;
       try {
         const YT = await loadYouTubeApi();
