@@ -10,6 +10,7 @@ import gearJson from "../../data/gear.json";
 import glossaryJson from "../../data/glossary.json";
 import seriesJson from "../../data/series.json";
 import videosJson from "../../data/videos.json";
+import transcriptsJson from "../../data/transcripts.json";
 import Base from "../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../lib/breadcrumb";
 import { CATEGORY_LABELS, categorizeVideo } from "../../lib/categories";
@@ -29,6 +30,7 @@ import {
   sortGlossaryTerms,
 } from "../../lib/glossary";
 import { getLightboxContainerClass } from "../../lib/lightbox";
+import { getTranscript, parseTranscriptsData } from "../../lib/transcripts";
 import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "../../lib/relatedVideos";
 import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../lib/series";
 import {
@@ -96,6 +98,7 @@ interface Props {
 }
 
 const { video, videos, gearItems, glossaryTerms, matchedSeries } = Astro.props;
+const transcript = getTranscript(parseTranscriptsData(transcriptsJson), video);
 const category = categorizeVideo(video);
 const RELATED_LIMIT = 6;
 const relatedVideos = getRelatedVideos(video, videos, category, RELATED_LIMIT);
@@ -152,6 +155,7 @@ const jsonLd = {
       // Google 推奨プロパティ。ISO 8601 のまま出力できる(#173)。取得できない動画は省略する
       // (viewCount と同じ「取得できたものだけ表示」方針)。
       ...(video.duration !== null && { duration: video.duration }),
+      ...(transcript && { transcript: transcript.text }),
       // 検索結果でのキーモーメント表示を狙い、チャプターを Clip として構造化する(#154)
       ...(chapters.length > 0 && {
         hasPart: chapters.map((chapter) => ({
@@ -351,6 +355,26 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               </li>
             ))}
           </ol>
+        </section>
+      )
+    }
+
+    {
+      transcript && (
+        <section aria-labelledby="transcript-heading" class="mt-12">
+          <h2 id="transcript-heading" class="text-xl font-bold">
+            文字起こし
+          </h2>
+          <details class="rounded-xl border border-line bg-surface-raised">
+            <summary class="cursor-pointer px-5 py-4 font-semibold focus-visible:outline-2 focus-visible:outline-brand">
+              文字起こし（{transcript.language}）
+            </summary>
+            <div class="border-t border-line px-5 py-4 leading-relaxed">
+              <p lang={transcript.language} class="whitespace-pre-line">
+                {transcript.text}
+              </p>
+            </div>
+          </details>
         </section>
       )
     }
