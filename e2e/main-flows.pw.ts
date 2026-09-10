@@ -9,12 +9,17 @@ test.describe("主要導線", () => {
     await aiFilter.click();
     await expect(aiFilter).toHaveAttribute("aria-pressed", "true");
     await expect(page).toHaveURL(/\/videos\/\?category=ai$/);
-    await expect(page.locator("#videos-count")).not.toHaveText("0 件");
+    const visibleNonAiCards = page.locator(
+      '#videos-grid > li:not([hidden]):not([data-category="ai"])',
+    );
+    await expect(visibleNonAiCards).toHaveCount(0);
+    await expect(page.locator("#videos-count")).toHaveText(/^[1-9][0-9]* 件$/);
 
     const search = page.locator("#video-search");
-    await search.fill("AI");
-    await expect(page).toHaveURL(/q=AI/);
-    await expect(page.locator("#videos-count")).not.toHaveText("0 件");
+    await search.fill("__definitely-no-match__");
+    await expect(page).toHaveURL(/q=__definitely-no-match__/);
+    await expect(page.locator("#videos-count")).toHaveText("0 件");
+    await expect(page.locator("#videos-empty")).toBeVisible();
   });
 
   test("トップページのカルーセルを停止して手動操作できる", async ({ page }) => {
@@ -28,10 +33,17 @@ test.describe("主要導線", () => {
 
     const next = carousel.locator("[data-carousel-next]");
     await expect(next).toBeEnabled();
+    const selectedBefore = await carousel
+      .locator('[data-carousel-dots] button[aria-current="true"]')
+      .getAttribute("aria-label");
     await next.click();
-    await expect(carousel.locator('[data-carousel-dots] button[aria-current="true"]')).toHaveCount(
-      1,
-    );
+    await expect
+      .poll(() =>
+        carousel
+          .locator('[data-carousel-dots] button[aria-current="true"]')
+          .getAttribute("aria-label"),
+      )
+      .not.toBe(selectedBefore);
   });
 
   test("動画カードのライトボックスを開閉できる", async ({ page }) => {
