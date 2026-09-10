@@ -382,60 +382,6 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </div>
     </section>
 
-    {
-      topicPanels.length > 0 && (
-        <section aria-labelledby="topic-picker-heading" class="py-16">
-          <div class="mx-auto max-w-6xl px-4">
-            <SectionHeading
-              id="topic-picker-heading"
-              title="気になるテーマは?"
-              subtitle="興味のあるテーマを選ぶと、おすすめの動画をすぐにチェックできます。"
-            />
-            <div role="group" aria-label="テーマを選ぶ" class="flex flex-wrap gap-2">
-              {topicPanels.map(({ category }) => (
-                <a
-                  href={categoryUrl(category)}
-                  role="button"
-                  data-topic-category={category}
-                  aria-pressed="false"
-                  class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
-                >
-                  {CATEGORY_LABELS[category]}
-                </a>
-              ))}
-            </div>
-            <div id="topic-picker-results" class="mt-6" hidden>
-              <p id="topic-picker-count" aria-live="polite" class="mb-4 text-sm text-ink-muted" />
-            </div>
-            {/* 各テーマのカードは <template> の中身として描画する(#217)。<template> の子要素は
-              メインドキュメントの DOM ツリーに属さないため、テーマボタンが実際にクリックされて
-              表示が必要になるまで Lighthouse の DOM サイズ計測やスタイル計算・レイアウトの対象に
-              ならない(/videos/ の DOM 肥大化対策・#177 と同じ方針)。テーマボタン自体は
-              /videos/category/{category}/ への実リンクを兼ねる(JS 無効時・クローラーはそのまま
-              遷移/到達できるため、この <template> は no-JS フォールバックを別途用意しなくてよい)。 */}
-            {topicPanels.map(({ category, videos: panelVideos }) => (
-              <template data-topic-panel-template={category}>
-                <div data-topic-panel={category} hidden>
-                  <ul role="list" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {panelVideos.map((video) => (
-                      <ArchiveCard video={video} category={category} />
-                    ))}
-                  </ul>
-                  <a
-                    href={categoryUrl(category)}
-                    class="mt-6 inline-block text-sm font-semibold text-brand hover:underline"
-                  >
-                    {CATEGORY_LABELS[category]}の動画をすべて見る
-                  </a>
-                </div>
-              </template>
-            ))}
-          </div>
-        </section>
-      )
-    }
-
-    {onboardingPanels.length > 0 && <Onboarding panels={onboardingPanels} />}
 
     {
       featuredVideos.length > 0 && (
