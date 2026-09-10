@@ -48,7 +48,10 @@ const { videoId } = Astro.props;
       );
       if (!response.ok) return;
       const data = (await response.json()) as { count?: unknown };
-      if (typeof data.count === "number" && requestVersions.get(button) === version) {
+      if (
+        typeof data.count === "number" &&
+        requestVersions.get(button) === version
+      ) {
         applyCount(button, data.count);
       }
     } catch {
@@ -78,7 +81,10 @@ const { videoId } = Astro.props;
       });
       if (!response.ok) return;
       const data = (await response.json()) as { count?: unknown };
-      if (typeof data.count === "number" && requestVersions.get(button) === version) {
+      if (
+        typeof data.count === "number" &&
+        requestVersions.get(button) === version
+      ) {
         applyCount(button, data.count);
       }
     } finally {
