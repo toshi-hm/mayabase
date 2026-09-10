@@ -21,5 +21,23 @@
       "binding": "PUSH_SUBSCRIPTIONS",
       "id": "f65e291e680540edaa5fc3c1f577e9c6"
     }
+  ],
+  "ratelimits": [
+    {
+      "name": "REACTION_RATE_LIMITER",
+      "namespace_id": "333",
+      "simple": {
+        "limit": 30,
+        "period": 60
+      }
+    },
+    {
+      "name": "REACTION_READ_RATE_LIMITER",
+      "namespace_id": "334",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
   ]
 }
