@@ -161,7 +161,7 @@ import { site, subscribeUrl } from "../config/site";
           .map((trigger) => ({
             id: trigger.dataset.lightboxVideoId ?? "",
             title: trigger.dataset.lightboxTitle ?? "",
-            aspect: trigger.dataset.lightboxAspect === "short" ? "short" : "video",
+            aspect: (trigger.dataset.lightboxAspect === "short" ? "short" : "video") as const,
             hidden: trigger.closest<HTMLElement>("li")?.hidden === true,
           }))
           .filter((item) => item.id && item.title),
