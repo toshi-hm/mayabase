@@ -9,11 +9,7 @@ interface FakeKv {
   store: Map<string, string>;
   options: Map<string, { expirationTtl?: number }>;
   get(key: string): Promise<string | null>;
-  put(
-    key: string,
-    value: string,
-    options?: { expirationTtl?: number },
-  ): Promise<void>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
   delete(key: string): Promise<void>;
 }
 
@@ -68,22 +64,16 @@ describe("fetch", () => {
   });
 
   test("KV未設定でも静的配信は通常どおり動く", async () => {
-    const response = await worker.fetch(
-      new Request("https://portal.mayabase.workers.dev/"),
-      {
-        ASSETS: assets,
-      },
-    );
+    const response = await worker.fetch(new Request("https://portal.mayabase.workers.dev/"), {
+      ASSETS: assets,
+    });
     expect(response.status).toBe(200);
   });
 
   test("KV未設定なら購読は503を返す(未処理例外による500にしない)", async () => {
-    const response = await worker.fetch(
-      postJson("/api/push/subscribe", validSubscription),
-      {
-        ASSETS: assets,
-      },
-    );
+    const response = await worker.fetch(postJson("/api/push/subscribe", validSubscription), {
+      ASSETS: assets,
+    });
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
       error: "push subscription storage is not configured",
@@ -102,13 +92,10 @@ describe("fetch", () => {
 
   test("KV設定済みなら購読情報をKVへ保存する", async () => {
     const kv = createKv();
-    const response = await worker.fetch(
-      postJson("/api/push/subscribe", validSubscription),
-      {
-        ASSETS: assets,
-        PUSH_SUBSCRIPTIONS: kv,
-      },
-    );
+    const response = await worker.fetch(postJson("/api/push/subscribe", validSubscription), {
+      ASSETS: assets,
+      PUSH_SUBSCRIPTIONS: kv,
+    });
     expect(response.status).toBe(201);
     expect(kv.store.size).toBe(1);
     const stored = JSON.parse([...kv.store.values()][0] as string);
@@ -134,13 +121,10 @@ describe("fetch", () => {
 
   test("不正なペイロードは400(KV設定済みの場合)", async () => {
     const kv = createKv();
-    const response = await worker.fetch(
-      postJson("/api/push/subscribe", { endpoint: 123 }),
-      {
-        ASSETS: assets,
-        PUSH_SUBSCRIPTIONS: kv,
-      },
-    );
+    const response = await worker.fetch(postJson("/api/push/subscribe", { endpoint: 123 }), {
+      ASSETS: assets,
+      PUSH_SUBSCRIPTIONS: kv,
+    });
     expect(response.status).toBe(400);
     expect(kv.store.size).toBe(0);
   });
@@ -179,12 +163,9 @@ describe("fetch", () => {
     expect(postResponse.status).toBe(200);
 
     const response = await worker.fetch(
-      new Request(
-        "https://portal.mayabase.workers.dev/api/video-reaction?videoId=get-test",
-        {
-          headers: { "CF-Connecting-IP": "198.51.100.34" },
-        },
-      ),
+      new Request("https://portal.mayabase.workers.dev/api/video-reaction?videoId=get-test", {
+        headers: { "CF-Connecting-IP": "198.51.100.34" },
+      }),
       { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
     );
     expect(response.status).toBe(200);
@@ -222,13 +203,10 @@ describe("fetch", () => {
     kv.put = async () => {
       throw new Error("KV put failed");
     };
-    const response = await worker.fetch(
-      postJson("/api/push/subscribe", validSubscription),
-      {
-        ASSETS: assets,
-        PUSH_SUBSCRIPTIONS: kv,
-      },
-    );
+    const response = await worker.fetch(postJson("/api/push/subscribe", validSubscription), {
+      ASSETS: assets,
+      PUSH_SUBSCRIPTIONS: kv,
+    });
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({
       error: "push subscription storage operation failed",
