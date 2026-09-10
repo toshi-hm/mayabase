@@ -11,7 +11,7 @@ const { videoId } = Astro.props;
   aria-label="気になるに追加"
   class="rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-ink-muted transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
 >
-  気になる <span data-interest-count>0</span>
+  気になる <span data-interest-count aria-live="polite">0</span>
   <span
     data-interest-popular-badge
     hidden
@@ -22,10 +22,38 @@ const { videoId } = Astro.props;
 </button>
 
 <script>
+  const applyCount = (button: HTMLButtonElement, count: number) => {
+    const countEl = button.querySelector("[data-interest-count]");
+    if (countEl) countEl.textContent = String(count);
+    button.setAttribute("aria-label", "気になる " + count + "件");
+    const badge = button.querySelector<HTMLElement>("[data-interest-popular-badge]");
+    const isPopular = count >= 10;
+    if (isPopular) {
+      button.dataset.interestPopular = "true";
+    } else {
+      delete button.dataset.interestPopular;
+    }
+    if (badge) badge.hidden = !isPopular;
+  };
+
+  const loadCount = async (button: HTMLButtonElement, videoId: string) => {
+    try {
+      const response = await fetch("/api/video-reaction?videoId=" + encodeURIComponent(videoId));
+      if (!response.ok) return;
+      const data = (await response.json()) as { count?: unknown };
+      if (typeof data.count === "number") applyCount(button, data.count);
+    } catch {
+      // Initial count is best-effort and must not block the viewing experience.
+    }
+  };
+
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-interest-video-id]")) {
+    const videoId = button.dataset.interestVideoId;
+    if (!videoId) continue;
+    void loadCount(button, videoId);
+
     button.addEventListener("click", async () => {
-      const videoId = button.dataset.interestVideoId;
-      if (!videoId || button.disabled) return;
+      if (button.disabled) return;
       button.disabled = true;
       try {
         const response = await fetch("/api/video-reaction", {
@@ -35,18 +63,7 @@ const { videoId } = Astro.props;
         });
         if (!response.ok) return;
         const data = (await response.json()) as { count?: unknown };
-        const count = typeof data.count === "number" ? data.count : 0;
-        const countEl = button.querySelector("[data-interest-count]");
-        if (countEl) countEl.textContent = String(count);
-        button.setAttribute("aria-label", "気になる " + count + "件");
-        const badge = button.querySelector<HTMLElement>("[data-interest-popular-badge]");
-        const isPopular = count >= 10;
-        if (isPopular) {
-          button.dataset.interestPopular = "true";
-        } else {
-          delete button.dataset.interestPopular;
-        }
-        if (badge) badge.hidden = !isPopular;
+        if (typeof data.count === "number") applyCount(button, data.count);
       } finally {
         button.disabled = false;
       }
