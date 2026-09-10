@@ -17,15 +17,17 @@ describe("parseTranscriptsData", () => {
     expect(() => parseTranscriptsData(null)).toThrow("オブジェクト");
     expect(() => parseTranscriptsData({ transcripts: [] })).toThrow("オブジェクト");
     expect(() => parseTranscriptsData({ transcripts: { "bad id": valid } })).toThrow("動画ID");
-    expect(() => parseTranscriptsData({ transcripts: { abc123def45: { ...valid, text: "" } } })).toThrow(
-      "text",
-    );
+    expect(() =>
+      parseTranscriptsData({ transcripts: { abc123def45: { ...valid, text: "" } } }),
+    ).toThrow("text");
     expect(() =>
       parseTranscriptsData({ transcripts: { abc123def45: { ...valid, language: "" } } }),
     ).toThrow("language");
     expect(() => parseTranscriptsData({ transcripts: { "short-id": valid } })).toThrow("動画ID");
     expect(() =>
-      parseTranscriptsData({ transcripts: { abc123def45: { ...valid, language: "not a language" } } }),
+      parseTranscriptsData({
+        transcripts: { abc123def45: { ...valid, language: "not a language" } },
+      }),
     ).toThrow("language");
     expect(
       parseTranscriptsData({ transcripts: { abc123def45: { ...valid, language: "en-US" } } }),
