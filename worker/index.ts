@@ -57,7 +57,10 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 const REACTION_BODY_MAX_BYTES = 8 * 1024;
 
-async function readJsonBody(request: Request, maxBytes = REACTION_BODY_MAX_BYTES): Promise<unknown> {
+async function readJsonBody(
+  request: Request,
+  maxBytes = REACTION_BODY_MAX_BYTES,
+): Promise<unknown> {
   if (!request.body) return undefined;
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -124,7 +127,7 @@ function isFallbackReactionRateLimited(request: Request): boolean {
     if (oldestKey) reactionRateLimitEntries.delete(oldestKey);
   }
 
-  const key = request.method + ":" + reactionClientKey(request);
+  const key = `${request.method}:${reactionClientKey(request)}`;
   const current = reactionRateLimitEntries.get(key);
   if (!current || now - current.startedAt >= REACTION_RATE_LIMIT_WINDOW_MS) {
     reactionRateLimitEntries.set(key, { startedAt: now, count: 1 });
@@ -176,10 +179,7 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
 async function handleVideoReaction(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
-  const payload =
-    request.method === "GET"
-      ? undefined
-      : await readJsonBody(request);
+  const payload = request.method === "GET" ? undefined : await readJsonBody(request);
   const videoId =
     request.method === "GET"
       ? new URL(request.url).searchParams.get("videoId")
@@ -192,7 +192,7 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
   if (await isReactionRateLimited(request, env)) {
     return jsonResponse({ error: "rate limit exceeded" }, 429);
   }
-  const key = "reaction:" + videoId;
+  const key = `${videoId}`;
   try {
     const current = await kv.get(key);
     const count = current === null ? 0 : Number.parseInt(current, 10);
