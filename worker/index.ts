@@ -31,6 +31,10 @@ const REACTION_READ_RATE_LIMIT_MAX = 120;
 const REACTION_RATE_LIMIT_MAX_ENTRIES = 1_000;
 const reactionRateLimitEntries = new Map<string, { startedAt: number; count: number }>();
 
+interface ReactionRateLimiter {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 interface Env {
   /** wrangler.jsonc の assets.binding。マッチしないリクエストの静的配信に使う */
   ASSETS: { fetch(request: Request): Promise<Response> };
@@ -39,6 +43,10 @@ interface Env {
    * KV を未セットアップの環境ではバインディングが存在しないため optional にしている。
    */
   PUSH_SUBSCRIPTIONS?: PushSubscriptionsKv;
+  /** 動画リアクション書き込み用の共有Rate Limiting binding。 */
+  REACTION_RATE_LIMITER?: ReactionRateLimiter;
+  /** 動画リアクション読み取り用の共有Rate Limiting binding。 */
+  REACTION_READ_RATE_LIMITER?: ReactionRateLimiter;
 }
 
 async function sha256Hex(input: string): Promise<string> {
@@ -141,10 +149,11 @@ function isFallbackReactionRateLimited(request: Request): boolean {
 }
 
 async function isReactionRateLimited(request: Request, env: Env): Promise<boolean> {
-  const key = reactionClientKey(request);
-  if (env.REACTION_RATE_LIMITER) {
+  const limiter =
+    request.method === "GET" ? env.REACTION_READ_RATE_LIMITER : env.REACTION_RATE_LIMITER;
+  if (limiter) {
     try {
-      const result = await env.REACTION_RATE_LIMITER.limit({ key });
+      const result = await limiter.limit({ key: reactionClientKey(request) });
       return !result.success;
     } catch {
       return isFallbackReactionRateLimited(request);
