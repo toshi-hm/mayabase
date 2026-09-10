@@ -1,3 +1,4 @@
+import { categorizeVideo } from "./categories";
 import type { Video } from "./youtube";
 
 export interface OnboardingPanel {
@@ -11,14 +12,23 @@ export function buildOnboardingPanels(
   featured: readonly Video[],
   limit = 4,
 ): OnboardingPanel[] {
-  const featuredIds = new Set(featured.map((video) => video.id));
   return panels
-    .map((panel) => ({
-      ...panel,
-      videos: [
-        ...featured.filter((video) => panel.videos.some((candidate) => candidate.id === video.id)),
-        ...panel.videos.filter((video) => !featuredIds.has(video.id)),
-      ].slice(0, limit),
-    }))
+    .map((panel) => {
+      const featuredForPanel = featured.filter(
+        (video) => categorizeVideo(video) === panel.category,
+      );
+      const videos = [...featuredForPanel, ...panel.videos];
+      const seenIds = new Set<string>();
+      return {
+        ...panel,
+        videos: videos
+          .filter((video) => {
+            if (seenIds.has(video.id)) return false;
+            seenIds.add(video.id);
+            return true;
+          })
+          .slice(0, limit),
+      };
+    })
     .filter((panel) => panel.videos.length > 0);
 }
