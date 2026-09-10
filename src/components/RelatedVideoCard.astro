@@ -8,6 +8,7 @@ import {
   type Video,
   videoUrl,
 } from "../lib/youtube";
+import InterestButton from "./InterestButton.astro";
 import PreviewButton from "./PreviewButton.astro";
 import ShareButton from "./ShareButton.astro";
 import WatchLaterButton from "./WatchLaterButton.astro";
@@ -70,4 +71,5 @@ const durationLabel = formatDurationLabel(video.duration);
   <PreviewButton videoId={video.id} title={video.title} aspect="video" />
   <ShareButton title={video.title} url={videoUrl(video)} />
   <WatchLaterButton videoId={video.id} title={video.title} aspect="video" />
+  <InterestButton videoId={video.id} />
 </li>

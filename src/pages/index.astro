@@ -1,10 +1,11 @@
 ---
-import ArchiveCard from "../components/ArchiveCard.astro";
 import Carousel from "../components/Carousel.astro";
 import PostCard from "../components/PostCard.astro";
+import Onboarding from "../components/Onboarding.astro";
 import Profile from "../components/Profile.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import ShortCard from "../components/ShortCard.astro";
+import Testimonials from "../components/Testimonials.astro";
 import VideoCard from "../components/VideoCard.astro";
 import { site, subscribeUrl } from "../config/site";
 import channelStatsHistoryJson from "../data/channel-stats-history.json";
@@ -12,12 +13,12 @@ import channelStatsJson from "../data/channel-stats.json";
 import featuredVideosJson from "../data/featured-videos.json";
 import videosJson from "../data/videos.json";
 import xPostsJson from "../data/x-posts.json";
+import testimonialsJson from "../data/testimonials.json";
 import Base from "../layouts/Base.astro";
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   categorizeVideo,
-  categoryUrl,
   topVideosByCategory,
 } from "../lib/categories";
 import {
@@ -35,6 +36,8 @@ import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredV
 import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseXPostsData } from "../lib/x";
+import { buildOnboardingPanels } from "../lib/onboarding";
+import { parseTestimonialsData } from "../lib/testimonials";
 import {
   embedUrl,
   parseVideosData,
@@ -65,6 +68,7 @@ const popularVideos = videos
 
 const { account, posts } = parseXPostsData(xPostsJson);
 const xPosts = posts.slice(0, maxItems);
+const { testimonials } = parseTestimonialsData(testimonialsJson);
 
 // 初回訪問者向け「気になるテーマは?」導線(#156)。カテゴリ別静的アーカイブページ(#121)と
 // 役割が重複しないよう、ここでは各カテゴリの上位動画のみを紹介し、全件は
@@ -74,13 +78,23 @@ const xPosts = posts.slice(0, maxItems);
 // ページの初期DOMサイズは増えないが、実体化後の一覧が間延びしないよう
 // 他セクションの maxItems(6)より少ない件数に絞る。
 const TOPIC_PANEL_LIMIT = 4;
-const categorized = videos.map((video) => ({ video, category: categorizeVideo(video) }));
+const categorized = videos.map((video) => ({
+  video,
+  category: categorizeVideo(video),
+}));
 const topicPanels = CATEGORY_ORDER.filter((category) => category !== "other")
   .map((category) => ({
     category,
     videos: topVideosByCategory(categorized, category, TOPIC_PANEL_LIMIT),
   }))
   .filter((panel) => panel.videos.length > 0);
+const onboardingPanels = buildOnboardingPanels(
+  topicPanels.map((panel) => ({
+    ...panel,
+    label: CATEGORY_LABELS[panel.category],
+  })),
+  featuredVideos,
+);
 
 // 未取得(API キー未設定・取得失敗・非公開設定)の場合は null のまま非表示にする
 const { subscriberCount, viewCount, fetchedAt } = parseChannelStats(channelStatsJson);
@@ -376,59 +390,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </div>
     </section>
 
-    {
-      topicPanels.length > 0 && (
-        <section aria-labelledby="topic-picker-heading" class="py-16">
-          <div class="mx-auto max-w-6xl px-4">
-            <SectionHeading
-              id="topic-picker-heading"
-              title="気になるテーマは?"
-              subtitle="興味のあるテーマを選ぶと、おすすめの動画をすぐにチェックできます。"
-            />
-            <div role="group" aria-label="テーマを選ぶ" class="flex flex-wrap gap-2">
-              {topicPanels.map(({ category }) => (
-                <a
-                  href={categoryUrl(category)}
-                  role="button"
-                  data-topic-category={category}
-                  aria-pressed="false"
-                  class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
-                >
-                  {CATEGORY_LABELS[category]}
-                </a>
-              ))}
-            </div>
-            <div id="topic-picker-results" class="mt-6" hidden>
-              <p id="topic-picker-count" aria-live="polite" class="mb-4 text-sm text-ink-muted" />
-            </div>
-            {/* 各テーマのカードは <template> の中身として描画する(#217)。<template> の子要素は
-              メインドキュメントの DOM ツリーに属さないため、テーマボタンが実際にクリックされて
-              表示が必要になるまで Lighthouse の DOM サイズ計測やスタイル計算・レイアウトの対象に
-              ならない(/videos/ の DOM 肥大化対策・#177 と同じ方針)。テーマボタン自体は
-              /videos/category/{category}/ への実リンクを兼ねる(JS 無効時・クローラーはそのまま
-              遷移/到達できるため、この <template> は no-JS フォールバックを別途用意しなくてよい)。 */}
-            {topicPanels.map(({ category, videos: panelVideos }) => (
-              <template data-topic-panel-template={category}>
-                <div data-topic-panel={category} hidden>
-                  <ul role="list" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {panelVideos.map((video) => (
-                      <ArchiveCard video={video} category={category} />
-                    ))}
-                  </ul>
-                  <a
-                    href={categoryUrl(category)}
-                    class="mt-6 inline-block text-sm font-semibold text-brand hover:underline"
-                  >
-                    {CATEGORY_LABELS[category]}の動画をすべて見る
-                  </a>
-                </div>
-              </template>
-            ))}
-          </div>
-        </section>
-      )
-    }
-
+    {onboardingPanels.length > 0 && <Onboarding panels={onboardingPanels} />}
     {
       featuredVideos.length > 0 && (
         <section aria-labelledby="featured-heading" class="bg-surface-sun py-16">
@@ -542,6 +504,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </div>
     </section>
 
+    {testimonials.length > 0 && <Testimonials testimonials={testimonials} />}
+
     <section class="bg-surface-sun">
       <div class="mx-auto max-w-6xl px-4">
         <Profile />
@@ -582,7 +546,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     realizedPanels.set(category, panel);
     // WatchLaterController.astro 等、実体化後の DOM にも保存済み状態の反映が必要なリスナーへ通知する
     document.dispatchEvent(
-      new CustomEvent("mayabase:card-materialized", { detail: { root: panel } }),
+      new CustomEvent("mayabase:card-materialized", {
+        detail: { root: panel },
+      }),
     );
     return panel;
   }
@@ -632,10 +598,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   import {
     CONTINUE_WATCHING_STORAGE_KEY,
     parseContinueWatchingCandidates,
+    CONTINUE_WATCHING_PROGRESS_STORAGE_KEY,
     parseStoredContinueWatchingIds,
+    parseStoredContinueWatchingProgress,
     selectContinueWatchingVideo,
   } from "../lib/continueWatching";
-  import { thumbnailFallbackUrl, videoUrl } from "../lib/youtube";
+  import { thumbnailFallbackUrl, videoUrlAtTime } from "../lib/youtube";
 
   const section = document.getElementById("continue-watching");
   const link = document.getElementById("continue-watching-link");
@@ -663,7 +631,15 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       const candidates = parseContinueWatchingCandidates(dataScript.textContent);
       const video = selectContinueWatchingVideo(storedIds, candidates);
       if (video) {
-        link.href = videoUrl(video);
+        let progress: Record<string, number> = {};
+        try {
+          progress = parseStoredContinueWatchingProgress(
+            localStorage.getItem(CONTINUE_WATCHING_PROGRESS_STORAGE_KEY),
+          );
+        } catch {
+          // プライベートモード等では0秒から再生する
+        }
+        link.href = videoUrlAtTime(video, progress[video.id] ?? 0);
         thumbnail.src = thumbnailFallbackUrl(video.id);
         titleEl.textContent = video.title;
         section.hidden = false;

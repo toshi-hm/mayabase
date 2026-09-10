@@ -85,3 +85,43 @@ export function selectContinueWatchingVideo<T extends { id: string }>(
   }
   return null;
 }
+
+/** 動画ごとの再生位置。既存のID履歴とは別キーにして後方互換を保つ。 */
+export const CONTINUE_WATCHING_PROGRESS_STORAGE_KEY = "mayabase-continue-watching-progress";
+export interface ContinueWatchingProgress {
+  videoId: string;
+  seconds: number;
+}
+
+export function parseStoredContinueWatchingProgress(raw: string | null): Record<string, number> {
+  if (raw === null) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
+    const result: Record<string, number> = {};
+    for (const [id, value] of Object.entries(parsed)) {
+      if (
+        /^[A-Za-z0-9_-]+$/.test(id) &&
+        typeof value === "number" &&
+        Number.isFinite(value) &&
+        value >= 0
+      ) {
+        result[id] = Math.floor(value);
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+export function recordContinueWatchingProgress(
+  progress: Readonly<Record<string, number>>,
+  videoId: string,
+  seconds: number,
+): Record<string, number> {
+  if (!/^[A-Za-z0-9_-]+$/.test(videoId) || !Number.isFinite(seconds) || seconds < 0) {
+    return { ...progress };
+  }
+  return { ...progress, [videoId]: Math.floor(seconds) };
+}

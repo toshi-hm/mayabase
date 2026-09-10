@@ -1,0 +1,44 @@
+---
+import type { Testimonial } from "../lib/testimonials";
+import SectionHeading from "./SectionHeading.astro";
+
+interface Props {
+  testimonials: Testimonial[];
+}
+const { testimonials } = Astro.props;
+---
+
+<section aria-labelledby="testimonials-heading" class="py-16">
+  <div class="mx-auto max-w-6xl px-4">
+    <SectionHeading
+      id="testimonials-heading"
+      title="視聴者の声"
+      subtitle="動画をご覧いただいた方から寄せられた感想をご紹介します。"
+    />
+    <ul role="list" class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        testimonials.map((testimonial) => (
+          <li class="flex h-full flex-col rounded-xl bg-surface-raised p-5">
+            <blockquote class="flex-1 leading-relaxed">
+              <p>「{testimonial.quote}」</p>
+            </blockquote>
+            <footer class="mt-5 flex items-center justify-between gap-3 text-sm text-ink-muted">
+              <cite class="not-italic">— {testimonial.author}</cite>
+              {testimonial.sourceUrl && (
+                <a
+                  href={testimonial.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="shrink-0 underline underline-offset-4 hover:text-brand-accent focus-visible:outline-2 focus-visible:outline-brand"
+                >
+                  出典 <span aria-hidden="true">↗</span>
+                  <span class="sr-only">(新しいタブで開きます)</span>
+                </a>
+              )}
+            </footer>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>

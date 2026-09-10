@@ -12,6 +12,7 @@ import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../../lib/breadcr
 import { categorizeVideo } from "../../../lib/categories";
 import { extractSearchableText, truncate } from "../../../lib/format";
 import { buildVideoGearMap, parseGearData } from "../../../lib/gear";
+import { createVideoQueue } from "../../../lib/videoQueue";
 import {
   getSeriesWithVideos,
   parseSeriesData,
@@ -44,6 +45,7 @@ interface Props {
 }
 
 const { series, seriesVideos }: Props = Astro.props;
+const bingeQueueJson = JSON.stringify(createVideoQueue(seriesVideos)).replace(/</g, "\\u003c");
 
 // 再生回数ソートのトグル(#342)。RSS のみ(YOUTUBE_API_KEY 未設定)の環境では
 // 全動画の viewCount が null になるため、1 件も取得できていなければトグル自体を非表示にする
@@ -259,7 +261,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     </section>
 
     <h2 class="sr-only">{series.title}の動画一覧</h2>
-    <ul id="archive-grid" role="list" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <ul
+      id="archive-grid"
+      role="list"
+      data-binge-queue={bingeQueueJson}
+      class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+    >
       {
         seriesVideos.map((video, index) => (
           <ArchiveCard
