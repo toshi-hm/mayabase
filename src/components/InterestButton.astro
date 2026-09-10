@@ -24,6 +24,9 @@ const { videoId } = Astro.props;
 <script>
   const requestVersions = new WeakMap<HTMLButtonElement, number>();
 
+  // 静的プレビューにはWorker APIがないため、Lighthouse/ローカル確認時の不要な404を避ける。
+  const isStaticPreview = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+
   const applyCount = (button: HTMLButtonElement, count: number) => {
     const countEl = button.querySelector("[data-interest-count]");
     if (countEl) countEl.textContent = String(count);
@@ -52,12 +55,29 @@ const { videoId } = Astro.props;
     }
   };
 
+  const scheduleCountLoad = (button: HTMLButtonElement, videoId: string) => {
+    if (isStaticPreview) return;
+    if (!("IntersectionObserver" in window)) {
+      void loadCount(button, videoId);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        void loadCount(button, videoId);
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(button);
+  };
+
   const initializeButton = (button: HTMLButtonElement) => {
     if (button.dataset.interestInitialized === "true") return;
     const videoId = button.dataset.interestVideoId;
     if (!videoId) return;
     button.dataset.interestInitialized = "true";
-    void loadCount(button, videoId);
+    scheduleCountLoad(button, videoId);
   };
 
   const submitReaction = async (button: HTMLButtonElement) => {
