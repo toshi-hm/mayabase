@@ -140,15 +140,16 @@ describe("fetch", () => {
     const kv = createKv();
     const request = postJson("/api/video-reaction", { videoId: "get-test" });
     request.headers.set("CF-Connecting-IP", "198.51.100.34");
-    expect(
-      (await worker.fetch(request, { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv })).status,
-    ).toBe(200);
+    const postResponse = await worker.fetch(request, {
+      ASSETS: assets,
+      PUSH_SUBSCRIPTIONS: kv,
+    });
+    expect(postResponse.status).toBe(200);
 
     const response = await worker.fetch(
-      new Request(
-        "https://portal.mayabase.workers.dev/api/video-reaction?videoId=get-test",
-        { headers: { "CF-Connecting-IP": "198.51.100.34" } },
-      ),
+      new Request("https://portal.mayabase.workers.dev/api/video-reaction?videoId=get-test", {
+        headers: { "CF-Connecting-IP": "198.51.100.34" },
+      }),
       { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
     );
     expect(response.status).toBe(200);
@@ -161,7 +162,10 @@ describe("fetch", () => {
       new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ videoId: "large-body", padding: "x".repeat(9_000) }),
+        body: JSON.stringify({
+          videoId: "large-body",
+          padding: "x".repeat(9_000),
+        }),
       }),
       { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
     );
