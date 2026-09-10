@@ -5,6 +5,7 @@ import PostCard from "../components/PostCard.astro";
 import Profile from "../components/Profile.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import ShortCard from "../components/ShortCard.astro";
+import Testimonials from "../components/Testimonials.astro";
 import VideoCard from "../components/VideoCard.astro";
 import { site, subscribeUrl } from "../config/site";
 import channelStatsHistoryJson from "../data/channel-stats-history.json";
@@ -12,6 +13,7 @@ import channelStatsJson from "../data/channel-stats.json";
 import featuredVideosJson from "../data/featured-videos.json";
 import videosJson from "../data/videos.json";
 import xPostsJson from "../data/x-posts.json";
+import testimonialsJson from "../data/testimonials.json";
 import Base from "../layouts/Base.astro";
 import {
   CATEGORY_LABELS,
@@ -35,6 +37,7 @@ import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredV
 import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseXPostsData } from "../lib/x";
+import { parseTestimonialsData } from "../lib/testimonials";
 import {
   embedUrl,
   parseVideosData,
@@ -65,6 +68,7 @@ const popularVideos = videos
 
 const { account, posts } = parseXPostsData(xPostsJson);
 const xPosts = posts.slice(0, maxItems);
+const { testimonials } = parseTestimonialsData(testimonialsJson);
 
 // 初回訪問者向け「気になるテーマは?」導線(#156)。カテゴリ別静的アーカイブページ(#121)と
 // 役割が重複しないよう、ここでは各カテゴリの上位動画のみを紹介し、全件は
@@ -542,6 +546,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </div>
     </section>
 
+    {testimonials.length > 0 && <Testimonials testimonials={testimonials} />}
+
     <section class="bg-surface-sun">
       <div class="mx-auto max-w-6xl px-4">
         <Profile />
@@ -632,10 +638,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   import {
     CONTINUE_WATCHING_STORAGE_KEY,
     parseContinueWatchingCandidates,
+    CONTINUE_WATCHING_PROGRESS_STORAGE_KEY,
     parseStoredContinueWatchingIds,
+    parseStoredContinueWatchingProgress,
     selectContinueWatchingVideo,
   } from "../lib/continueWatching";
-  import { thumbnailFallbackUrl, videoUrl } from "../lib/youtube";
+  import { thumbnailFallbackUrl, videoUrlAtTime } from "../lib/youtube";
 
   const section = document.getElementById("continue-watching");
   const link = document.getElementById("continue-watching-link");
@@ -663,7 +671,15 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       const candidates = parseContinueWatchingCandidates(dataScript.textContent);
       const video = selectContinueWatchingVideo(storedIds, candidates);
       if (video) {
-        link.href = videoUrl(video);
+        let progress: Record<string, number> = {};
+        try {
+          progress = parseStoredContinueWatchingProgress(
+            localStorage.getItem(CONTINUE_WATCHING_PROGRESS_STORAGE_KEY),
+          );
+        } catch {
+          // プライベートモード等では0秒から再生する
+        }
+        link.href = videoUrlAtTime(video, progress[video.id] ?? 0);
         thumbnail.src = thumbnailFallbackUrl(video.id);
         titleEl.textContent = video.title;
         section.hidden = false;

@@ -3,7 +3,9 @@ import {
   CONTINUE_WATCHING_MAX_ITEMS,
   parseContinueWatchingCandidates,
   parseStoredContinueWatchingIds,
+  parseStoredContinueWatchingProgress,
   recordContinueWatchingId,
+  recordContinueWatchingProgress,
   selectContinueWatchingVideo,
 } from "./continueWatching";
 
@@ -123,5 +125,20 @@ describe("selectContinueWatchingVideo", () => {
 
   test("記録が空なら null", () => {
     expect(selectContinueWatchingVideo([], candidates)).toBeNull();
+  });
+});
+
+describe("再生位置", () => {
+  test("不正な保存値を除外する", () => {
+    expect(parseStoredContinueWatchingProgress('{"abc123":12.8,"bad id":4,"neg":-1}')).toEqual({
+      abc123: 12,
+    });
+  });
+
+  test("再生位置を秒単位で更新する", () => {
+    expect(recordContinueWatchingProgress({ abc123: 2 }, "def456", 42.9)).toEqual({
+      abc123: 2,
+      def456: 42,
+    });
   });
 });

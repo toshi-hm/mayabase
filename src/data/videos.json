@@ -1,6 +1,6 @@
 {
   "channelId": "UC3ELUpDyBSGZfZJib67t4Sg",
-  "fetchedAt": "2026-09-08T23:13:43.545Z",
+  "fetchedAt": "2026-09-09T23:00:35.678Z",
   "videos": [
     {
       "id": "KcBUCp8cWoc",
@@ -9,7 +9,7 @@
       "publishedAt": "2026-09-01T22:00:39Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 1341,
+      "viewCount": 1345,
       "duration": "PT35S"
     },
     {
@@ -19,7 +19,7 @@
       "publishedAt": "2026-09-01T09:00:12Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 124,
+      "viewCount": 127,
       "duration": "PT11M39S"
     },
     {
@@ -29,7 +29,7 @@
       "publishedAt": "2026-08-27T23:59:29Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 1476,
+      "viewCount": 1480,
       "duration": "PT22S"
     },
     {
@@ -39,7 +39,7 @@
       "publishedAt": "2026-08-08T06:35:58Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 1657,
+      "viewCount": 1660,
       "duration": "PT46S"
     },
     {
@@ -59,7 +59,7 @@
       "publishedAt": "2026-07-10T10:15:27Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 2809,
+      "viewCount": 2815,
       "duration": "PT43S"
     },
     {
@@ -69,7 +69,7 @@
       "publishedAt": "2026-07-10T10:00:03Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 3399,
+      "viewCount": 3464,
       "duration": "PT13M11S"
     },
     {
@@ -79,7 +79,7 @@
       "publishedAt": "2026-06-26T10:00:32Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 1371,
+      "viewCount": 1372,
       "duration": "PT1M6S"
     },
     {
@@ -99,7 +99,7 @@
       "publishedAt": "2026-05-31T18:14:17Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 2298,
+      "viewCount": 2300,
       "duration": "PT39S"
     },
     {
@@ -109,7 +109,7 @@
       "publishedAt": "2026-05-22T10:00:16Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 246,
+      "viewCount": 247,
       "duration": "PT9M47S"
     },
     {
@@ -129,7 +129,7 @@
       "publishedAt": "2026-04-30T20:19:59Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 4605,
+      "viewCount": 4606,
       "duration": "PT1M"
     },
     {
@@ -139,7 +139,7 @@
       "publishedAt": "2026-04-30T10:00:52Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 4993,
+      "viewCount": 5094,
       "duration": "PT23M25S"
     },
     {
@@ -189,7 +189,7 @@
       "publishedAt": "2026-03-31T10:00:00Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 334,
+      "viewCount": 340,
       "duration": "PT40M53S"
     },
     {
@@ -199,7 +199,7 @@
       "publishedAt": "2026-03-29T09:00:00Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 3076,
+      "viewCount": 3079,
       "duration": "PT36S"
     },
     {
@@ -209,7 +209,7 @@
       "publishedAt": "2026-03-29T01:00:00Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 392,
+      "viewCount": 396,
       "duration": "PT6M2S"
     },
     {
@@ -239,7 +239,7 @@
       "publishedAt": "2026-03-19T20:51:27Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 23856,
+      "viewCount": 24006,
       "duration": "PT36S"
     },
     {
@@ -249,7 +249,7 @@
       "publishedAt": "2026-03-18T10:00:36Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 3091,
+      "viewCount": 3105,
       "duration": "PT14M14S"
     },
     {
@@ -259,7 +259,7 @@
       "publishedAt": "2026-03-16T10:01:13Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 303,
+      "viewCount": 304,
       "duration": "PT11M46S"
     },
     {
@@ -279,7 +279,7 @@
       "publishedAt": "2026-03-06T11:01:38Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 3882,
+      "viewCount": 4067,
       "duration": "PT27M9S"
     },
     {
@@ -349,7 +349,7 @@
       "publishedAt": "2026-01-31T10:01:11Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 82,
+      "viewCount": 83,
       "duration": "PT25M9S"
     },
     {
@@ -419,7 +419,7 @@
       "publishedAt": "2025-12-03T10:00:17Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 180,
+      "viewCount": 181,
       "duration": "PT20M43S"
     },
     {
@@ -449,7 +449,7 @@
       "publishedAt": "2025-11-07T10:00:31Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 1900,
+      "viewCount": 1910,
       "duration": "PT1M"
     },
     {
@@ -459,7 +459,7 @@
       "publishedAt": "2025-11-04T11:01:56Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 7087,
+      "viewCount": 7098,
       "duration": "PT20M20S"
     },
     {
@@ -469,7 +469,7 @@
       "publishedAt": "2025-10-26T11:01:27Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 2699,
+      "viewCount": 2705,
       "duration": "PT12M18S"
     },
     {
@@ -509,7 +509,7 @@
       "publishedAt": "2025-09-30T11:01:36Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 218,
+      "viewCount": 219,
       "duration": "PT17M38S"
     },
     {
@@ -519,7 +519,7 @@
       "publishedAt": "2025-09-16T11:01:27Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 3522,
+      "viewCount": 3544,
       "duration": "PT23M27S"
     },
     {
@@ -529,7 +529,7 @@
       "publishedAt": "2025-09-05T11:01:38Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 200,
+      "viewCount": 202,
       "duration": "PT10M13S"
     },
     {
@@ -539,7 +539,7 @@
       "publishedAt": "2025-08-29T11:00:08Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 330,
+      "viewCount": 331,
       "duration": "PT13M50S"
     },
     {
@@ -649,7 +649,7 @@
       "publishedAt": "2025-06-02T22:00:28Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 62,
+      "viewCount": 63,
       "duration": "PT9M23S"
     },
     {
@@ -669,7 +669,7 @@
       "publishedAt": "2025-05-21T22:01:03Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 6307,
+      "viewCount": 6317,
       "duration": "PT1M20S"
     },
     {
@@ -779,7 +779,7 @@
       "publishedAt": "2025-03-05T10:01:17Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 4525,
+      "viewCount": 4538,
       "duration": "PT1M1S"
     },
     {
