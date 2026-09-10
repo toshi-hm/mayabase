@@ -4,6 +4,17 @@ import { type FetchLike, parseVideosData, type Video } from "../src/lib/youtube"
 
 const TIMEOUT_MS = 15_000;
 const CONCURRENCY = 4;
+const MAX_ATTEMPTS = 3;
+
+function retryDelayMs(response: Response | null): number {
+  const retryAfter = response?.headers.get("retry-after");
+  const seconds = retryAfter ? Number(retryAfter) : NaN;
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.min(seconds * 1000, 5_000) : 500;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 export interface VideoProbeResult {
   id: string;
   title: string;
@@ -23,28 +34,27 @@ export async function probeVideo(
   fetchFn: FetchLike = fetch,
 ): Promise<VideoProbeResult> {
   const url = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${video.id}`)}&format=json`;
-  try {
-    const response = await fetchFn(url, {
-      method: "GET",
-      redirect: "follow",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    return {
-      id: video.id,
-      title: video.title,
-      ok: response.ok,
-      status: response.status,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      id: video.id,
-      title: video.title,
-      ok: false,
-      status: null,
-      error: error instanceof Error ? error.message : String(error),
-    };
+  let lastError: string | null = null;
+  let lastStatus: number | null = null;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetchFn(url, {
+        method: "GET",
+        redirect: "follow",
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      lastStatus = response.status;
+      if (response.ok || (response.status !== 429 && response.status < 500)) {
+        return { id: video.id, title: video.title, ok: response.ok, status: response.status, error: null };
+      }
+      lastError = `HTTP ${response.status}`;
+      if (attempt + 1 < MAX_ATTEMPTS) await wait(retryDelayMs(response));
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+      if (attempt + 1 < MAX_ATTEMPTS) await wait(retryDelayMs(null));
+    }
   }
+  return { id: video.id, title: video.title, ok: false, status: lastStatus, error: lastError };
 }
 
 export function buildReport(
@@ -86,6 +96,7 @@ async function mapWithConcurrency<T, U>(
 
 async function main(): Promise<void> {
   const { videos } = parseVideosData(videosJson);
+  if (videos.length === 0) throw new Error("監視対象の動画が0件です");
   const results = await mapWithConcurrency(videos, CONCURRENCY, (video) => probeVideo(video));
   const report = buildReport(videos, results);
   console.log(`[check-video-availability] ${report.summary}`);
@@ -97,9 +108,13 @@ async function main(): Promise<void> {
         `has_unavailable=${report.unavailableCount > 0}`,
         `unavailable_count=${report.unavailableCount}`,
         `total_count=${report.totalCount}`,
-        "summary<<CHECK_VIDEO_AVAILABILITY_EOF",
-        report.summary,
-        "CHECK_VIDEO_AVAILABILITY_EOF",
+        (() => {
+          let delimiter = `CHECK_VIDEO_AVAILABILITY_${crypto.randomUUID()}`;
+          while (report.summary.includes(delimiter)) {
+            delimiter = `CHECK_VIDEO_AVAILABILITY_${crypto.randomUUID()}`;
+          }
+          return [`summary<<${delimiter}`, report.summary, delimiter];
+        })(),
         "",
       ].join("\n"),
     );
