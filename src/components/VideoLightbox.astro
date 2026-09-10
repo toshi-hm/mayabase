@@ -98,7 +98,7 @@ import { site, subscribeUrl } from "../config/site";
 
   const dialog = document.getElementById("video-lightbox");
   const player = document.getElementById("video-lightbox-player");
-  const iframe = document.getElementById("video-lightbox-iframe");
+  const iframeElement = document.getElementById("video-lightbox-iframe");
   const titleEl = document.getElementById("video-lightbox-title");
   const queueStatusEl = document.getElementById("video-lightbox-queue-status");
   const closeButton = dialog?.querySelector<HTMLButtonElement>("[data-lightbox-close]");
@@ -106,11 +106,12 @@ import { site, subscribeUrl } from "../config/site";
   if (
     dialog instanceof HTMLDialogElement &&
     player &&
-    iframe instanceof HTMLIFrameElement &&
+    iframeElement instanceof HTMLIFrameElement &&
     titleEl &&
     queueStatusEl &&
     closeButton
   ) {
+    let iframe = iframeElement;
     let activeQueue: VideoQueueItem[] = [];
     let activeVideoId = "";
     let youtubePlayer: LightboxYouTubePlayer | null = null;
@@ -146,7 +147,19 @@ import { site, subscribeUrl } from "../config/site";
       queueStatusEl.textContent = `一気見 ${index + 1} / ${activeQueue.length}`;
     };
 
-    const attachPlayer = async (generation: number): Promise<void> => {
+    const getVisibleQueue = (queueRoot: HTMLElement | null): VideoQueueItem[] => {
+      if (!queueRoot) return [];
+      return [...queueRoot.querySelectorAll<HTMLElement>("[data-lightbox-video-id]")]
+        .filter((trigger) => !trigger.closest<HTMLElement>("li")?.hidden)
+        .map((trigger) => ({
+          id: trigger.dataset.lightboxVideoId ?? "",
+          title: trigger.dataset.lightboxTitle ?? "",
+          aspect: trigger.dataset.lightboxAspect === "short" ? "short" : "video",
+        }))
+        .filter((item) => item.id && item.title);
+    };
+
+    const attachPlayer = async (generation: number): Promise<void> =>
       if (activeQueue.length < 2) return;
       try {
         const YT = await loadYouTubeApi();
@@ -174,6 +187,14 @@ import { site, subscribeUrl } from "../config/site";
     ): void => {
       youtubePlayer?.destroy();
       youtubePlayer = null;
+      const nextIframe = document.createElement("iframe");
+      nextIframe.id = "video-lightbox-iframe";
+      nextIframe.className = "h-full w-full";
+      nextIframe.allow = "autoplay; encrypted-media; picture-in-picture; web-share";
+      nextIframe.allowFullscreen = true;
+      if (iframe.isConnected) iframe.replaceWith(nextIframe);
+      else player.append(nextIframe);
+      iframe = nextIframe;
       openGeneration += 1;
       activeQueue = queue;
       activeVideoId = videoId;
@@ -220,7 +241,9 @@ import { site, subscribeUrl } from "../config/site";
       const videoId = trigger.dataset.lightboxVideoId;
       if (!videoId) return;
       const queueRoot = trigger.closest<HTMLElement>("[data-binge-queue]");
-      const queue = parseVideoQueue(queueRoot?.dataset.bingeQueue);
+      const queue = getVisibleQueue(queueRoot).length
+        ? getVisibleQueue(queueRoot)
+        : parseVideoQueue(queueRoot?.dataset.bingeQueue);
       openLightbox(
         videoId,
         trigger.dataset.lightboxTitle ?? "",
