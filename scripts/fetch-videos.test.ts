@@ -572,6 +572,53 @@ describe("main", () => {
     expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
   });
 
+  test("送信失敗で残った通知待ちを今回の新着で上書きせず統合する(#402)", async () => {
+    const retryVideo = {
+      id: "RETRYRETRY1",
+      title: "再試行待ち動画",
+      description: "",
+      publishedAt: "2026-09-01T00:00:00Z",
+      isShort: null,
+      hasHqThumbnail: null,
+      viewCount: null,
+      duration: null,
+    };
+    await Bun.write(PENDING_NOTIFICATIONS_PATH, JSON.stringify([retryVideo]));
+
+    const newVideoId = "CCCCCCCCCCC";
+    const fetchFn: FetchLike = async (url) => {
+      const u = new URL(url);
+      if (u.pathname === "/youtube/v3/playlistItems") {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                contentDetails: {
+                  videoId: newVideoId,
+                  videoPublishedAt: "2030-01-01T00:00:00Z",
+                },
+                snippet: { title: "今回の新着", description: "" },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      if (u.pathname === "/youtube/v3/channels") return new Response(null, { status: 500 });
+      if (u.pathname === "/youtube/v3/videos") return new Response(null, { status: 500 });
+      if (u.hostname === "i.ytimg.com") return new Response(null, { status: 200 });
+      if (u.hostname === "www.youtube.com" && u.pathname.startsWith("/shorts/")) {
+        return new Response(null, { status: 200 });
+      }
+      throw new Error(`想定外の fetch: ${url}`);
+    };
+
+    await main(fetchFn);
+
+    const pending = JSON.parse(await Bun.file(PENDING_NOTIFICATIONS_PATH).text()) as Video[];
+    expect(pending.map((video) => video.id)).toEqual([retryVideo.id, newVideoId]);
+  });
+
   test("既存 videos.json が破損している場合、書き込みをスキップして処理を中断する(#403)", async () => {
     await Bun.write(VIDEOS_JSON_PATH, "{ this is not valid json");
     await main(unreachableFetch);
