@@ -102,9 +102,12 @@ async function listSubscriptionKeys(config: PushEnvConfig, fetchFn: FetchLike): 
       throw new Error(`購読一覧の取得に失敗しました (HTTP ${res.status})`);
     }
     const data = (await res.json()) as {
+      success?: boolean;
       result?: { name: string }[];
       result_info?: { cursor?: string };
     };
+    if (data.success === false)
+      throw new Error("購読一覧の取得に失敗しました (Cloudflare API error)");
     for (const item of data.result ?? []) keys.push(item.name);
     cursor = data.result_info?.cursor || undefined;
   } while (cursor);
@@ -137,7 +140,11 @@ async function deleteSubscription(
   key: string,
   fetchFn: FetchLike,
 ): Promise<void> {
-  await fetchFn(kvValueUrl(config, key), { method: "DELETE", headers: authHeaders(config) });
+  const res = await fetchFn(kvValueUrl(config, key), {
+    method: "DELETE",
+    headers: authHeaders(config),
+  });
+  if (!res.ok) throw new Error(`失効購読の削除に失敗しました (HTTP ${res.status})`);
 }
 
 /**
@@ -148,26 +155,26 @@ async function deleteSubscription(
 export async function sendNewVideoNotifications(
   newlyPublished: readonly Video[],
   fetchFn: FetchLike = fetchWithTimeout,
-): Promise<void> {
-  if (newlyPublished.length === 0) return;
+): Promise<boolean> {
+  if (newlyPublished.length === 0) return true;
 
   const config = readConfig();
   if (!config) {
     console.log(
       "[send-push-notifications] Push通知に必要な環境変数が未設定のためスキップします(#157 のセットアップ手順を参照)",
     );
-    return;
+    return false;
   }
 
   const notification = buildNewVideoNotification(newlyPublished);
-  if (!notification) return;
+  if (!notification) return false;
 
   webpush.setVapidDetails(config.vapidSubject, config.vapidPublicKey, config.vapidPrivateKey);
 
   const keys = await listSubscriptionKeys(config, fetchFn);
   if (keys.length === 0) {
     console.log("[send-push-notifications] 購読者がいないため送信をスキップします");
-    return;
+    return true;
   }
 
   let sent = 0;
@@ -187,7 +194,12 @@ export async function sendNewVideoNotifications(
       const statusCode = (error as { statusCode?: number }).statusCode;
       if (statusCode === 404 || statusCode === 410) {
         // ブラウザ側で解除済み等、失効した購読は二度と送らないようKVから削除する
-        await deleteSubscription(config, key, fetchFn).catch(() => {});
+        await deleteSubscription(config, key, fetchFn).catch((error) => {
+          console.warn(
+            "[send-push-notifications] 失効購読の削除に失敗しました:",
+            error instanceof Error ? error.message : String(error),
+          );
+        });
         expired += 1;
       } else {
         failed += 1;
@@ -204,6 +216,7 @@ export async function sendNewVideoNotifications(
   if (failed > 0) {
     throw new Error(`${failed}件の通知送信に失敗したため、次回実行で再試行します`);
   }
+  return true;
 }
 
 /**
@@ -222,7 +235,9 @@ export async function readPendingNotifications(): Promise<Video[]> {
 }
 
 export async function main(
-  sendFn: (newlyPublished: readonly Video[]) => Promise<void> = sendNewVideoNotifications,
+  sendFn: (
+    newlyPublished: readonly Video[],
+  ) => Promise<boolean | undefined> = sendNewVideoNotifications,
 ): Promise<void> {
   const pending = await readPendingNotifications();
   if (pending.length === 0) {
@@ -230,7 +245,11 @@ export async function main(
     return;
   }
   try {
-    await sendFn(pending);
+    const completed = await sendFn(pending);
+    if (completed === false) {
+      console.warn("[send-push-notifications] 通知を完了できなかったため、保留ファイルを残します");
+      return;
+    }
     await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
   } catch (error) {
     // 一時的な通信障害等で送信に失敗した場合は、保留ファイルを残して次回実行で再試行する
