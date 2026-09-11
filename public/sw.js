@@ -17,10 +17,13 @@ self.addEventListener("push", (event) => {
   }
 
   const title = typeof payload.title === "string" && payload.title ? payload.title : "MayaBase";
+  const notificationId =
+    typeof payload.id === "string" && payload.id ? payload.id : undefined;
   const options = {
     body: typeof payload.body === "string" ? payload.body : "",
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
+    ...(notificationId ? { tag: notificationId, renotify: false } : {}),
     data: { url: typeof payload.url === "string" && payload.url ? payload.url : "/" },
   };
 
