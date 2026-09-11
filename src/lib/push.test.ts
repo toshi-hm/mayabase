@@ -142,6 +142,29 @@ describe("newlyPublishedVideos", () => {
     const next = [makeVideo({ id: "a" }), makeVideo({ id: "b" })];
     expect(newlyPublishedVideos([], next).map((v) => v.id)).toEqual(["a", "b"]);
   });
+
+  test("publishedSinceより前に公開された動画は、previousに無くても新着から除外する(#404)", () => {
+    const next = [
+      makeVideo({ id: "old", publishedAt: "2020-01-01T00:00:00Z" }),
+      makeVideo({ id: "new", publishedAt: "2026-09-11T00:00:00Z" }),
+    ];
+    expect(newlyPublishedVideos([], next, "2026-09-10T00:00:00Z").map((v) => v.id)).toEqual([
+      "new",
+    ]);
+  });
+
+  test("publishedSinceとちょうど同時刻に公開された動画は新着に含める(境界値)", () => {
+    const next = [makeVideo({ id: "boundary", publishedAt: "2026-09-10T00:00:00Z" })];
+    expect(newlyPublishedVideos([], next, "2026-09-10T00:00:00Z").map((v) => v.id)).toEqual([
+      "boundary",
+    ]);
+  });
+
+  test("publishedSinceを渡さなければ従来通りIDの有無のみで判定する", () => {
+    const next = [makeVideo({ id: "old-id", publishedAt: "2000-01-01T00:00:00Z" })];
+    expect(newlyPublishedVideos([], next).map((v) => v.id)).toEqual(["old-id"]);
+    expect(newlyPublishedVideos([], next, null).map((v) => v.id)).toEqual(["old-id"]);
+  });
 });
 
 describe("notificationTargetUrl", () => {

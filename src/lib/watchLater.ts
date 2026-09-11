@@ -7,10 +7,15 @@ export const WATCH_LATER_MAX_ITEMS = 200;
 /** YouTubeの一時プレイリストURLへ渡す動画ID数の上限 */
 export const WATCH_LATER_PLAYLIST_MAX_ITEMS = 50;
 
-/** 保存済み動画をYouTubeの一時プレイリストとして開くURLを組み立てる */
+/**
+ * 保存済み動画をYouTubeの一時プレイリストとして開くURLを組み立てる。
+ * `ids` は保存順(古い順)を前提とするため、上限を超える場合は末尾(＝直近に保存した方)を
+ * 優先する。先頭(最も古い保存分)を優先すると、ユーザーが今まさに見たいと思って追加した
+ * 直近の保存分が静かに除外されてしまうため(#399)。
+ */
 export function buildWatchLaterPlaylistUrl(ids: readonly string[]): string {
   const videoIds = ids
-    .slice(0, WATCH_LATER_PLAYLIST_MAX_ITEMS)
+    .slice(-WATCH_LATER_PLAYLIST_MAX_ITEMS)
     .map((id) => encodeURIComponent(id))
     .join(",");
   return `https://www.youtube.com/watch_videos?video_ids=${videoIds}`;

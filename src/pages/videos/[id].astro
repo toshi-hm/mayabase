@@ -155,10 +155,10 @@ const jsonLd = {
       // Google 推奨プロパティ。ISO 8601 のまま出力できる(#173)。取得できない動画は省略する
       // (viewCount と同じ「取得できたものだけ表示」方針)。
       ...(video.duration !== null && { duration: video.duration }),
-      // 文字起こし全文は動画によっては非常に長くJSON-LDを肥大化させるため、
-      // description と同じ「取得できたものだけ表示・ただし切り詰める」方針で要約する(#402)。
-      // ページ本文(下部の文字起こしセクション)は全文表示のまま変更しない。
-      ...(transcript && { transcript: truncate(transcript.text, 2000) }),
+      // 手動字幕は概要欄と桁違いに長くなり得るため、description と同じ方針で要約する
+      // (schema.org の VideoObject に正式な transcript プロパティは無いが、検索エンジン向けの
+      // 参考情報として抜粋のみ載せる。可視領域の文字起こしセクションは全文表示のまま・#401/#402)
+      ...(transcript && { transcript: truncate(transcript.text, 500) }),
       // 検索結果でのキーモーメント表示を狙い、チャプターを Clip として構造化する(#154)
       ...(chapters.length > 0 && {
         hasPart: chapters.map((chapter) => ({
@@ -684,6 +684,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     };
 
     nextVideoDismiss?.addEventListener("click", hideNextVideo);
+    // フォーカスを奪うオーバーレイである以上、Escapeキーでも閉じられるようにする(#382)
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (!nextVideoOverlay || nextVideoOverlay.classList.contains("hidden")) return;
+      hideNextVideo();
+    });
 
     window.onYouTubeIframeAPIReady = () => {
       const YT = window.YT;

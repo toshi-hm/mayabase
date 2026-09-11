@@ -18,11 +18,13 @@ describe("buildWatchLaterPlaylistUrl", () => {
     );
   });
 
-  test("YouTubeの件数上限を超えるIDはURLへ含めない", () => {
+  test("YouTubeの件数上限を超える場合、直近に保存した(末尾の)IDを優先する(#399)", () => {
+    // ids は保存順(古い順)の配列。id0 が最も古く、id50 が最も新しい。
     const ids = Array.from({ length: 51 }, (_, index) => `id${index}`);
     const url = buildWatchLaterPlaylistUrl(ids);
-    expect(url).toContain("id49");
-    expect(url).not.toContain("id50");
+    expect(url).toContain("id50");
+    expect(url).not.toContain("id0,");
+    expect(url.startsWith("https://www.youtube.com/watch_videos?video_ids=id1,")).toBe(true);
   });
 
   test("動画IDに含まれる文字をURLエンコードする", () => {

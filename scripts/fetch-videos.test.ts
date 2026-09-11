@@ -492,7 +492,9 @@ describe("main", () => {
           JSON.stringify({
             items: [
               {
-                contentDetails: { videoId: newVideoId, videoPublishedAt: "2026-08-01T00:00:00Z" },
+                // 既存 videos.json の fetchedAt より確実に後の日時(#404の修正後も
+                // このケースは「新着」として扱われるべきことを示す)
+                contentDetails: { videoId: newVideoId, videoPublishedAt: "2030-01-01T00:00:00Z" },
                 snippet: { title: "新着動画", description: "新着動画の説明" },
               },
             ],
@@ -525,5 +527,62 @@ describe("main", () => {
     expect(pending).toHaveLength(1);
     expect(pending[0].id).toBe(newVideoId);
     expect(pending[0].title).toBe("新着動画");
+  });
+
+  test("既存に無いIDでも、前回fetchedAtより前に公開された動画は新着通知の対象にしない(#404)", async () => {
+    process.env.YOUTUBE_API_KEY = "dummy-key";
+
+    // YOUTUBE_API_KEY を新規設定した際に一気に取り込まれる「取得漏れしていた過去動画」を再現する
+    const backfilledVideoId = "BBBBBBBBBBB";
+    const fetchFn: FetchLike = async (url) => {
+      const u = new URL(url);
+      if (u.pathname === "/youtube/v3/playlistItems") {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                contentDetails: {
+                  videoId: backfilledVideoId,
+                  videoPublishedAt: "2000-01-01T00:00:00Z",
+                },
+                snippet: { title: "取得漏れしていた過去動画", description: "" },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      if (u.pathname === "/youtube/v3/channels") return new Response(null, { status: 500 });
+      if (u.pathname === "/youtube/v3/videos") return new Response(null, { status: 500 });
+      if (u.hostname === "i.ytimg.com") return new Response(null, { status: 200 });
+      if (u.hostname === "www.youtube.com" && u.pathname.startsWith("/shorts/")) {
+        return new Response(null, { status: 200 });
+      }
+      throw new Error(`想定外の fetch: ${url}`);
+    };
+
+    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+
+    await main(fetchFn);
+
+    // videos.json には追加される(過去動画アーカイブとしては正しく蓄積する)が、
+    const videosAfter = JSON.parse(await Bun.file(VIDEOS_JSON_PATH).text());
+    expect(videosAfter.videos.some((v: { id: string }) => v.id === backfilledVideoId)).toBe(true);
+    // 「新着動画を公開しました」という誤った通知は送らない
+    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+  });
+
+  test("既存 videos.json が破損している場合、書き込みをスキップして処理を中断する(#403)", async () => {
+    await Bun.write(VIDEOS_JSON_PATH, "{ this is not valid json");
+    await main(unreachableFetch);
+    const after = await Bun.file(VIDEOS_JSON_PATH).text();
+    expect(after).toBe("{ this is not valid json");
+  });
+
+  test("既存 videos.json がスキーマ不一致の場合も、書き込みをスキップして処理を中断する(#403)", async () => {
+    await Bun.write(VIDEOS_JSON_PATH, JSON.stringify({ channelId: 12345 }));
+    await main(unreachableFetch);
+    const after = await Bun.file(VIDEOS_JSON_PATH).text();
+    expect(after).toBe(JSON.stringify({ channelId: 12345 }));
   });
 });
