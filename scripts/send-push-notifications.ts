@@ -99,8 +99,7 @@ async function listSubscriptionKeys(config: PushEnvConfig, fetchFn: FetchLike): 
 
     const res = await fetchFn(url.toString(), { headers: authHeaders(config) });
     if (!res.ok) {
-      console.warn(`[send-push-notifications] 購読一覧の取得に失敗しました (HTTP ${res.status})`);
-      return keys;
+      throw new Error(`購読一覧の取得に失敗しました (HTTP ${res.status})`);
     }
     const data = (await res.json()) as {
       result?: { name: string }[];
@@ -122,7 +121,10 @@ async function getSubscription(
   fetchFn: FetchLike,
 ): Promise<StoredPushSubscription | null> {
   const res = await fetchFn(kvValueUrl(config, key), { headers: authHeaders(config) });
-  if (!res.ok) return null;
+  // 既に削除された購読は無視するが、Cloudflare側の一時障害は呼び出し元へ返して
+  // 保留通知を次回実行で再試行できるようにする(#402)。
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`購読情報の取得に失敗しました (HTTP ${res.status})`);
   try {
     return JSON.parse(await res.text()) as StoredPushSubscription;
   } catch {
@@ -199,6 +201,9 @@ export async function sendNewVideoNotifications(
   console.log(
     `[send-push-notifications] 送信完了(成功: ${sent}件、失効削除: ${expired}件、失敗: ${failed}件)`,
   );
+  if (failed > 0) {
+    throw new Error(`${failed}件の通知送信に失敗したため、次回実行で再試行します`);
+  }
 }
 
 /**
@@ -216,18 +221,24 @@ export async function readPendingNotifications(): Promise<Video[]> {
   return JSON.parse(raw) as Video[];
 }
 
-export async function main(): Promise<void> {
+export async function main(
+  sendFn: (newlyPublished: readonly Video[]) => Promise<void> = sendNewVideoNotifications,
+): Promise<void> {
   const pending = await readPendingNotifications();
   if (pending.length === 0) {
     console.log("[send-push-notifications] 通知待ちの新着動画はありません");
     return;
   }
   try {
-    await sendNewVideoNotifications(pending);
-  } finally {
-    // 送信の成否によらず、一度読み込んだ通知待ちファイルは片付ける
-    // (次回実行時に古い新着動画が再送されるのを防ぐ)。
+    await sendFn(pending);
     await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
+  } catch (error) {
+    // 一時的な通信障害等で送信に失敗した場合は、保留ファイルを残して次回実行で再試行する
+    // (#402)。直接実行時のジョブ全体は失敗させない既存方針を維持する。
+    console.warn(
+      "[send-push-notifications] 通知送信に失敗したため、保留ファイルを残します:",
+      error,
+    );
   }
 }
 
