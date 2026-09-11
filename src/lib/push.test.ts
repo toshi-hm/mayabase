@@ -185,6 +185,7 @@ describe("buildNewVideoNotification", () => {
       makeVideo({ id: "abc123", title: "新しい動画" }),
     ]);
     expect(notification).toEqual({
+      id: "new-video:abc123",
       title: "新着動画を公開しました",
       body: "新しい動画",
       url: "https://portal.mayabase.workers.dev/videos/abc123/",
@@ -197,6 +198,7 @@ describe("buildNewVideoNotification", () => {
       makeVideo({ id: "b" }),
     ]);
     expect(notification).toEqual({
+      id: "new-videos:a,b",
       title: "新着動画を公開しました",
       body: "2件の新着動画があります",
       url: "https://portal.mayabase.workers.dev/videos/",
