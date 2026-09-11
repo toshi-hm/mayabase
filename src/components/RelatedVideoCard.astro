@@ -27,9 +27,16 @@ const durationLabel = formatDurationLabel(video.duration);
   /* ArchiveCard.astro / ShortCard.astro と同じく、プレビュー再生・シェア・あとで見るの
   3ボタンを <a> の兄弟要素として重ねる(#303)。 */
 }
+{
+  /* data-watch-track-id は「前回の続きから」導線(#188)向け。クリックを
+  ContinueWatchingController.astro が拾い、localStorage に視聴履歴として記録する。
+  以前はこのリンクに付与されておらず、サイト内の関連動画経由で視聴した動画が
+  「続きから」の対象にならなかった(#395)。 */
+}
 <li class="relative">
   <a
     href={`/videos/${video.id}/`}
+    data-watch-track-id={video.id}
     class="group/card block h-full overflow-hidden rounded-xl bg-surface-raised transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand"
   >
     <div class="relative">
