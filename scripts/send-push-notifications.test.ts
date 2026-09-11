@@ -43,12 +43,23 @@ describe("main", () => {
     expect(result).toBeUndefined();
   });
 
-  test("通知待ちファイルがあれば読み込んで送信を試み、成否によらずファイルを片付ける(#323)", async () => {
+  test("通知送信に成功した場合は通知待ちファイルを片付ける(#323)", async () => {
     // Cloudflare/VAPID の Secrets が未設定のテスト環境では sendNewVideoNotifications は
     // 実ネットワークアクセスをせずに早期リターンする(readConfig が null を返す)ため、
     // ここでは「ファイルが確実に消費・削除される」ことのみを検証する。
     await Bun.write(PENDING_NOTIFICATIONS_PATH, JSON.stringify([sampleVideo]));
-    await main();
+    await main(async () => {});
     expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+  });
+
+  test("通知送信に失敗した場合は通知待ちファイルを残して次回実行で再試行できる(#402)", async () => {
+    await Bun.write(PENDING_NOTIFICATIONS_PATH, JSON.stringify([sampleVideo]));
+
+    await main(async () => {
+      throw new Error("Cloudflare API timeout");
+    });
+
+    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(true);
+    expect(await readPendingNotifications()).toEqual([sampleVideo]);
   });
 });
