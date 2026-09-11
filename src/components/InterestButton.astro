@@ -68,7 +68,11 @@ const { videoId, aspect = "video" } = Astro.props;
 </div>
 
 <script>
-  const requestVersions = new WeakMap<HTMLButtonElement, number>();
+  // videoId 単位で鮮度を管理する。同じ videoId を持つボタンが複数存在する場合(#394)、
+  // applyCountToVideo は全インスタンスへ反映するため、鮮度チェックもボタン単位ではなく
+  // videoId 単位で行わないと、片方のクリックで届いた新しい値をもう片方の古いレスポンスが
+  // 巻き戻してしまう。
+  const requestVersions = new Map<string, number>();
 
   // 静的プレビューにはWorker APIがないため、Lighthouse/ローカル確認時の不要な404を避ける。
   const isStaticPreview = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
@@ -96,13 +100,13 @@ const { videoId, aspect = "video" } = Astro.props;
       .forEach((button) => applyCount(button, count));
   };
 
-  const loadCount = async (button: HTMLButtonElement, videoId: string) => {
-    const version = requestVersions.get(button) ?? 0;
+  const loadCount = async (videoId: string) => {
+    const version = requestVersions.get(videoId) ?? 0;
     try {
       const response = await fetch("/api/video-reaction?videoId=" + encodeURIComponent(videoId));
       if (!response.ok) return;
       const data = (await response.json()) as { count?: unknown };
-      if (typeof data.count === "number" && requestVersions.get(button) === version) {
+      if (typeof data.count === "number" && requestVersions.get(videoId) === version) {
         applyCountToVideo(videoId, data.count);
       }
     } catch {
@@ -113,14 +117,14 @@ const { videoId, aspect = "video" } = Astro.props;
   const scheduleCountLoad = (button: HTMLButtonElement, videoId: string) => {
     if (isStaticPreview) return;
     if (!("IntersectionObserver" in window)) {
-      void loadCount(button, videoId);
+      void loadCount(videoId);
       return;
     }
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
         observer.disconnect();
-        void loadCount(button, videoId);
+        void loadCount(videoId);
       },
       { rootMargin: "200px" },
     );
@@ -138,8 +142,8 @@ const { videoId, aspect = "video" } = Astro.props;
   const submitReaction = async (button: HTMLButtonElement) => {
     const videoId = button.dataset.interestVideoId;
     if (!videoId || button.disabled) return;
-    const version = (requestVersions.get(button) ?? 0) + 1;
-    requestVersions.set(button, version);
+    const version = (requestVersions.get(videoId) ?? 0) + 1;
+    requestVersions.set(videoId, version);
     button.disabled = true;
     try {
       const response = await fetch("/api/video-reaction", {
@@ -149,7 +153,7 @@ const { videoId, aspect = "video" } = Astro.props;
       });
       if (!response.ok) return;
       const data = (await response.json()) as { count?: unknown };
-      if (typeof data.count === "number" && requestVersions.get(button) === version) {
+      if (typeof data.count === "number" && requestVersions.get(videoId) === version) {
         applyCountToVideo(videoId, data.count);
       }
     } finally {
