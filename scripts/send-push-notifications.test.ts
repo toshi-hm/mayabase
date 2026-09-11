@@ -51,7 +51,7 @@ describe("main", () => {
     // 実ネットワークアクセスをせずに早期リターンする(readConfig が null を返す)ため、
     // ここでは「ファイルが確実に消費・削除される」ことのみを検証する。
     await Bun.write(PENDING_NOTIFICATIONS_PATH, JSON.stringify([sampleVideo]));
-    await main(async () => {});
+    await main(async () => undefined);
     expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
   });
 
@@ -95,5 +95,15 @@ describe("Cloudflare KV error handling", () => {
     await expect(
       getSubscription(config, "subscription", async () => new Response(null, { status: 500 })),
     ).rejects.toThrow("HTTP 500");
+  });
+
+  test("リアクション等の不正なKV値を購読情報として送信対象にしない(#402)", async () => {
+    if (!config) throw new Error("テスト用設定の生成に失敗しました");
+    const result = await getSubscription(
+      config,
+      "reaction:video",
+      async () => new Response("1", { status: 200 }),
+    );
+    expect(result).toBeNull();
   });
 });
