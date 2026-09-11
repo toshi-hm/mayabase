@@ -56,4 +56,55 @@ test.describe("主要導線", () => {
     await page.locator("[data-lightbox-close]").click();
     await expect(page.locator("#video-lightbox")).toBeHidden();
   });
+
+  test("動画詳細ページの「次の動画」オーバーレイをEscapeキーで閉じられる(#382)", async ({
+    page,
+  }) => {
+    // 実際の YouTube IFrame Player API を読み込まず、ENDED イベントを直接発火できるように
+    // window.YT をモックへ差し替える(本物のAPIも読み込み完了時に window.onYouTubeIframeAPIReady()
+    // を呼び出すため、その契約だけを再現する)。
+    await page.route("https://www.youtube.com/iframe_api", (route) =>
+      route.fulfill({
+        contentType: "text/javascript",
+        body: `
+          window.YT = {
+            PlayerState: { ENDED: 0, PLAYING: 1 },
+            Player: function (_el, options) {
+              window.__ytEvents = options.events;
+              return {
+                destroy() {},
+                seekTo() {},
+                playVideo() {},
+                getCurrentTime() { return 0; },
+              };
+            },
+          };
+          if (window.onYouTubeIframeAPIReady) window.onYouTubeIframeAPIReady();
+        `,
+      }),
+    );
+
+    // 最新動画ではない(＝「次の動画」が存在する)動画を使う
+    await page.goto("/videos/ewXEHL6jKIw/");
+
+    await page.waitForFunction(() => "__ytEvents" in window);
+    await page.evaluate(() => {
+      const { onStateChange } = window.__ytEvents;
+      onStateChange({ data: window.YT.PlayerState.ENDED });
+    });
+
+    const overlay = page.locator("#next-video-overlay");
+    await expect(overlay).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(overlay).toBeHidden();
+  });
 });
+
+declare global {
+  interface Window {
+    __ytEvents: { onStateChange: (event: { data: number }) => void };
+    YT: { PlayerState: { ENDED: number; PLAYING: number } };
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}

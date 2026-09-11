@@ -66,17 +66,20 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
   });
 }
 
-async function loadExisting(): Promise<VideosData> {
+/**
+ * loadExisting() が既存 videos.json の破損(不正な JSON・スキーマ不一致)を検知したことを表す印。
+ * 「本当に初回実行(ファイルが存在しない)」と区別するために使う(#403)。
+ */
+const CORRUPTED = Symbol("videos.json corrupted");
+
+async function loadExisting(): Promise<VideosData | typeof CORRUPTED> {
   try {
     const file = Bun.file(VIDEOS_JSON_PATH);
     if (!(await file.exists())) return createEmptyVideosData();
     return parseVideosData(await file.json());
   } catch (error) {
-    console.warn(
-      "[fetch-videos] 既存 videos.json の読み込みに失敗したため空データから再構築します:",
-      error,
-    );
-    return createEmptyVideosData();
+    console.warn("[fetch-videos] 既存 videos.json の読み込みに失敗しました:", error);
+    return CORRUPTED;
   }
 }
 
@@ -373,6 +376,12 @@ async function writeXPostDraftSummary(videos: readonly Video[]): Promise<void> {
 
 async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   const existing = await loadExisting();
+  if (existing === CORRUPTED) {
+    // 破損か初回実行かを区別できないため、空データで上書きして過去動画アーカイブを
+    // 失わせないよう、既存ファイルに一切触れずに処理を中断する(#403)。
+    console.warn("[fetch-videos] 破損の可能性があるため、書き込みをスキップして処理を中断します。");
+    return;
+  }
 
   const channelId = await resolveChannelId(existing, fetchFn);
   if (!channelId) {
@@ -464,7 +473,8 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   // ステップの成功後に実行される専用ステップ(scripts/send-push-notifications.ts の
   // import.meta.main ブロック)に委ねる。
   if (existing.videos.length > 0) {
-    const newlyPublished = newlyPublishedVideos(existing.videos, merged);
+    // 前回の fetchedAt より前に公開された動画は「新着」から除外する(#404)。
+    const newlyPublished = newlyPublishedVideos(existing.videos, merged, existing.fetchedAt);
     if (newlyPublished.length > 0) {
       await Bun.write(PENDING_NOTIFICATIONS_PATH, `${JSON.stringify(newlyPublished, null, 2)}\n`);
       await writeXPostDraftSummary(newlyPublished);

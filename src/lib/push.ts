@@ -103,10 +103,23 @@ export function urlBase64ToUint8Array(base64: string): Uint8Array {
 /**
  * 直前の取得結果(previous)には無く、今回の取得結果(next)にのみ存在する動画を、
  * next の並び順を保ったまま抽出する(＝新規公開された動画)。
+ *
+ * `publishedSince` を渡した場合、`publishedAt` がそれより前の動画は除外する。
+ * YOUTUBE_API_KEY を新規設定した際、RSS(最新15件)のみで運用していた previous には
+ * 存在しなかった過去動画が一気に merged 側へ取り込まれ、実際には数か月/数年前に
+ * 公開済みの動画が「新着」として誤検知・誤通知されるのを防ぐため(#404)。
  */
-export function newlyPublishedVideos(previous: readonly Video[], next: readonly Video[]): Video[] {
+export function newlyPublishedVideos(
+  previous: readonly Video[],
+  next: readonly Video[],
+  publishedSince?: string | null,
+): Video[] {
   const previousIds = new Set(previous.map((video) => video.id));
-  return next.filter((video) => !previousIds.has(video.id));
+  return next.filter((video) => {
+    if (previousIds.has(video.id)) return false;
+    if (publishedSince && video.publishedAt < publishedSince) return false;
+    return true;
+  });
 }
 
 /** 通知クリック時の遷移先(ポータル内の動画詳細ページ) */
