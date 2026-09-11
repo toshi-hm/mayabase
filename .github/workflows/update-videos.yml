@@ -181,3 +181,12 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
         run: bun run notify:new-videos
+
+      - name: 送信失敗時に保留通知を保存
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: push-notifications-pending-${{ github.run_id }}
+          path: .push-notifications-pending.json
+          if-no-files-found: ignore
+          retention-days: 7
