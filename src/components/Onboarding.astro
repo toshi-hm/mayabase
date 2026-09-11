@@ -36,7 +36,7 @@ const buttonId = (category: string): string => "onboarding-button-" + category;
           <div
             id={panelId(panel.category)}
             data-onboarding-panel={panel.category}
-            role="tabpanel"
+            role="region"
             aria-labelledby={buttonId(panel.category)}
             hidden={index !== 0}
           >
@@ -74,9 +74,15 @@ const buttonId = (category: string): string => "onboarding-button-" + category;
       for (const item of buttons) {
         item.setAttribute("aria-pressed", String(item === button));
       }
+      let selectedPanel: HTMLElement | null = null;
       for (const panel of panels) {
-        panel.hidden = panel.dataset.onboardingPanel !== category;
+        const isSelected = panel.dataset.onboardingPanel === category;
+        panel.hidden = !isSelected;
+        if (isSelected) selectedPanel = panel;
       }
+      // 切り替わったことをスクリーンリーダー利用者にも伝えるため、index.astro の
+      // トピックピッカー(selectTopic)と同じ方針で先頭カードへフォーカスを移す(#398)
+      selectedPanel?.querySelector("a")?.focus();
     });
   }
 </script>

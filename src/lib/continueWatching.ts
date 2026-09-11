@@ -88,6 +88,14 @@ export function selectContinueWatchingVideo<T extends { id: string }>(
 
 /** 動画ごとの再生位置。既存のID履歴とは別キーにして後方互換を保つ。 */
 export const CONTINUE_WATCHING_PROGRESS_STORAGE_KEY = "mayabase-continue-watching-progress";
+
+/**
+ * 保存する再生位置エントリ数の上限。「続きから」の対象候補になり得るのは
+ * CONTINUE_WATCHING_MAX_ITEMS(5件)のIDのみだが、サイト内リンクで巡回した
+ * 動画すべての再生位置がこのマップには記録され得るため、無制限な肥大化を防ぐ安全弁として
+ * WATCH_LATER_MAX_ITEMS 等と同じ方針で上限を設ける(#397)。
+ */
+export const CONTINUE_WATCHING_PROGRESS_MAX_ITEMS = 20;
 export interface ContinueWatchingProgress {
   videoId: string;
   seconds: number;
@@ -123,5 +131,29 @@ export function recordContinueWatchingProgress(
   if (!/^[A-Za-z0-9_-]+$/.test(videoId) || !Number.isFinite(seconds) || seconds < 0) {
     return { ...progress };
   }
-  return { ...progress, [videoId]: Math.floor(seconds) };
+  const next = { ...progress, [videoId]: Math.floor(seconds) };
+  const ids = Object.keys(next);
+  const overflow = ids.length - CONTINUE_WATCHING_PROGRESS_MAX_ITEMS;
+  if (overflow > 0) {
+    // オブジェクトの列挙順(=挿入順)の先頭から、上限を超えた分の古いエントリを間引く
+    for (const id of ids.slice(0, overflow)) {
+      delete next[id];
+    }
+  }
+  return next;
+}
+
+/**
+ * 指定した動画IDの再生位置エントリを取り除いた新しいマップを返す(元のマップは変更しない)。
+ * 動画を最後まで視聴した(YouTube IFrame Player API の ENDED)場合に、
+ * 終了間際の位置をそのまま「続きから」として提示しないよう呼び出す想定(#396)。
+ */
+export function clearContinueWatchingProgress(
+  progress: Readonly<Record<string, number>>,
+  videoId: string,
+): Record<string, number> {
+  if (!(videoId in progress)) return { ...progress };
+  const next = { ...progress };
+  delete next[videoId];
+  return next;
 }

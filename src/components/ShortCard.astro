@@ -75,5 +75,5 @@ const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
   <PreviewButton videoId={video.id} title={video.title} aspect="short" />
   <ShareButton title={video.title} url={videoUrl(video)} />
   <WatchLaterButton videoId={video.id} title={video.title} aspect="short" />
-  <InterestButton videoId={video.id} />
+  <InterestButton videoId={video.id} aspect="short" />
 </li>

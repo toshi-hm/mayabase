@@ -157,7 +157,7 @@ const jsonLd = {
       ...(video.duration !== null && { duration: video.duration }),
       // 手動字幕は概要欄と桁違いに長くなり得るため、description と同じ方針で要約する
       // (schema.org の VideoObject に正式な transcript プロパティは無いが、検索エンジン向けの
-      // 参考情報として抜粋のみ載せる。可視領域の文字起こしセクションは全文表示のまま・#401)
+      // 参考情報として抜粋のみ載せる。可視領域の文字起こしセクションは全文表示のまま・#401/#402)
       ...(transcript && { transcript: truncate(transcript.text, 500) }),
       // 検索結果でのキーモーメント表示を狙い、チャプターを Clip として構造化する(#154)
       ...(chapters.length > 0 && {
@@ -302,6 +302,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                 <a
                   id="next-video-link"
                   href={`/videos/${nextVideo.id}/`}
+                  data-watch-track-id={nextVideo.id}
                   class="group/next mt-2 flex gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
                   <img
@@ -459,6 +460,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           {adjacentVideos.older ? (
             <a
               href={`/videos/${adjacentVideos.older.id}/`}
+              data-watch-track-id={adjacentVideos.older.id}
               class="group/pager flex items-center gap-3 rounded-lg p-3 transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand"
             >
               <span aria-hidden="true" class="text-ink-muted">
@@ -477,6 +479,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           {adjacentVideos.newer ? (
             <a
               href={`/videos/${adjacentVideos.newer.id}/`}
+              data-watch-track-id={adjacentVideos.newer.id}
               class="group/pager flex items-center justify-end gap-3 rounded-lg p-3 text-right transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand sm:col-start-2"
             >
               <span class="min-w-0">
@@ -551,6 +554,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   }
   import {
     CONTINUE_WATCHING_PROGRESS_STORAGE_KEY,
+    clearContinueWatchingProgress,
     parseStoredContinueWatchingProgress,
     recordContinueWatchingProgress,
   } from "../../lib/continueWatching";
@@ -605,6 +609,23 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       localStorage.setItem(
         CONTINUE_WATCHING_PROGRESS_STORAGE_KEY,
         JSON.stringify(recordContinueWatchingProgress(progress, videoId, seconds)),
+      );
+    } catch {
+      // localStorage/APIが使えない環境では視聴を妨げない
+    }
+  };
+
+  // 動画を最後まで見終えた(ENDED)場合、それまでの再生位置を「続きから」として
+  // 提示し続けないよう保存済みエントリを破棄する(#396: 終了間際の位置が残り続けるバグ修正)
+  const clearProgress = (): void => {
+    if (!videoId) return;
+    try {
+      const progress = parseStoredContinueWatchingProgress(
+        localStorage.getItem(CONTINUE_WATCHING_PROGRESS_STORAGE_KEY),
+      );
+      localStorage.setItem(
+        CONTINUE_WATCHING_PROGRESS_STORAGE_KEY,
+        JSON.stringify(clearContinueWatchingProgress(progress, videoId)),
       );
     } catch {
       // localStorage/APIが使えない環境では視聴を妨げない
@@ -687,7 +708,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           },
           onStateChange: (event) => {
             if (event.data === YT.PlayerState.PLAYING) hasStarted = true;
-            if (event.data === YT.PlayerState.ENDED) showNextVideo();
+            if (event.data === YT.PlayerState.ENDED) {
+              // 終了後は saveProgress の定期実行(setInterval/pagehide/visibilitychange)を
+              // no-op にし、視聴済みの再生位置が上書きで残り続けないようにする(#396)
+              hasStarted = false;
+              clearProgress();
+              showNextVideo();
+            }
           },
         },
       });
