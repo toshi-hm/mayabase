@@ -2,8 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import type { Video } from "../src/lib/youtube";
 import {
+  getSubscription,
+  listSubscriptionKeys,
   main,
   PENDING_NOTIFICATIONS_PATH,
+  readConfig,
   readPendingNotifications,
 } from "./send-push-notifications";
 
@@ -61,5 +64,36 @@ describe("main", () => {
 
     expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(true);
     expect(await readPendingNotifications()).toEqual([sampleVideo]);
+
+    await main(async (pending) => {
+      expect(pending).toEqual([sampleVideo]);
+      return true;
+    });
+    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+  });
+});
+
+describe("Cloudflare KV error handling", () => {
+  const config = readConfig({
+    CLOUDFLARE_ACCOUNT_ID: "account",
+    CLOUDFLARE_API_TOKEN: "token",
+    CLOUDFLARE_KV_NAMESPACE_ID: "namespace",
+    VAPID_PUBLIC_KEY: "public",
+    VAPID_PRIVATE_KEY: "private",
+    VAPID_SUBJECT: "mailto:test@example.com",
+  });
+
+  test("購読一覧のHTTPエラーを空配列として扱わず失敗させる(#402)", async () => {
+    if (!config) throw new Error("テスト用設定の生成に失敗しました");
+    await expect(
+      listSubscriptionKeys(config, async () => new Response(null, { status: 503 })),
+    ).rejects.toThrow("HTTP 503");
+  });
+
+  test("購読情報のHTTPエラーを空データとして扱わず失敗させる(#402)", async () => {
+    if (!config) throw new Error("テスト用設定の生成に失敗しました");
+    await expect(
+      getSubscription(config, "subscription", async () => new Response(null, { status: 500 })),
+    ).rejects.toThrow("HTTP 500");
   });
 });
