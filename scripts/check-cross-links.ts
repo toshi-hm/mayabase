@@ -114,7 +114,11 @@ async function writeGitHubOutput(report: CrossLinkReport): Promise<void> {
     return;
   }
   const lines = formatGitHubMultilineOutput(
-    { has_orphans: report.hasOrphans, orphaned_gear_count: report.orphanedGearCount, orphaned_glossary_count: report.orphanedGlossaryCount },
+    {
+      has_orphans: report.hasOrphans,
+      orphaned_gear_count: report.orphanedGearCount,
+      orphaned_glossary_count: report.orphanedGlossaryCount,
+    },
     "summary",
     report.summary,
     "CHECK_CROSS_LINKS_SUMMARY",
