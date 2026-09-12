@@ -41,7 +41,7 @@ describe("readPendingNotifications", () => {
 
 describe("main", () => {
   test("通知待ちファイルが無ければ何もせず正常終了する", async () => {
-    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+    await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
     const result = await main();
     expect(result).toBeUndefined();
   });
