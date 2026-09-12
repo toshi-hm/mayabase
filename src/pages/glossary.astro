@@ -63,15 +63,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       動画で扱っているAI・ガジェット・エンジニア用語をまとめました。気になる用語から、関連する動画や愛用ガジェットもチェックできます。
     </p>
 
-    <section aria-label="用語集の絞り込み" class="relative mt-6 max-w-md">
+    <section aria-label="用語集の絞り込み" class="mt-6 max-w-md">
       <label for="glossary-search" class="mb-1 block text-sm text-ink-muted">キーワード検索</label>
-      <input
-        id="glossary-search"
-        type="search"
-        placeholder="例: RAG、静電容量無接点方式、ジンバル"
-        class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 pr-11 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
-      />
-      <SearchClearButton targetId="glossary-search" />
+      <div class="relative">
+        <input
+          id="glossary-search"
+          type="search"
+          placeholder="例: RAG、静電容量無接点方式、ジンバル"
+          class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 pr-11 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
+        />
+        <SearchClearButton targetId="glossary-search" />
+      </div>
       <p id="glossary-count" aria-live="polite" class="mt-2 text-sm text-ink-muted">
         {terms.length} 件
       </p>
