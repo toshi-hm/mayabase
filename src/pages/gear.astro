@@ -1,4 +1,5 @@
 ---
+import SearchClearButton from "../components/SearchClearButton.astro";
 import Breadcrumb from "../components/Breadcrumb.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import { site } from "../config/site";
@@ -139,7 +140,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         id="gear-search"
         type="search"
         placeholder="例: キーボード、マイク、ロジクール"
-        class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
+        class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 pr-11 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
       />
       <p id="gear-count" aria-live="polite" class="mt-2 text-sm text-ink-muted">
         {displayOrderedItems.length} 件
@@ -183,6 +184,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                             decoding="async"
                             class="h-auto w-auto max-h-56 max-w-72 object-contain transition duration-300 group-hover/card:scale-[1.03]"
                           />
+        <SearchClearButton targetId="gear-search" />
                         </div>
                       )}
                       <div class="flex flex-1 flex-col border-t border-line p-5">
