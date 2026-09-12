@@ -20,7 +20,12 @@ describe("formatGitHubMultilineOutput", () => {
 
   test("単一行フィールドへの改行混入を拒否する", () => {
     expect(() =>
-      formatGitHubMultilineOutput({ fetched_at: "2026-01-01\nmalicious" }, "summary", "本文", "TEST"),
+      formatGitHubMultilineOutput(
+        { fetched_at: "2026-01-01\nmalicious" },
+        "summary",
+        "本文",
+        "TEST",
+      ),
     ).toThrow("単一行値");
   });
 });
