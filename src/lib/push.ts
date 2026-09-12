@@ -25,6 +25,8 @@ export interface StoredPushSubscription extends PushSubscriptionPayload {
 
 /** 新着動画1件分の通知内容 */
 export interface NewVideoNotification {
+  /** 同一通知の再試行時にService Workerで表示を置き換えるための安定したID */
+  id: string;
   title: string;
   body: string;
   url: string;
@@ -137,12 +139,14 @@ export function buildNewVideoNotification(videos: readonly Video[]): NewVideoNot
   const [first] = videos;
   if (videos.length === 1 && first) {
     return {
+      id: `new-video:${first.id}`,
       title: "新着動画を公開しました",
       body: first.title,
       url: notificationTargetUrl(first.id),
     };
   }
   return {
+    id: `new-videos:${videos.map((video) => video.id).join(",")}`,
     title: "新着動画を公開しました",
     body: `${videos.length}件の新着動画があります`,
     url: `${PORTAL_ORIGIN}/videos/`,

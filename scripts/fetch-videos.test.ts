@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
-import type { FetchLike } from "../src/lib/youtube";
+import type { FetchLike, Video } from "../src/lib/youtube";
 import {
   fetchAllViaApi,
   fetchVideoDetails,
@@ -28,20 +28,27 @@ const CHANNEL_STATS_HISTORY_JSON_PATH = fileURLToPath(
 let originalVideosJson: string;
 let originalChannelStatsJson: string;
 let originalChannelStatsHistoryJson: string;
+let originalPendingNotifications: string | null;
 
 beforeEach(async () => {
   originalVideosJson = await Bun.file(VIDEOS_JSON_PATH).text();
   originalChannelStatsJson = await Bun.file(CHANNEL_STATS_JSON_PATH).text();
   originalChannelStatsHistoryJson = await Bun.file(CHANNEL_STATS_HISTORY_JSON_PATH).text();
+  originalPendingNotifications = (await Bun.file(PENDING_NOTIFICATIONS_PATH).exists())
+    ? await Bun.file(PENDING_NOTIFICATIONS_PATH).text()
+    : null;
 });
 
 afterEach(async () => {
   await Bun.write(VIDEOS_JSON_PATH, originalVideosJson);
   await Bun.write(CHANNEL_STATS_JSON_PATH, originalChannelStatsJson);
   await Bun.write(CHANNEL_STATS_HISTORY_JSON_PATH, originalChannelStatsHistoryJson);
-  // #323: 通知待ちファイルはリポジトリに存在しない一時ファイルのため退避/復元は不要で、
-  // テストが作った分だけ確実に消す(既存repoの状態を汚さない)。
-  await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
+  // #402: 通知アウトボックスは永続データのため、テスト前の内容を復元する。
+  if (originalPendingNotifications === null) {
+    await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
+  } else {
+    await Bun.write(PENDING_NOTIFICATIONS_PATH, originalPendingNotifications);
+  }
 });
 
 /** 呼ばれたら失敗させる fetchFn(このパスでは fetch が発生しないはず、を検証するため) */
@@ -544,8 +551,8 @@ describe("main", () => {
       throw new Error(`想定外の fetch: ${url}`);
     };
 
-    // 通知待ちファイルが事前に存在しないこと(前のテストの汚染が無いこと)を確認してから実行する
-    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+    // 追跡対象のアウトボックスに前のテストの通知が残っていないことを確認してから実行する
+    expect(JSON.parse(await Bun.file(PENDING_NOTIFICATIONS_PATH).text())).toEqual([]);
 
     await main(fetchFn);
 
@@ -592,7 +599,7 @@ describe("main", () => {
       throw new Error(`想定外の fetch: ${url}`);
     };
 
-    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+    expect(JSON.parse(await Bun.file(PENDING_NOTIFICATIONS_PATH).text())).toEqual([]);
 
     await main(fetchFn);
 
@@ -600,7 +607,55 @@ describe("main", () => {
     const videosAfter = JSON.parse(await Bun.file(VIDEOS_JSON_PATH).text());
     expect(videosAfter.videos.some((v: { id: string }) => v.id === backfilledVideoId)).toBe(true);
     // 「新着動画を公開しました」という誤った通知は送らない
-    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+    expect(JSON.parse(await Bun.file(PENDING_NOTIFICATIONS_PATH).text())).toEqual([]);
+  });
+
+  test("送信失敗で残った通知待ちを今回の新着で上書きせず統合する(#402)", async () => {
+    process.env.YOUTUBE_API_KEY = "dummy-key";
+    const retryVideo = {
+      id: "RETRYRETRY1",
+      title: "再試行待ち動画",
+      description: "",
+      publishedAt: "2026-09-01T00:00:00Z",
+      isShort: null,
+      hasHqThumbnail: null,
+      viewCount: null,
+      duration: null,
+    };
+    await Bun.write(PENDING_NOTIFICATIONS_PATH, JSON.stringify([retryVideo]));
+
+    const newVideoId = "CCCCCCCCCCC";
+    const fetchFn: FetchLike = async (url) => {
+      const u = new URL(url);
+      if (u.pathname === "/youtube/v3/playlistItems") {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                contentDetails: {
+                  videoId: newVideoId,
+                  videoPublishedAt: "2030-01-01T00:00:00Z",
+                },
+                snippet: { title: "今回の新着", description: "" },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      if (u.pathname === "/youtube/v3/channels") return new Response(null, { status: 500 });
+      if (u.pathname === "/youtube/v3/videos") return new Response(null, { status: 500 });
+      if (u.hostname === "i.ytimg.com") return new Response(null, { status: 200 });
+      if (u.hostname === "www.youtube.com" && u.pathname.startsWith("/shorts/")) {
+        return new Response(null, { status: 200 });
+      }
+      throw new Error(`想定外の fetch: ${url}`);
+    };
+
+    await main(fetchFn);
+
+    const pending = JSON.parse(await Bun.file(PENDING_NOTIFICATIONS_PATH).text()) as Video[];
+    expect(pending.map((video) => video.id)).toEqual([retryVideo.id, newVideoId]);
   });
 
   test("既存 videos.json が破損している場合、書き込みをスキップして処理を中断する(#403)", async () => {

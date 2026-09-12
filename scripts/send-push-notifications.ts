@@ -21,18 +21,23 @@
  *   `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_KV_NAMESPACE_ID` を
  *   GitHub Actions の Secrets に設定する(.dev.vars.example 参照)
  *
- * これらが未設定の環境(ローカル開発・フォーク・PRビルド等)では何もせず正常終了する。
- * 動画データ更新フロー自体を止めないため、内部エラーも(呼び出し元へ伝播させず)ここで警告に留める。
+ * これらが未設定の環境(ローカル開発・フォーク・PRビルド等)では通知を保留して警告する。
+ * 動画データ更新フロー自体は止めないが、直接実行した通知ステップは失敗として可視化する。
  */
 import { readFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import webpush from "web-push";
-import { buildNewVideoNotification, type StoredPushSubscription } from "../src/lib/push";
+import {
+  buildNewVideoNotification,
+  isValidPushSubscriptionPayload,
+  type StoredPushSubscription,
+} from "../src/lib/push";
 import type { FetchLike, Video } from "../src/lib/youtube";
 
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 const KV_LIST_LIMIT = 1000;
 const FETCH_TIMEOUT_MS = 15_000;
+const FETCH_RETRY_ATTEMPTS = 3;
 
 /**
  * Cloudflare API呼び出しにタイムアウトを設定する(#361)。
@@ -42,6 +47,33 @@ const FETCH_TIMEOUT_MS = 15_000;
  */
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
   return fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+}
+
+/** 一時的なネットワーク障害・レート制限・サーバーエラーを短時間だけ再試行する(#402)。 */
+async function fetchWithRetry(
+  fetchFn: FetchLike,
+  url: string,
+  init?: RequestInit,
+): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= FETCH_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetchFn(url, init);
+      if (
+        response.ok ||
+        (response.status !== 408 && response.status !== 429 && response.status < 500)
+      ) {
+        return response;
+      }
+      lastError = new Error(`一時的なCloudflare APIエラー (HTTP ${response.status})`);
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt < FETCH_RETRY_ATTEMPTS) {
+      await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** (attempt - 1)));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 /**
@@ -97,15 +129,17 @@ async function listSubscriptionKeys(config: PushEnvConfig, fetchFn: FetchLike): 
     url.searchParams.set("limit", String(KV_LIST_LIMIT));
     if (cursor) url.searchParams.set("cursor", cursor);
 
-    const res = await fetchFn(url.toString(), { headers: authHeaders(config) });
+    const res = await fetchWithRetry(fetchFn, url.toString(), { headers: authHeaders(config) });
     if (!res.ok) {
-      console.warn(`[send-push-notifications] 購読一覧の取得に失敗しました (HTTP ${res.status})`);
-      return keys;
+      throw new Error(`購読一覧の取得に失敗しました (HTTP ${res.status})`);
     }
     const data = (await res.json()) as {
+      success?: boolean;
       result?: { name: string }[];
       result_info?: { cursor?: string };
     };
+    if (data.success === false)
+      throw new Error("購読一覧の取得に失敗しました (Cloudflare API error)");
     for (const item of data.result ?? []) keys.push(item.name);
     cursor = data.result_info?.cursor || undefined;
   } while (cursor);
@@ -121,10 +155,24 @@ async function getSubscription(
   key: string,
   fetchFn: FetchLike,
 ): Promise<StoredPushSubscription | null> {
-  const res = await fetchFn(kvValueUrl(config, key), { headers: authHeaders(config) });
-  if (!res.ok) return null;
+  const res = await fetchWithRetry(fetchFn, kvValueUrl(config, key), {
+    headers: authHeaders(config),
+  });
+  // 既に削除された購読は無視するが、Cloudflare側の一時障害は呼び出し元へ返して
+  // 保留通知を次回実行で再試行できるようにする(#402)。
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`購読情報の取得に失敗しました (HTTP ${res.status})`);
   try {
-    return JSON.parse(await res.text()) as StoredPushSubscription;
+    const parsed: unknown = JSON.parse(await res.text());
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !isValidPushSubscriptionPayload(parsed) ||
+      typeof (parsed as { subscribedAt?: unknown }).subscribedAt !== "string"
+    ) {
+      return null;
+    }
+    return parsed as StoredPushSubscription;
   } catch {
     return null;
   }
@@ -135,7 +183,20 @@ async function deleteSubscription(
   key: string,
   fetchFn: FetchLike,
 ): Promise<void> {
-  await fetchFn(kvValueUrl(config, key), { method: "DELETE", headers: authHeaders(config) });
+  const res = await fetchWithRetry(fetchFn, kvValueUrl(config, key), {
+    method: "DELETE",
+    headers: authHeaders(config),
+  });
+  if (!res.ok && res.status !== 404)
+    throw new Error(`失効購読の削除に失敗しました (HTTP ${res.status})`);
+  if (res.status !== 204) {
+    const body = await res.text();
+    if (body) {
+      const data = JSON.parse(body) as { success?: boolean };
+      if (data.success === false)
+        throw new Error("失効購読の削除に失敗しました (Cloudflare API error)");
+    }
+  }
 }
 
 /**
@@ -146,33 +207,44 @@ async function deleteSubscription(
 export async function sendNewVideoNotifications(
   newlyPublished: readonly Video[],
   fetchFn: FetchLike = fetchWithTimeout,
-): Promise<void> {
-  if (newlyPublished.length === 0) return;
+): Promise<boolean> {
+  if (newlyPublished.length === 0) return true;
 
   const config = readConfig();
   if (!config) {
     console.log(
       "[send-push-notifications] Push通知に必要な環境変数が未設定のためスキップします(#157 のセットアップ手順を参照)",
     );
-    return;
+    return false;
   }
 
   const notification = buildNewVideoNotification(newlyPublished);
-  if (!notification) return;
+  if (!notification) return false;
 
   webpush.setVapidDetails(config.vapidSubject, config.vapidPublicKey, config.vapidPrivateKey);
 
   const keys = await listSubscriptionKeys(config, fetchFn);
   if (keys.length === 0) {
     console.log("[send-push-notifications] 購読者がいないため送信をスキップします");
-    return;
+    return true;
   }
 
   let sent = 0;
   let expired = 0;
+  let cleanupFailed = 0;
   let failed = 0;
   for (const key of keys) {
-    const subscription = await getSubscription(config, key, fetchFn);
+    let subscription: StoredPushSubscription | null;
+    try {
+      subscription = await getSubscription(config, key, fetchFn);
+    } catch (error) {
+      failed += 1;
+      console.warn(
+        "[send-push-notifications] 購読情報の取得に失敗しました:",
+        error instanceof Error ? error.message : String(error),
+      );
+      continue;
+    }
     if (!subscription) continue;
 
     try {
@@ -185,8 +257,16 @@ export async function sendNewVideoNotifications(
       const statusCode = (error as { statusCode?: number }).statusCode;
       if (statusCode === 404 || statusCode === 410) {
         // ブラウザ側で解除済み等、失効した購読は二度と送らないようKVから削除する
-        await deleteSubscription(config, key, fetchFn).catch(() => {});
-        expired += 1;
+        try {
+          await deleteSubscription(config, key, fetchFn);
+          expired += 1;
+        } catch (cleanupError) {
+          cleanupFailed += 1;
+          console.warn(
+            "[send-push-notifications] 失効購読の削除に失敗しました:",
+            cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+          );
+        }
       } else {
         failed += 1;
         console.warn(
@@ -197,8 +277,14 @@ export async function sendNewVideoNotifications(
     }
   }
   console.log(
-    `[send-push-notifications] 送信完了(成功: ${sent}件、失効削除: ${expired}件、失敗: ${failed}件)`,
+    `[send-push-notifications] 送信完了(成功: ${sent}件、失効削除: ${expired}件、削除失敗: ${cleanupFailed}件、失敗: ${failed}件)`,
   );
+  if (failed > 0 || cleanupFailed > 0) {
+    throw new Error(
+      `通知処理に失敗したため、次回実行で再試行します (送信失敗: ${failed}件、削除失敗: ${cleanupFailed}件)`,
+    );
+  }
+  return true;
 }
 
 /**
@@ -216,18 +302,32 @@ export async function readPendingNotifications(): Promise<Video[]> {
   return JSON.parse(raw) as Video[];
 }
 
-export async function main(): Promise<void> {
-  const pending = await readPendingNotifications();
-  if (pending.length === 0) {
-    console.log("[send-push-notifications] 通知待ちの新着動画はありません");
-    return;
-  }
+export async function main(
+  sendFn: (
+    newlyPublished: readonly Video[],
+  ) => Promise<boolean | undefined> = sendNewVideoNotifications,
+): Promise<void> {
   try {
-    await sendNewVideoNotifications(pending);
-  } finally {
-    // 送信の成否によらず、一度読み込んだ通知待ちファイルは片付ける
-    // (次回実行時に古い新着動画が再送されるのを防ぐ)。
+    const pending = await readPendingNotifications();
+    if (pending.length === 0) {
+      console.log("[send-push-notifications] 通知待ちの新着動画はありません");
+      return;
+    }
+    const completed = await sendFn(pending);
+    if (completed === false) {
+      console.warn("[send-push-notifications] 通知を完了できなかったため、保留ファイルを残します");
+      if (import.meta.main) process.exitCode = 1;
+      return;
+    }
     await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
+  } catch (error) {
+    // 一時的な通信障害等で送信に失敗した場合は、保留ファイルを残して次回実行で再試行する
+    // (#402)。動画データ更新自体とは分離しつつ、直接実行した通知ステップは失敗として可視化する。
+    console.warn(
+      "[send-push-notifications] 通知送信に失敗したため、保留ファイルを残します:",
+      error,
+    );
+    if (import.meta.main) process.exitCode = 1;
   }
 }
 
@@ -237,8 +337,9 @@ if (import.meta.main) {
   try {
     await main();
   } catch (error) {
-    // ワークフロー自体は既にコミット・push済みのため、通知送信の失敗でジョブを失敗させない。
+    // main() 内で扱えない予期せぬエラーも、通知ステップの失敗として可視化する。
     console.warn("[send-push-notifications] 通知送信処理でエラーが発生しました:", error);
+    process.exitCode = 1;
   }
 }
 

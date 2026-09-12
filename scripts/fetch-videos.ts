@@ -42,7 +42,7 @@ import {
   type Video,
   type VideosData,
 } from "../src/lib/youtube";
-import { PENDING_NOTIFICATIONS_PATH } from "./send-push-notifications";
+import { PENDING_NOTIFICATIONS_PATH, readPendingNotifications } from "./send-push-notifications";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
 const CHANNEL_STATS_JSON_PATH = fileURLToPath(
@@ -57,6 +57,23 @@ const API_PAGE_SIZE = 50; // playlistItems.list の最大値
 const API_MAX_PAGES = 40; // 暴走防止(最大 2000 件相当)
 const VIEW_COUNT_BATCH_SIZE = 50; // videos.list の id パラメータに指定できる最大件数
 const VIEW_COUNT_CONCURRENCY = 4;
+
+/** 新着通知を既存の保留分へ追加し、同じ動画IDは一度だけ残す(#402)。 */
+async function appendPendingNotifications(newlyPublished: readonly Video[]): Promise<void> {
+  let pending: Video[] = [];
+  if (await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()) {
+    pending = await readPendingNotifications();
+  }
+  const seenIds = new Set<string>();
+  const merged = [...pending, ...newlyPublished].filter((video) => {
+    if (seenIds.has(video.id)) return false;
+    seenIds.add(video.id);
+    return true;
+  });
+  const tmpPath = `${PENDING_NOTIFICATIONS_PATH}.tmp`;
+  await Bun.write(tmpPath, `${JSON.stringify(merged, null, 2)}\n`);
+  await rename(tmpPath, PENDING_NOTIFICATIONS_PATH);
+}
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
   return fetch(url, {
@@ -478,7 +495,7 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
     // 前回の fetchedAt より前に公開された動画は「新着」から除外する(#404)。
     const newlyPublished = newlyPublishedVideos(existing.videos, merged, existing.fetchedAt);
     if (newlyPublished.length > 0) {
-      await Bun.write(PENDING_NOTIFICATIONS_PATH, `${JSON.stringify(newlyPublished, null, 2)}\n`);
+      await appendPendingNotifications(newlyPublished);
       await writeXPostDraftSummary(newlyPublished);
       console.log(
         `[fetch-videos] 新着動画 ${newlyPublished.length} 件を通知待ちとして記録しました(送信はコミット成功後)`,
@@ -494,8 +511,11 @@ if (import.meta.main) {
   try {
     await main();
   } catch (error) {
-    // ビルドは決して落とさない(既存の videos.json でビルド継続)
+    // 通知アウトボックスの保存失敗を成功扱いにすると通知が永久に失われるため、
+    // 予期せぬエラーはワークフローを失敗させる。API取得失敗など既知の経路は main() 内で
+    // 既存データを維持して正常終了する。
     console.warn("[fetch-videos] 取得処理でエラーが発生しました。既存データを維持します:", error);
+    process.exitCode = 1;
   }
 }
 
