@@ -22,6 +22,72 @@ test.describe("主要導線", () => {
     await expect(page.locator("#videos-empty")).toBeVisible();
   });
 
+  test("検索欄のクリアボタンで絞り込みを解除できる", async ({ page }) => {
+    await page.goto("/videos/?q=__definitely-no-match__");
+
+    const search = page.locator("#video-search");
+    const clear = page.locator('[data-search-clear-for="video-search"]');
+    await expect(search).toHaveValue("__definitely-no-match__");
+    await expect(clear).toBeVisible();
+    await expect(page.locator("#videos-count")).toHaveText("0 件");
+
+    await clear.click();
+
+    await expect(search).toHaveValue("");
+    await expect(clear).toBeHidden();
+    await expect(search).toBeFocused();
+    await expect(page).not.toHaveURL(/q=/);
+    await expect(page.locator("#videos-count")).toHaveText(/^[1-9][0-9]* 件$/);
+  });
+
+  test("各検索画面でクリアボタンを利用できる", async ({ page }) => {
+    const searchPages = [
+      { path: "/videos/", id: "video-search" },
+      { path: "/videos/category/ai/", id: "archive-search" },
+      { path: "/videos/series/futatsu-no-waraji/", id: "archive-search" },
+      { path: "/gear/", id: "gear-search" },
+      { path: "/faq/", id: "faq-search" },
+      { path: "/glossary/", id: "glossary-search" },
+      { path: "/topics/", id: "topics-search" },
+    ];
+
+    for (const { path, id } of searchPages) {
+      await page.goto(`${path}?q=__clearable__`);
+      const search = page.locator(`#${id}`);
+      const clear = page.locator(`[data-search-clear-for="${id}"]`);
+      await expect(search).toHaveValue("__clearable__");
+      await expect(clear).toBeVisible();
+      await clear.click();
+      await expect(search).toHaveValue("");
+      await expect(clear).toBeHidden();
+      await expect(search).toBeFocused();
+      await expect(page).not.toHaveURL(/q=/);
+    }
+  });
+
+  test("ヘッダー検索のクリアボタンを利用できる", async ({ page }) => {
+    await page.goto("/videos/");
+    const toggle = page.locator("#site-search-toggle");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    const search = page.locator("#site-search-input");
+    const clear = page.locator('[data-search-clear-for="site-search-input"]');
+    await expect(search).toBeVisible();
+    await search.fill("動画");
+    await expect(clear).toBeVisible();
+
+    await clear.click();
+
+    await expect(search).toHaveValue("");
+    await expect(clear).toBeHidden();
+    await expect(search).toBeFocused();
+
+    await toggle.click();
+    await expect(page.locator("#site-search-panel")).toBeHidden();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
   test("トップページのカルーセルを停止して手動操作できる", async ({ page }) => {
     await page.goto("/");
 
