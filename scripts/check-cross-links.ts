@@ -24,6 +24,7 @@ import {
   parseGearData,
   resolveGearVideos,
 } from "../src/lib/gear";
+import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import {
   type GlossaryData,
   type GlossaryItem,
@@ -112,17 +113,16 @@ async function writeGitHubOutput(report: CrossLinkReport): Promise<void> {
     console.log("[check-cross-links] GITHUB_OUTPUT 未設定のため標準出力のみに結果を表示します");
     return;
   }
-  const lines = [
-    `has_orphans=${report.hasOrphans}`,
-    `orphaned_gear_count=${report.orphanedGearCount}`,
-    `orphaned_glossary_count=${report.orphanedGlossaryCount}`,
-    // summary は改行を含むため GitHub Actions のマルチライン出力構文(delimiter)を使う
-    // (check-links.ts と同じパターン)
-    "summary<<CHECK_CROSS_LINKS_SUMMARY_EOF",
+  const lines = formatGitHubMultilineOutput(
+    {
+      has_orphans: report.hasOrphans,
+      orphaned_gear_count: report.orphanedGearCount,
+      orphaned_glossary_count: report.orphanedGlossaryCount,
+    },
+    "summary",
     report.summary,
-    "CHECK_CROSS_LINKS_SUMMARY_EOF",
-    "",
-  ].join("\n");
+    "CHECK_CROSS_LINKS_SUMMARY",
+  );
   await appendFile(outputPath, lines);
 }
 

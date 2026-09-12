@@ -20,6 +20,7 @@ import { appendFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { type FaqData, isInternalPath, parseFaqData } from "../src/lib/faq";
 import { type GearData, parseGearData } from "../src/lib/gear";
+import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import { type FetchLike, mapWithConcurrency } from "../src/lib/youtube";
 
 const GEAR_JSON_PATH = fileURLToPath(new URL("../src/data/gear.json", import.meta.url));
@@ -191,17 +192,16 @@ async function writeGitHubOutput(report: LinkCheckReport): Promise<void> {
     console.log("[check-links] GITHUB_OUTPUT 未設定のため標準出力のみに結果を表示します");
     return;
   }
-  const lines = [
-    `has_broken=${report.brokenCount > 0}`,
-    `broken_count=${report.brokenCount}`,
-    `total_count=${report.totalCount}`,
-    // summary は改行を含むため GitHub Actions のマルチライン出力構文(delimiter)を使う
-    // (check-fetch-freshness.ts と同じパターン)
-    "summary<<CHECK_LINKS_SUMMARY_EOF",
+  const lines = formatGitHubMultilineOutput(
+    {
+      has_broken: report.brokenCount > 0,
+      broken_count: report.brokenCount,
+      total_count: report.totalCount,
+    },
+    "summary",
     report.summary,
-    "CHECK_LINKS_SUMMARY_EOF",
-    "",
-  ].join("\n");
+    "CHECK_LINKS_SUMMARY",
+  );
   await appendFile(outputPath, lines);
 }
 

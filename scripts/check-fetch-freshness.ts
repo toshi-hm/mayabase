@@ -17,6 +17,7 @@
  */
 import { appendFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import { parseVideosData } from "../src/lib/youtube";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
@@ -84,17 +85,16 @@ async function writeGitHubOutput(result: FreshnessResult): Promise<void> {
     console.log("[check-fetch-freshness] GITHUB_OUTPUT 未設定のため標準出力のみに結果を表示します");
     return;
   }
-  const lines = [
-    `stale=${result.stale}`,
-    `fetched_at=${result.fetchedAt ?? ""}`,
-    `hours_since_fetch=${result.hoursSinceFetch ?? ""}`,
-    // summary は改行を含まないため単純な key=value で十分だが、将来的な変更に備えて
-    // GitHub Actions のマルチライン出力構文(delimiter)を使う
-    "summary<<FRESHNESS_SUMMARY_EOF",
+  const lines = formatGitHubMultilineOutput(
+    {
+      stale: result.stale,
+      fetched_at: result.fetchedAt ?? "",
+      hours_since_fetch: result.hoursSinceFetch ?? "",
+    },
+    "summary",
     result.summary,
-    "FRESHNESS_SUMMARY_EOF",
-    "",
-  ].join("\n");
+    "FRESHNESS_SUMMARY",
+  );
   await appendFile(outputPath, lines);
 }
 
