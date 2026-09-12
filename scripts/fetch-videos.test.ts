@@ -520,8 +520,8 @@ describe("main", () => {
       throw new Error(`想定外の fetch: ${url}`);
     };
 
-    // 通知待ちファイルが事前に存在しないこと(前のテストの汚染が無いこと)を確認してから実行する
-    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+    // 追跡対象のアウトボックスに前のテストの通知が残っていないことを確認してから実行する
+    expect(JSON.parse(await Bun.file(PENDING_NOTIFICATIONS_PATH).text())).toEqual([]);
 
     await main(fetchFn);
 
@@ -568,7 +568,7 @@ describe("main", () => {
       throw new Error(`想定外の fetch: ${url}`);
     };
 
-    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+    expect(JSON.parse(await Bun.file(PENDING_NOTIFICATIONS_PATH).text())).toEqual([]);
 
     await main(fetchFn);
 
@@ -576,7 +576,7 @@ describe("main", () => {
     const videosAfter = JSON.parse(await Bun.file(VIDEOS_JSON_PATH).text());
     expect(videosAfter.videos.some((v: { id: string }) => v.id === backfilledVideoId)).toBe(true);
     // 「新着動画を公開しました」という誤った通知は送らない
-    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+    expect(JSON.parse(await Bun.file(PENDING_NOTIFICATIONS_PATH).text())).toEqual([]);
   });
 
   test("送信失敗で残った通知待ちを今回の新着で上書きせず統合する(#402)", async () => {
