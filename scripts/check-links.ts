@@ -193,7 +193,11 @@ async function writeGitHubOutput(report: LinkCheckReport): Promise<void> {
     return;
   }
   const lines = formatGitHubMultilineOutput(
-    { has_broken: report.brokenCount > 0, broken_count: report.brokenCount, total_count: report.totalCount },
+    {
+      has_broken: report.brokenCount > 0,
+      broken_count: report.brokenCount,
+      total_count: report.totalCount,
+    },
     "summary",
     report.summary,
     "CHECK_LINKS_SUMMARY",
