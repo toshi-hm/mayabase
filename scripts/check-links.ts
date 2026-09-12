@@ -197,9 +197,14 @@ async function writeGitHubOutput(report: LinkCheckReport): Promise<void> {
     `total_count=${report.totalCount}`,
     // summary は改行を含むため GitHub Actions のマルチライン出力構文(delimiter)を使う
     // (check-fetch-freshness.ts と同じパターン)
-    "summary<<CHECK_LINKS_SUMMARY_EOF",
+    // summary は改行を含むため、内容と衝突しない動的区切り文字を使う
+    let delimiter = `CHECK_LINKS_SUMMARY_${crypto.randomUUID()}`;
+    while (report.summary.includes(delimiter)) {
+      delimiter = `CHECK_LINKS_SUMMARY_${crypto.randomUUID()}`;
+    }
+    `summary<<${delimiter}`,
     report.summary,
-    "CHECK_LINKS_SUMMARY_EOF",
+    delimiter,
     "",
   ].join("\n");
   await appendFile(outputPath, lines);
