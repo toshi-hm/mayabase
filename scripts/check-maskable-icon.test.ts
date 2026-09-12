@@ -23,7 +23,7 @@ describe("maskable icon", () => {
   test("SVGは不透明背景と安全領域の縮小配置を持つ", async () => {
     const svg = await Bun.file(maskableIconPath).text();
 
-    expect(svg).toContain('<title>MayaBase</title>');
+    expect(svg).toContain("<title>MayaBase</title>");
     expect(svg).toContain('<rect width="64" height="64" fill="#fdfcf9"/>');
     expect(svg).toMatch(/transform="translate\(9\.6 9\.6\) scale\(0\.7\)"/);
   });
