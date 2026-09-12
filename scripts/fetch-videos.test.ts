@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
-import type { FetchLike } from "../src/lib/youtube";
+import type { FetchLike, Video } from "../src/lib/youtube";
 import {
   fetchAllViaApi,
   fetchVideoDetails,
