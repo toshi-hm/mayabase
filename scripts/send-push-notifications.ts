@@ -189,6 +189,14 @@ async function deleteSubscription(
   });
   if (!res.ok && res.status !== 404)
     throw new Error(`失効購読の削除に失敗しました (HTTP ${res.status})`);
+  if (res.status !== 204) {
+    const body = await res.text();
+    if (body) {
+      const data = JSON.parse(body) as { success?: boolean };
+      if (data.success === false)
+        throw new Error("失効購読の削除に失敗しました (Cloudflare API error)");
+    }
+  }
 }
 
 /**
