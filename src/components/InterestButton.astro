@@ -80,13 +80,18 @@ const { videoId, aspect = "video" } = Astro.props;
   // 巻き戻してしまう。
   const requestVersions = new Map<string, number>();
   const inFlightVideoIds = new Set<string>();
+  // localStorage が利用できない場合でも、同一ページ内の成功済みリアクションを再送しない。
+  const reactedVideoIds = new Set<string>();
 
   const readReactedVideoIds = (): string[] => {
+    let storedVideoIds: string[] = [];
     try {
-      return parseReactedVideoIds(localStorage.getItem(INTEREST_REACTED_STORAGE_KEY));
+      storedVideoIds = parseReactedVideoIds(localStorage.getItem(INTEREST_REACTED_STORAGE_KEY));
     } catch {
-      return [];
+      // localStorage が利用できない環境ではメモリ上の状態だけを利用する。
     }
+    storedVideoIds.forEach((storedVideoId) => reactedVideoIds.add(storedVideoId));
+    return [...reactedVideoIds];
   };
 
   const saveReactedVideoIds = (videoIds: string[]): void => {
@@ -115,6 +120,7 @@ const { videoId, aspect = "video" } = Astro.props;
   };
 
   const markReactedToVideo = (videoId: string): void => {
+    reactedVideoIds.add(videoId);
     saveReactedVideoIds(addReactedVideoId(readReactedVideoIds(), videoId));
     applyReactionStateToVideo(videoId);
   };
@@ -125,7 +131,10 @@ const { videoId, aspect = "video" } = Astro.props;
   const applyCount = (button: HTMLButtonElement, count: number) => {
     const countEl = button.querySelector("[data-interest-count]");
     if (countEl) countEl.textContent = String(count);
-    if (!readReactedVideoIds().includes(button.dataset.interestVideoId ?? "")) {
+    const videoId = button.dataset.interestVideoId ?? "";
+    const isReacted = readReactedVideoIds().includes(videoId);
+    const isInFlight = inFlightVideoIds.has(videoId);
+    if (!isReacted && !isInFlight) {
       button.setAttribute("aria-label", "気になる " + count + "件");
     }
     const badge = button.querySelector<HTMLElement>("[data-interest-popular-badge]");
@@ -207,11 +216,12 @@ const { videoId, aspect = "video" } = Astro.props;
         body: JSON.stringify({ videoId }),
       });
       if (!response.ok) return;
+      // HTTP成功を受けた時点で再送を抑止し、レスポンスJSONが壊れていても二重送信しない。
+      markReactedToVideo(videoId);
       const data = (await response.json()) as { count?: unknown };
       if (typeof data.count === "number" && requestVersions.get(videoId) === version) {
         applyCountToVideo(videoId, data.count);
       }
-      markReactedToVideo(videoId);
     } finally {
       inFlightVideoIds.delete(videoId);
       applyReactionStateToVideo(videoId);
@@ -223,7 +233,10 @@ const { videoId, aspect = "video" } = Astro.props;
     .forEach(initializeButton);
 
   window.addEventListener("storage", (event) => {
-    if (event.key !== INTEREST_REACTED_STORAGE_KEY) return;
+    // clear() は key=null で通知されるため、タブ間の状態も正しく解除する。
+    if (event.key !== INTEREST_REACTED_STORAGE_KEY && event.key !== null) return;
+    reactedVideoIds.clear();
+    parseReactedVideoIds(event.newValue).forEach((videoId) => reactedVideoIds.add(videoId));
     document.querySelectorAll<HTMLButtonElement>("[data-interest-video-id]").forEach((button) => {
       const videoId = button.dataset.interestVideoId;
       if (videoId) applyReactionStateToVideo(videoId);
