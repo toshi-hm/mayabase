@@ -194,12 +194,12 @@ jobs:
       - name: 通知成功後にアウトボックスをクリア
         if: success() && steps.pending.outputs.has == 'true'
         run: |
-          if [ ! -e .push-notifications-pending.json ]; then
+          if git diff --quiet -- .push-notifications-pending.json; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm .push-notifications-pending.json
+          git add -u .push-notifications-pending.json
           git commit -m "chore: push通知アウトボックスをクリア"
           git fetch origin main
           git rebase origin/main
