@@ -17,15 +17,14 @@ function isVideo(value: unknown): value is Video {
 }
 
 function parseVideosData(value: unknown): Video[] {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !Array.isArray((value as Record<string, unknown>).videos) ||
-    !(value as Record<string, unknown>).videos.every(isVideo)
-  ) {
+  if (typeof value !== "object" || value === null) {
     throw new Error("src/data/videos.jsonの形式が不正です");
   }
-  return (value as { videos: Video[] }).videos;
+  const videos = (value as Record<string, unknown>).videos;
+  if (!Array.isArray(videos) || !videos.every(isVideo)) {
+    throw new Error("src/data/videos.jsonの形式が不正です");
+  }
+  return videos;
 }
 
 type LighthouseConfig = {
@@ -66,7 +65,7 @@ export async function generateLighthouseConfig(
     ),
   ]);
 
-  const videoPaths = selectVideoPaths(videosData.videos, availableIds);
+  const videoPaths = selectVideoPaths(videosData, availableIds);
   if (videoPaths.length === 0) {
     throw new Error("Lighthouse対象の動画ページがdist/videosに存在しません");
   }
