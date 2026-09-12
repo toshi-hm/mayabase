@@ -84,25 +84,20 @@ async function writeGitHubOutput(result: FreshnessResult): Promise<void> {
     console.log("[check-fetch-freshness] GITHUB_OUTPUT 未設定のため標準出力のみに結果を表示します");
     return;
   }
+  let delimiter = `FRESHNESS_SUMMARY_${crypto.randomUUID()}`;
+  while (result.summary.includes(delimiter)) {
+    delimiter = `FRESHNESS_SUMMARY_${crypto.randomUUID()}`;
+  }
   const lines = [
     `stale=${result.stale}`,
     `fetched_at=${result.fetchedAt ?? ""}`,
     `hours_since_fetch=${result.hoursSinceFetch ?? ""}`,
-    // summary は改行を含まないため単純な key=value で十分だが、将来的な変更に備えて
-    // GitHub Actions のマルチライン出力構文(delimiter)を使う
-    // summary は改行を含むため、内容と衝突しない動的区切り文字を使う
-    let delimiter = `FRESHNESS_SUMMARY_${crypto.randomUUID()}`;
-    while (result.summary.includes(delimiter)) {
-      delimiter = `FRESHNESS_SUMMARY_${crypto.randomUUID()}`;
-    }
     `summary<<${delimiter}`,
     result.summary,
     delimiter,
     "",
   ].join("\n");
   await appendFile(outputPath, lines);
-}
-
 async function main(): Promise<void> {
   const fetchedAt = await loadFetchedAt();
   const result = evaluateFreshness(fetchedAt);
