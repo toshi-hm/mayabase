@@ -61,7 +61,25 @@ test.describe("主要導線", () => {
       await expect(search).toHaveValue("");
       await expect(clear).toBeHidden();
       await expect(search).toBeFocused();
+      await expect(page).not.toHaveURL(/q=/);
     }
+  });
+
+  test("ヘッダー検索のクリアボタンを利用できる", async ({ page }) => {
+    await page.goto("/videos/");
+    await page.locator("#site-search-toggle").click();
+
+    const search = page.locator("#site-search-input");
+    const clear = page.locator('[data-search-clear-for="site-search-input"]');
+    await expect(search).toBeVisible();
+    await search.fill("動画");
+    await expect(clear).toBeVisible();
+
+    await clear.click();
+
+    await expect(search).toHaveValue("");
+    await expect(clear).toBeHidden();
+    await expect(search).toBeFocused();
   });
 
   test("トップページのカルーセルを停止して手動操作できる", async ({ page }) => {
