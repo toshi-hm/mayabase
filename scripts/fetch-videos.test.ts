@@ -573,6 +573,7 @@ describe("main", () => {
   });
 
   test("送信失敗で残った通知待ちを今回の新着で上書きせず統合する(#402)", async () => {
+    process.env.YOUTUBE_API_KEY = "dummy-key";
     const retryVideo = {
       id: "RETRYRETRY1",
       title: "再試行待ち動画",
