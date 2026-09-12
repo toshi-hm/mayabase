@@ -4,7 +4,7 @@ const manifestPath = `${import.meta.dir}/../public/manifest.json`;
 const maskableIconPath = `${import.meta.dir}/../public/icons/icon-maskable.svg`;
 
 describe("maskable icon", () => {
-  test("manifestにSVGとPNGのmaskableアイコンを登録する", async () => {
+  test("manifestにmaskable SVGとany PNGを登録する", async () => {
     const manifest = JSON.parse(await Bun.file(manifestPath).text()) as {
       icons?: Array<{ src?: string; purpose?: string; sizes?: string }>;
     };
@@ -15,6 +15,11 @@ describe("maskable icon", () => {
     expect(maskableIcons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ src: "/icons/icon-maskable.svg", purpose: "maskable" }),
+      ]),
+    );
+    expect(manifest.icons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ src: "/icons/icon-512.png", purpose: "any" }),
       ]),
     );
   });
