@@ -205,6 +205,8 @@ async function writeGitHubOutput(report: LinkCheckReport): Promise<void> {
     "",
   ].join("\n");
   await appendFile(outputPath, lines);
+}
+
 async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   const gear = parseGearData(await Bun.file(GEAR_JSON_PATH).json());
   const faq = parseFaqData(await Bun.file(FAQ_JSON_PATH).json());
