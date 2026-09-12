@@ -302,6 +302,7 @@ export async function main(
     const completed = await sendFn(pending);
     if (completed === false) {
       console.warn("[send-push-notifications] 通知を完了できなかったため、保留ファイルを残します");
+      if (import.meta.main) process.exitCode = 1;
       return;
     }
     await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
