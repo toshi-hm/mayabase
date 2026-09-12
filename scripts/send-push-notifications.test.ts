@@ -28,7 +28,7 @@ afterEach(async () => {
 
 describe("readPendingNotifications", () => {
   test("ファイルが存在しない場合は空配列を返す(前段のfetchで新着動画が無かった場合)", async () => {
-    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
+    await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
     expect(await readPendingNotifications()).toEqual([]);
   });
 
