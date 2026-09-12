@@ -17,10 +17,10 @@
  *   レポートに含める)。
  */
 import { appendFile } from "node:fs/promises";
-import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import { fileURLToPath } from "node:url";
 import { type FaqData, isInternalPath, parseFaqData } from "../src/lib/faq";
 import { type GearData, parseGearData } from "../src/lib/gear";
+import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import { type FetchLike, mapWithConcurrency } from "../src/lib/youtube";
 
 const GEAR_JSON_PATH = fileURLToPath(new URL("../src/data/gear.json", import.meta.url));
