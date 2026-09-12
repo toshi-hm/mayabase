@@ -229,6 +229,37 @@ describe("updateChannelStats", () => {
     expect(history[1].subscriberCount).toBe(999);
   });
 
+  test("成功時は channel-stats-history.json に総再生回数の履歴も追記する(#407)", async () => {
+    await Bun.write(
+      CHANNEL_STATS_HISTORY_JSON_PATH,
+      `${JSON.stringify([{ date: "2020-01-01", subscriberCount: 1 }], null, 2)}\n`,
+    );
+    const fetchFn: FetchLike = async () =>
+      new Response(
+        JSON.stringify({
+          items: [{ statistics: { subscriberCount: "999", viewCount: "12345" } }],
+        }),
+        { status: 200 },
+      );
+    await updateChannelStats("UC3ELUpDyBSGZfZJib67t4Sg", "dummy-key", fetchFn);
+    const history = JSON.parse(await Bun.file(CHANNEL_STATS_HISTORY_JSON_PATH).text());
+    expect(history[1].viewCount).toBe(12345);
+  });
+
+  test("総再生回数が取得不可(null)のときは viewCount を含めずに履歴を追記する", async () => {
+    await Bun.write(
+      CHANNEL_STATS_HISTORY_JSON_PATH,
+      `${JSON.stringify([{ date: "2020-01-01", subscriberCount: 1 }], null, 2)}\n`,
+    );
+    const fetchFn: FetchLike = async () =>
+      new Response(JSON.stringify({ items: [{ statistics: { subscriberCount: "999" } }] }), {
+        status: 200,
+      });
+    await updateChannelStats("UC3ELUpDyBSGZfZJib67t4Sg", "dummy-key", fetchFn);
+    const history = JSON.parse(await Bun.file(CHANNEL_STATS_HISTORY_JSON_PATH).text());
+    expect(history[1]).toEqual({ date: expect.any(String), subscriberCount: 999 });
+  });
+
   test("登録者数が非公開/取得不可(null)のときは履歴を追記しない", async () => {
     await Bun.write(
       CHANNEL_STATS_HISTORY_JSON_PATH,

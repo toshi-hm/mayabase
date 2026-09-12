@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   appendChannelStatsHistory,
   buildSparklinePoints,
+  buildViewCountSparklinePoints,
   createEmptyChannelStatsHistory,
   MAX_HISTORY_ENTRIES,
   parseChannelStatsHistory,
@@ -61,6 +62,22 @@ describe("parseChannelStatsHistory", () => {
 
   test("要素がオブジェクトでなければ throw する", () => {
     expect(() => parseChannelStatsHistory([null])).toThrow("オブジェクトではありません");
+  });
+
+  test("viewCount を含む配列をパースできる(#407)", () => {
+    const data = [{ date: "2026-08-01", subscriberCount: 100, viewCount: 1000 }];
+    expect(parseChannelStatsHistory(data)).toEqual(data);
+  });
+
+  test("viewCount が無いエントリも許可する(フィールド追加前の既存データ)", () => {
+    const data = [{ date: "2026-08-01", subscriberCount: 100 }];
+    expect(parseChannelStatsHistory(data)).toEqual(data);
+  });
+
+  test("viewCount が数値でなければ throw する", () => {
+    expect(() =>
+      parseChannelStatsHistory([{ date: "2026-08-01", subscriberCount: 100, viewCount: "1000" }]),
+    ).toThrow("viewCount は数値");
   });
 });
 
@@ -153,6 +170,32 @@ describe("buildSparklinePoints", () => {
     expect(points?.[1]?.x).toBe(95);
     expect(points?.[0]?.y).toBe(15);
     expect(points?.[1]?.y).toBe(5);
+  });
+});
+
+describe("buildViewCountSparklinePoints", () => {
+  test("viewCount を持つエントリが2件未満なら null を返す", () => {
+    expect(buildViewCountSparklinePoints([], 100, 20)).toBeNull();
+    expect(
+      buildViewCountSparklinePoints(
+        [{ date: "2026-08-01", subscriberCount: 100, viewCount: 1000 }],
+        100,
+        20,
+      ),
+    ).toBeNull();
+  });
+
+  test("viewCount が無いエントリを除外して座標列を算出する", () => {
+    const history = [
+      { date: "2026-08-01", subscriberCount: 100 },
+      { date: "2026-08-02", subscriberCount: 105, viewCount: 1000 },
+      { date: "2026-08-03", subscriberCount: 110, viewCount: 2000 },
+    ];
+    const points = buildViewCountSparklinePoints(history, 100, 20, 0);
+    // viewCount の無い1件目は除外されるため、2件分の座標のみ返る
+    expect(points).toHaveLength(2);
+    expect(points?.[0]?.y).toBe(20);
+    expect(points?.[1]?.y).toBe(0);
   });
 });
 

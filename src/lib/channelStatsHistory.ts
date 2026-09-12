@@ -8,6 +8,12 @@ export interface ChannelStatsHistoryEntry {
   date: string;
   /** その日時点の登録者数 */
   subscriberCount: number;
+  /**
+   * その日時点のチャンネル総再生回数(#407)。
+   * このフィールド追加前の既存エントリには存在しないため省略可能とし、
+   * 未設定のエントリは総再生回数の推移グラフから除外する(呼び出し側の責務)。
+   */
+  viewCount?: number;
 }
 
 /** 履歴として保持する最大件数(直近90日分。ファイルサイズ抑制のため #249) */
@@ -57,7 +63,11 @@ export function parseChannelStatsHistory(data: unknown): ChannelStatsHistoryEntr
         `channel-stats-history.json[${index}]: subscriberCount は数値である必要があります`,
       );
     }
-    return { date, subscriberCount };
+    const { viewCount } = entry as { viewCount?: unknown };
+    if (viewCount !== undefined && typeof viewCount !== "number") {
+      throw new Error(`channel-stats-history.json[${index}]: viewCount は数値である必要があります`);
+    }
+    return { date, subscriberCount, ...(viewCount !== undefined && { viewCount }) };
   });
 }
 
@@ -84,20 +94,19 @@ export interface SparklinePoint {
 }
 
 /**
- * 登録者数の推移から折れ線グラフ用の座標列を算出する(#249)。
- * - 履歴が2件未満(折れ線を描けない)場合は null を返し、呼び出し側で非表示にする
+ * 数値列から折れ線グラフ用の座標列を算出する共通ロジック(#249, #407)。
+ * - 値が2件未満(折れ線を描けない)場合は null を返し、呼び出し側で非表示にする
  * - 全期間で値が変動していない場合は縦方向中央の水平線にする(ゼロ除算回避)
  * - padding を設け、線の太さ分の見切れを防ぐ
  */
-export function buildSparklinePoints(
-  history: readonly ChannelStatsHistoryEntry[],
+function buildSparklinePointsFromValues(
+  values: readonly number[],
   width: number,
   height: number,
-  padding = 2,
+  padding: number,
 ): SparklinePoint[] | null {
-  if (history.length < 2) return null;
+  if (values.length < 2) return null;
 
-  const values = history.map((h) => h.subscriberCount);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min;
@@ -105,14 +114,42 @@ export function buildSparklinePoints(
   const innerWidth = width - padding * 2;
   const innerHeight = height - padding * 2;
 
-  return history.map((h, index) => {
-    const x = padding + (innerWidth * index) / (history.length - 1);
+  return values.map((value, index) => {
+    const x = padding + (innerWidth * index) / (values.length - 1);
     const y =
-      range === 0
-        ? padding + innerHeight / 2
-        : padding + innerHeight * (1 - (h.subscriberCount - min) / range);
+      range === 0 ? padding + innerHeight / 2 : padding + innerHeight * (1 - (value - min) / range);
     return { x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 };
   });
+}
+
+/** 登録者数の推移から折れ線グラフ用の座標列を算出する(#249)。 */
+export function buildSparklinePoints(
+  history: readonly ChannelStatsHistoryEntry[],
+  width: number,
+  height: number,
+  padding = 2,
+): SparklinePoint[] | null {
+  return buildSparklinePointsFromValues(
+    history.map((h) => h.subscriberCount),
+    width,
+    height,
+    padding,
+  );
+}
+
+/**
+ * チャンネル総再生回数の推移から折れ線グラフ用の座標列を算出する(#407)。
+ * `viewCount` はフィールド追加前の既存エントリには存在しないため、
+ * 値を持つエントリのみを対象にする(欠損分は補間せず単純に除外する)。
+ */
+export function buildViewCountSparklinePoints(
+  history: readonly ChannelStatsHistoryEntry[],
+  width: number,
+  height: number,
+  padding = 2,
+): SparklinePoint[] | null {
+  const values = history.map((h) => h.viewCount).filter((v): v is number => typeof v === "number");
+  return buildSparklinePointsFromValues(values, width, height, padding);
 }
 
 /** buildSparklinePoints() の結果を `<polyline points="...">` 属性値へ変換する */

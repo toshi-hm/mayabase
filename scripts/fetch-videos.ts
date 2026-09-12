@@ -232,6 +232,8 @@ async function updateChannelStats(
       const updatedHistory = appendChannelStatsHistory(existingHistory, {
         date: toJstDateString(fetchedAt),
         subscriberCount,
+        // 総再生回数の推移グラフ(#407)向け。取得不可(null)の場合は登録者数のみ記録する
+        ...(viewCount !== null && { viewCount }),
       });
       const historyTmpPath = `${CHANNEL_STATS_HISTORY_JSON_PATH}.tmp`;
       await Bun.write(historyTmpPath, `${JSON.stringify(updatedHistory, null, 2)}\n`);
