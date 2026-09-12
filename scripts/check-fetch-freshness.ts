@@ -86,7 +86,11 @@ async function writeGitHubOutput(result: FreshnessResult): Promise<void> {
     return;
   }
   const lines = formatGitHubMultilineOutput(
-    { stale: result.stale, fetched_at: result.fetchedAt ?? "", hours_since_fetch: result.hoursSinceFetch ?? "" },
+    {
+      stale: result.stale,
+      fetched_at: result.fetchedAt ?? "",
+      hours_since_fetch: result.hoursSinceFetch ?? "",
+    },
     "summary",
     result.summary,
     "FRESHNESS_SUMMARY",
