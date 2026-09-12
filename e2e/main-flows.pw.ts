@@ -80,6 +80,9 @@ test.describe("主要導線", () => {
     await expect(search).toHaveValue("");
     await expect(clear).toBeHidden();
     await expect(search).toBeFocused();
+
+    await page.locator("#site-search-toggle").click();
+    await expect(page.locator("#site-search-panel")).toBeHidden();
   });
 
   test("トップページのカルーセルを停止して手動操作できる", async ({ page }) => {
