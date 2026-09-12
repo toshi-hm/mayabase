@@ -16,7 +16,6 @@
  */
 
 import { appendFile } from "node:fs/promises";
-import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import { fileURLToPath } from "node:url";
 import {
   type GearData,
@@ -25,6 +24,7 @@ import {
   parseGearData,
   resolveGearVideos,
 } from "../src/lib/gear";
+import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import {
   type GlossaryData,
   type GlossaryItem,
