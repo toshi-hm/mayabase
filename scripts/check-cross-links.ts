@@ -106,7 +106,7 @@ export function buildCrossLinkReport(
   };
 }
 
-async function writeGitHubOutput(report: LinkCheckReport): Promise<void> {
+async function writeGitHubOutput(report: CrossLinkReport): Promise<void> {
   const outputPath = process.env.GITHUB_OUTPUT;
   if (!outputPath) {
     console.log("[check-cross-links] GITHUB_OUTPUT 未設定のため標準出力のみに結果を表示します");
@@ -126,6 +126,8 @@ async function writeGitHubOutput(report: LinkCheckReport): Promise<void> {
     "",
   ].join("\n");
   await appendFile(outputPath, lines);
+}
+
 async function main(): Promise<void> {
   const gear = parseGearData(await Bun.file(GEAR_JSON_PATH).json());
   const glossary = parseGlossaryData(await Bun.file(GLOSSARY_JSON_PATH).json());
