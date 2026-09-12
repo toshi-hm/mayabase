@@ -18,7 +18,7 @@ describe("selectVideoPaths", () => {
     expect(
       selectVideoPaths(
         [{ id: "missing", publishedAt: "2026-02-01T00:00:00Z" }],
-        ["available"],
+        ["category", "series", "available"],
       ),
     ).toEqual(["/videos/available/index.html"]);
   });
