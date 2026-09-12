@@ -115,8 +115,11 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Lighthouse対象動画URLの生成
+        run: bun run scripts/generate-lighthouse-config.ts
+
       - name: Lighthouse CI(SEO=100 ほかを lighthouserc.json の assertion でゲート)
-        run: npx --yes @lhci/cli@0.15.1 autorun
+        run: npx --yes @lhci/cli@0.15.1 autorun --config=lighthouserc.generated.json
 
       - name: 失敗時に Lighthouse レポートをアップロード
         if: failure()
