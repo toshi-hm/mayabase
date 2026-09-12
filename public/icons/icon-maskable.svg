@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>MayaBase</title>
   <rect width="64" height="64" fill="#fdfcf9"/>
   <g transform="translate(9.6 9.6) scale(0.7)">
-  <title>MayaBase</title>
   <defs>
     <linearGradient id="tile" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
       <stop stop-color="#ffffff"/>
