@@ -70,7 +70,9 @@ async function appendPendingNotifications(newlyPublished: readonly Video[]): Pro
     seenIds.add(video.id);
     return true;
   });
-  await Bun.write(PENDING_NOTIFICATIONS_PATH, `${JSON.stringify(merged, null, 2)}\n`);
+  const tmpPath = `${PENDING_NOTIFICATIONS_PATH}.tmp`;
+  await Bun.write(tmpPath, `${JSON.stringify(merged, null, 2)}\n`);
+  await rename(tmpPath, PENDING_NOTIFICATIONS_PATH);
 }
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
@@ -507,8 +509,11 @@ if (import.meta.main) {
   try {
     await main();
   } catch (error) {
-    // ビルドは決して落とさない(既存の videos.json でビルド継続)
+    // 通知アウトボックスの保存失敗を成功扱いにすると通知が永久に失われるため、
+    // 予期せぬエラーはワークフローを失敗させる。API取得失敗など既知の経路は main() 内で
+    // 既存データを維持して正常終了する。
     console.warn("[fetch-videos] 取得処理でエラーが発生しました。既存データを維持します:", error);
+    process.exitCode = 1;
   }
 }
 
