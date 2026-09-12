@@ -70,5 +70,10 @@
   {
     "date": "2026-09-12",
     "subscriberCount": 300
+  },
+  {
+    "date": "2026-09-13",
+    "subscriberCount": 300,
+    "viewCount": 147132
   }
 ]
