@@ -293,12 +293,12 @@ export async function main(
     newlyPublished: readonly Video[],
   ) => Promise<boolean | undefined> = sendNewVideoNotifications,
 ): Promise<void> {
-  const pending = await readPendingNotifications();
-  if (pending.length === 0) {
-    console.log("[send-push-notifications] 通知待ちの新着動画はありません");
-    return;
-  }
   try {
+    const pending = await readPendingNotifications();
+    if (pending.length === 0) {
+      console.log("[send-push-notifications] 通知待ちの新着動画はありません");
+      return;
+    }
     const completed = await sendFn(pending);
     if (completed === false) {
       console.warn("[send-push-notifications] 通知を完了できなかったため、保留ファイルを残します");
@@ -307,7 +307,7 @@ export async function main(
     await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
   } catch (error) {
     // 一時的な通信障害等で送信に失敗した場合は、保留ファイルを残して次回実行で再試行する
-    // (#402)。直接実行時のジョブ全体は失敗させない既存方針を維持する。
+    // (#402)。動画データ更新自体とは分離しつつ、直接実行した通知ステップは失敗として可視化する。
     console.warn(
       "[send-push-notifications] 通知送信に失敗したため、保留ファイルを残します:",
       error,
@@ -322,8 +322,9 @@ if (import.meta.main) {
   try {
     await main();
   } catch (error) {
-    // ワークフロー自体は既にコミット・push済みのため、通知送信の失敗でジョブを失敗させない。
+    // main() 内で扱えない予期せぬエラーも、通知ステップの失敗として可視化する。
     console.warn("[send-push-notifications] 通知送信処理でエラーが発生しました:", error);
+    process.exitCode = 1;
   }
 }
 
