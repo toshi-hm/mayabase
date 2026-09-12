@@ -40,19 +40,13 @@ type LighthouseConfig = {
   [key: string]: unknown;
 };
 
-export function selectVideoPaths(
-  videos: Video[],
-  availableIds: string[],
-  count = 2,
-): string[] {
+export function selectVideoPaths(videos: Video[], availableIds: string[], count = 2): string[] {
   const available = new Set(availableIds);
   const sortedIds = videos
     .filter((video) => available.has(video.id) && !NON_VIDEO_ROUTE_SEGMENTS.has(video.id))
     .toSorted((left, right) => right.publishedAt.localeCompare(left.publishedAt))
     .map((video) => video.id);
-  const fallbackIds = availableIds
-    .filter((id) => !NON_VIDEO_ROUTE_SEGMENTS.has(id))
-    .toSorted();
+  const fallbackIds = availableIds.filter((id) => !NON_VIDEO_ROUTE_SEGMENTS.has(id)).toSorted();
 
   return [...new Set([...sortedIds, ...fallbackIds])]
     .slice(0, count)
@@ -66,9 +60,7 @@ export async function generateLighthouseConfig(
 ): Promise<LighthouseConfig> {
   const [baseConfig, videosData, availableIds] = await Promise.all([
     readFile(basePath, "utf8").then((content) => JSON.parse(content) as LighthouseConfig),
-    readFile(videosPath, "utf8").then(
-      (content) => JSON.parse(content) as { videos: Video[] },
-    ),
+    readFile(videosPath, "utf8").then((content) => parseVideosData(JSON.parse(content))),
     readdir(distVideosPath, { withFileTypes: true }).then((entries) =>
       entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name),
     ),
