@@ -32,7 +32,7 @@ const { videoId, aspect = "video" } = Astro.props;
         type="button"
         data-interest-video-id={videoId}
         aria-label="気になるに追加"
-        class="pointer-events-auto relative grid h-9 w-9 cursor-pointer place-items-center rounded-full border border-line bg-surface/95 text-xs font-bold text-ink-muted backdrop-blur transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
+        class="pointer-events-auto relative grid h-9 w-9 cursor-pointer place-items-center rounded-full border border-line bg-surface/95 text-xs font-bold text-ink-muted backdrop-blur transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-default disabled:opacity-60"
       >
         <span data-interest-count aria-live="polite">
           0
@@ -49,9 +49,9 @@ const { videoId, aspect = "video" } = Astro.props;
         type="button"
         data-interest-video-id={videoId}
         aria-label="気になるに追加"
-        class="pointer-events-auto cursor-pointer rounded-full border border-line bg-surface/95 px-3 py-1 text-xs font-semibold text-ink-muted backdrop-blur transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand"
+        class="pointer-events-auto cursor-pointer rounded-full border border-line bg-surface/95 px-3 py-1 text-xs font-semibold text-ink-muted backdrop-blur transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-default disabled:opacity-60"
       >
-        気になる{" "}
+        <span data-interest-label>気になる</span>{" "}
         <span data-interest-count aria-live="polite">
           0
         </span>
@@ -68,11 +68,62 @@ const { videoId, aspect = "video" } = Astro.props;
 </div>
 
 <script>
+  import {
+    addReactedVideoId,
+    INTEREST_REACTED_STORAGE_KEY,
+    parseReactedVideoIds,
+  } from "../lib/interest";
+
   // videoId 単位で鮮度を管理する。同じ videoId を持つボタンが複数存在する場合(#394)、
   // applyCountToVideo は全インスタンスへ反映するため、鮮度チェックもボタン単位ではなく
   // videoId 単位で行わないと、片方のクリックで届いた新しい値をもう片方の古いレスポンスが
   // 巻き戻してしまう。
   const requestVersions = new Map<string, number>();
+  const inFlightVideoIds = new Set<string>();
+  // localStorage が利用できない場合でも、同一ページ内の成功済みリアクションを再送しない。
+  const reactedVideoIds = new Set<string>();
+
+  const readReactedVideoIds = (): string[] => {
+    let storedVideoIds: string[] = [];
+    try {
+      storedVideoIds = parseReactedVideoIds(localStorage.getItem(INTEREST_REACTED_STORAGE_KEY));
+    } catch {
+      // localStorage が利用できない環境ではメモリ上の状態だけを利用する。
+    }
+    storedVideoIds.forEach((storedVideoId) => reactedVideoIds.add(storedVideoId));
+    return [...reactedVideoIds];
+  };
+
+  const saveReactedVideoIds = (videoIds: string[]): void => {
+    try {
+      localStorage.setItem(INTEREST_REACTED_STORAGE_KEY, JSON.stringify(videoIds));
+    } catch {
+      // localStorage が利用できない環境でもリアクション送信自体は継続する。
+    }
+  };
+
+  const applyReactionStateToVideo = (videoId: string): void => {
+    const isReacted = readReactedVideoIds().includes(videoId);
+    const isInFlight = inFlightVideoIds.has(videoId);
+    document
+      .querySelectorAll<HTMLButtonElement>(`[data-interest-video-id="${CSS.escape(videoId)}"]`)
+      .forEach((button) => {
+        button.disabled = isReacted || isInFlight;
+        button.setAttribute("aria-pressed", String(isReacted));
+        button.setAttribute(
+          "aria-label",
+          isReacted ? "気になるに追加済み" : isInFlight ? "気になるを送信中" : "気になるに追加",
+        );
+        const label = button.querySelector("[data-interest-label]");
+        if (label) label.textContent = isReacted ? "追加済み" : "気になる";
+      });
+  };
+
+  const markReactedToVideo = (videoId: string): void => {
+    reactedVideoIds.add(videoId);
+    saveReactedVideoIds(addReactedVideoId(readReactedVideoIds(), videoId));
+    applyReactionStateToVideo(videoId);
+  };
 
   // 静的プレビューにはWorker APIがないため、Lighthouse/ローカル確認時の不要な404を避ける。
   const isStaticPreview = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
@@ -80,7 +131,12 @@ const { videoId, aspect = "video" } = Astro.props;
   const applyCount = (button: HTMLButtonElement, count: number) => {
     const countEl = button.querySelector("[data-interest-count]");
     if (countEl) countEl.textContent = String(count);
-    button.setAttribute("aria-label", "気になる " + count + "件");
+    const videoId = button.dataset.interestVideoId ?? "";
+    const isReacted = readReactedVideoIds().includes(videoId);
+    const isInFlight = inFlightVideoIds.has(videoId);
+    if (!isReacted && !isInFlight) {
+      button.setAttribute("aria-label", "気になる " + count + "件");
+    }
     const badge = button.querySelector<HTMLElement>("[data-interest-popular-badge]");
     const isPopular = count >= 10;
     if (isPopular) {
@@ -136,15 +192,23 @@ const { videoId, aspect = "video" } = Astro.props;
     const videoId = button.dataset.interestVideoId;
     if (!videoId) return;
     button.dataset.interestInitialized = "true";
+    applyReactionStateToVideo(videoId);
     scheduleCountLoad(button, videoId);
   };
 
   const submitReaction = async (button: HTMLButtonElement) => {
     const videoId = button.dataset.interestVideoId;
-    if (!videoId || button.disabled) return;
+    if (
+      !videoId ||
+      button.disabled ||
+      inFlightVideoIds.has(videoId) ||
+      readReactedVideoIds().includes(videoId)
+    )
+      return;
     const version = (requestVersions.get(videoId) ?? 0) + 1;
     requestVersions.set(videoId, version);
-    button.disabled = true;
+    inFlightVideoIds.add(videoId);
+    applyReactionStateToVideo(videoId);
     try {
       const response = await fetch("/api/video-reaction", {
         method: "POST",
@@ -152,18 +216,32 @@ const { videoId, aspect = "video" } = Astro.props;
         body: JSON.stringify({ videoId }),
       });
       if (!response.ok) return;
+      // HTTP成功を受けた時点で再送を抑止し、レスポンスJSONが壊れていても二重送信しない。
+      markReactedToVideo(videoId);
       const data = (await response.json()) as { count?: unknown };
       if (typeof data.count === "number" && requestVersions.get(videoId) === version) {
         applyCountToVideo(videoId, data.count);
       }
     } finally {
-      button.disabled = false;
+      inFlightVideoIds.delete(videoId);
+      applyReactionStateToVideo(videoId);
     }
   };
 
   document
     .querySelectorAll<HTMLButtonElement>("[data-interest-video-id]")
     .forEach(initializeButton);
+
+  window.addEventListener("storage", (event) => {
+    // clear() は key=null で通知されるため、タブ間の状態も正しく解除する。
+    if (event.key !== INTEREST_REACTED_STORAGE_KEY && event.key !== null) return;
+    reactedVideoIds.clear();
+    parseReactedVideoIds(event.newValue).forEach((videoId) => reactedVideoIds.add(videoId));
+    document.querySelectorAll<HTMLButtonElement>("[data-interest-video-id]").forEach((button) => {
+      const videoId = button.dataset.interestVideoId;
+      if (videoId) applyReactionStateToVideo(videoId);
+    });
+  });
 
   document.addEventListener("click", (event) => {
     const target = event.target;
