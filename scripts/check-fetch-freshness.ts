@@ -98,6 +98,8 @@ async function writeGitHubOutput(result: FreshnessResult): Promise<void> {
     "",
   ].join("\n");
   await appendFile(outputPath, lines);
+}
+
 async function main(): Promise<void> {
   const fetchedAt = await loadFetchedAt();
   const result = evaluateFreshness(fetchedAt);
