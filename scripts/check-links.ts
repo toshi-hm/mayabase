@@ -191,25 +191,20 @@ async function writeGitHubOutput(report: LinkCheckReport): Promise<void> {
     console.log("[check-links] GITHUB_OUTPUT 未設定のため標準出力のみに結果を表示します");
     return;
   }
+  let delimiter = `CHECK_LINKS_SUMMARY_${crypto.randomUUID()}`;
+  while (report.summary.includes(delimiter)) {
+    delimiter = `CHECK_LINKS_SUMMARY_${crypto.randomUUID()}`;
+  }
   const lines = [
     `has_broken=${report.brokenCount > 0}`,
     `broken_count=${report.brokenCount}`,
     `total_count=${report.totalCount}`,
-    // summary は改行を含むため GitHub Actions のマルチライン出力構文(delimiter)を使う
-    // (check-fetch-freshness.ts と同じパターン)
-    // summary は改行を含むため、内容と衝突しない動的区切り文字を使う
-    let delimiter = `CHECK_LINKS_SUMMARY_${crypto.randomUUID()}`;
-    while (report.summary.includes(delimiter)) {
-      delimiter = `CHECK_LINKS_SUMMARY_${crypto.randomUUID()}`;
-    }
     `summary<<${delimiter}`,
     report.summary,
     delimiter,
     "",
   ].join("\n");
   await appendFile(outputPath, lines);
-}
-
 async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   const gear = parseGearData(await Bun.file(GEAR_JSON_PATH).json());
   const faq = parseFaqData(await Bun.file(FAQ_JSON_PATH).json());
