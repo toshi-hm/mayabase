@@ -67,7 +67,9 @@ test.describe("主要導線", () => {
 
   test("ヘッダー検索のクリアボタンを利用できる", async ({ page }) => {
     await page.goto("/videos/");
-    await page.locator("#site-search-toggle").click();
+    const toggle = page.locator("#site-search-toggle");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
 
     const search = page.locator("#site-search-input");
     const clear = page.locator('[data-search-clear-for="site-search-input"]');
@@ -81,8 +83,9 @@ test.describe("主要導線", () => {
     await expect(clear).toBeHidden();
     await expect(search).toBeFocused();
 
-    await page.locator("#site-search-toggle").click();
+    await toggle.click();
     await expect(page.locator("#site-search-panel")).toBeHidden();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
   test("トップページのカルーセルを停止して手動操作できる", async ({ page }) => {
