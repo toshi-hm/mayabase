@@ -5,10 +5,18 @@ export function formatGitHubMultilineOutput(
   key: string,
   value: string,
   delimiterPrefix: string,
+  createUuid: () => string = () => crypto.randomUUID(),
 ): string {
-  let delimiter = `${delimiterPrefix}_${crypto.randomUUID()}`;
+  if (/[\r\n]/.test(key) || Object.keys(fields).some((field) => /[\r\n]/.test(field))) {
+    throw new Error("GitHub Actions outputのキーに改行を含められません");
+  }
+  if (Object.values(fields).some((fieldValue) => /[\r\n]/.test(String(fieldValue)))) {
+    throw new Error("GitHub Actions outputの単一行値に改行を含められません");
+  }
+
+  let delimiter = `${delimiterPrefix}_${createUuid()}`;
   while (value.includes(delimiter)) {
-    delimiter = `${delimiterPrefix}_${crypto.randomUUID()}`;
+    delimiter = `${delimiterPrefix}_${createUuid()}`;
   }
 
   return [
