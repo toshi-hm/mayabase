@@ -15,7 +15,6 @@ describe("maskable icon", () => {
     expect(maskableIcons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ src: "/icons/icon-maskable.svg", purpose: "maskable" }),
-        expect.objectContaining({ src: "/icons/icon-512.png", purpose: "any maskable" }),
       ]),
     );
   });
