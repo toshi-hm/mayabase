@@ -134,7 +134,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </p>
     </div>
 
-    <section aria-label="愛用ガジェットの絞り込み" class="mt-10 max-w-md">
+    <section aria-label="愛用ガジェットの絞り込み" class="relative mt-10 max-w-md">
       <label for="gear-search" class="mb-1 block text-sm text-ink-muted">キーワード検索</label>
       <input
         id="gear-search"
@@ -183,7 +183,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                             loading={groupIndex === 0 && itemIndex === 0 ? "eager" : "lazy"}
                             fetchpriority={groupIndex === 0 && itemIndex === 0 ? "high" : "auto"}
                             decoding="async"
-                            class="h-auto w-auto max-h-56 max-w-72 object-contain transition duration-300 group-hover/      <SearchClearButton targetId="gear-search" />
+                            class="h-auto w-auto max-h-56 max-w-72 object-contain transition duration-300 group-hover/card:scale-[1.03]"
                         </div>
                       )}
                       <div class="flex flex-1 flex-col border-t border-line p-5">
