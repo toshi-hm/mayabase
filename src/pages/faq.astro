@@ -58,15 +58,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       チャンネルや運営者、機材、お仕事のご依頼についてよくいただく質問をまとめました。
     </p>
 
-    <section aria-label="よくある質問の絞り込み" class="relative mt-6 max-w-md">
+    <section aria-label="よくある質問の絞り込み" class="mt-6 max-w-md">
       <label for="faq-search" class="mb-1 block text-sm text-ink-muted">キーワード検索</label>
-      <input
-        id="faq-search"
-        type="search"
-        placeholder="例: 機材、お仕事、プロフィール"
-        class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 pr-11 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
-      />
-      <SearchClearButton targetId="faq-search" />
+      <div class="relative">
+        <input
+          id="faq-search"
+          type="search"
+          placeholder="例: 機材、お仕事、プロフィール"
+          class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 pr-11 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
+        />
+        <SearchClearButton targetId="faq-search" />
+      </div>
       <p id="faq-count" aria-live="polite" class="mt-2 text-sm text-ink-muted">
         {allItems.length} 件
       </p>
