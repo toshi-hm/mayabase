@@ -68,7 +68,11 @@ const { videoId, aspect = "video" } = Astro.props;
 </div>
 
 <script>
-  import { addReactedVideoId, INTEREST_REACTED_STORAGE_KEY, parseReactedVideoIds } from "../lib/interest";
+  import {
+    addReactedVideoId,
+    INTEREST_REACTED_STORAGE_KEY,
+    parseReactedVideoIds,
+  } from "../lib/interest";
 
   // videoId 単位で鮮度を管理する。同じ videoId を持つボタンが複数存在する場合(#394)、
   // applyCountToVideo は全インスタンスへ反映するため、鮮度チェックもボタン単位ではなく
@@ -220,12 +224,10 @@ const { videoId, aspect = "video" } = Astro.props;
 
   window.addEventListener("storage", (event) => {
     if (event.key !== INTEREST_REACTED_STORAGE_KEY) return;
-    document
-      .querySelectorAll<HTMLButtonElement>("[data-interest-video-id]")
-      .forEach((button) => {
-        const videoId = button.dataset.interestVideoId;
-        if (videoId) applyReactionStateToVideo(videoId);
-      });
+    document.querySelectorAll<HTMLButtonElement>("[data-interest-video-id]").forEach((button) => {
+      const videoId = button.dataset.interestVideoId;
+      if (videoId) applyReactionStateToVideo(videoId);
+    });
   });
 
   document.addEventListener("click", (event) => {
