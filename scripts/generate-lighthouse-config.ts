@@ -5,6 +5,29 @@ type Video = {
   publishedAt: string;
 };
 
+const NON_VIDEO_ROUTE_SEGMENTS = new Set(["category", "series"]);
+
+function isVideo(value: unknown): value is Video {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).id === "string" &&
+    typeof (value as Record<string, unknown>).publishedAt === "string"
+  );
+}
+
+function parseVideosData(value: unknown): Video[] {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !Array.isArray((value as Record<string, unknown>).videos) ||
+    !(value as Record<string, unknown>).videos.every(isVideo)
+  ) {
+    throw new Error("src/data/videos.jsonの形式が不正です");
+  }
+  return (value as { videos: Video[] }).videos;
+}
+
 type LighthouseConfig = {
   ci: {
     collect: {
@@ -24,10 +47,12 @@ export function selectVideoPaths(
 ): string[] {
   const available = new Set(availableIds);
   const sortedIds = videos
-    .filter((video) => available.has(video.id))
+    .filter((video) => available.has(video.id) && !NON_VIDEO_ROUTE_SEGMENTS.has(video.id))
     .toSorted((left, right) => right.publishedAt.localeCompare(left.publishedAt))
     .map((video) => video.id);
-  const fallbackIds = availableIds.toSorted();
+  const fallbackIds = availableIds
+    .filter((id) => !NON_VIDEO_ROUTE_SEGMENTS.has(id))
+    .toSorted();
 
   return [...new Set([...sortedIds, ...fallbackIds])]
     .slice(0, count)
