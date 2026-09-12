@@ -16,8 +16,8 @@
  *   ローカル実行等で `$GITHUB_OUTPUT` が無い場合は標準出力へ結果を表示するのみ。
  */
 import { appendFile } from "node:fs/promises";
-import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import { fileURLToPath } from "node:url";
+import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import { parseVideosData } from "../src/lib/youtube";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
