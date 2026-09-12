@@ -143,6 +143,21 @@ jobs:
         # フォーマット崩れ等)が無検証で main に反映されてしまう(#168)。push 前にここで
         # ci.yml と同等の検証を行い、失敗時はワークフロー自体を失敗させて push を止める。
         run: |
+          pending_backup=$(mktemp)
+          pending_existed=false
+          if [ -e .push-notifications-pending.json ]; then
+            cp .push-notifications-pending.json "$pending_backup"
+            pending_existed=true
+          fi
+          restore_pending() {
+            if [ "$pending_existed" = true ]; then
+              cp "$pending_backup" .push-notifications-pending.json
+            else
+              rm -f .push-notifications-pending.json
+            fi
+            rm -f "$pending_backup"
+          }
+          trap restore_pending EXIT
           bun run lint
           bun run format:check
           bun run check
