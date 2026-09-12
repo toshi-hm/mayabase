@@ -1,4 +1,5 @@
 ---
+import SearchClearButton from "../components/SearchClearButton.astro";
 import EmailCopyButton from "../components/EmailCopyButton.astro";
 import Breadcrumb from "../components/Breadcrumb.astro";
 import SectionHeading from "../components/SectionHeading.astro";
@@ -63,8 +64,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         id="faq-search"
         type="search"
         placeholder="例: 機材、お仕事、プロフィール"
-        class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
+        class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 pr-11 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
       />
+      <SearchClearButton targetId="faq-search" />
       <p id="faq-count" aria-live="polite" class="mt-2 text-sm text-ink-muted">
         {allItems.length} 件
       </p>
