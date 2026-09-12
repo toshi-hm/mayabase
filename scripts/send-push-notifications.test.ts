@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import type { Video } from "../src/lib/youtube";
 import {
@@ -21,9 +21,21 @@ const sampleVideo: Video = {
   duration: null,
 };
 
+let originalPendingNotifications: string | null;
+
+beforeEach(async () => {
+  originalPendingNotifications = (await Bun.file(PENDING_NOTIFICATIONS_PATH).exists())
+    ? await Bun.file(PENDING_NOTIFICATIONS_PATH).text()
+    : null;
+});
+
 afterEach(async () => {
-  // このリポジトリにコミットされないファイルのため、退避/復元ではなく確実な削除で後片付けする
-  await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
+  // 通知アウトボックスは本番ワークフローの永続データなので、テストで変更しても元に戻す。
+  if (originalPendingNotifications === null) {
+    await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
+  } else {
+    await Bun.write(PENDING_NOTIFICATIONS_PATH, originalPendingNotifications);
+  }
 });
 
 describe("readPendingNotifications", () => {
