@@ -22,6 +22,24 @@ test.describe("主要導線", () => {
     await expect(page.locator("#videos-empty")).toBeVisible();
   });
 
+  test("検索欄のクリアボタンで絞り込みを解除できる", async ({ page }) => {
+    await page.goto("/videos/?q=__definitely-no-match__");
+
+    const search = page.locator("#video-search");
+    const clear = page.locator('[data-search-clear-for="video-search"]');
+    await expect(search).toHaveValue("__definitely-no-match__");
+    await expect(clear).toBeVisible();
+    await expect(page.locator("#videos-count")).toHaveText("0 件");
+
+    await clear.click();
+
+    await expect(search).toHaveValue("");
+    await expect(clear).toBeHidden();
+    await expect(search).toBeFocused();
+    await expect(page).not.toHaveURL(/q=/);
+    await expect(page.locator("#videos-count")).toHaveText(/^[1-9][0-9]* 件$/);
+  });
+
   test("トップページのカルーセルを停止して手動操作できる", async ({ page }) => {
     await page.goto("/");
 
