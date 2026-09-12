@@ -17,6 +17,7 @@
  *   レポートに含める)。
  */
 import { appendFile } from "node:fs/promises";
+import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import { fileURLToPath } from "node:url";
 import { type FaqData, isInternalPath, parseFaqData } from "../src/lib/faq";
 import { type GearData, parseGearData } from "../src/lib/gear";
@@ -191,19 +192,12 @@ async function writeGitHubOutput(report: LinkCheckReport): Promise<void> {
     console.log("[check-links] GITHUB_OUTPUT 未設定のため標準出力のみに結果を表示します");
     return;
   }
-  let delimiter = `CHECK_LINKS_SUMMARY_${crypto.randomUUID()}`;
-  while (report.summary.includes(delimiter)) {
-    delimiter = `CHECK_LINKS_SUMMARY_${crypto.randomUUID()}`;
-  }
-  const lines = [
-    `has_broken=${report.brokenCount > 0}`,
-    `broken_count=${report.brokenCount}`,
-    `total_count=${report.totalCount}`,
-    `summary<<${delimiter}`,
+  const lines = formatGitHubMultilineOutput(
+    { has_broken: report.brokenCount > 0, broken_count: report.brokenCount, total_count: report.totalCount },
+    "summary",
     report.summary,
-    delimiter,
-    "",
-  ].join("\n");
+    "CHECK_LINKS_SUMMARY",
+  );
   await appendFile(outputPath, lines);
 }
 
