@@ -118,9 +118,14 @@ async function writeGitHubOutput(report: CrossLinkReport): Promise<void> {
     `orphaned_glossary_count=${report.orphanedGlossaryCount}`,
     // summary は改行を含むため GitHub Actions のマルチライン出力構文(delimiter)を使う
     // (check-links.ts と同じパターン)
-    "summary<<CHECK_CROSS_LINKS_SUMMARY_EOF",
+    // summary は改行を含むため、内容と衝突しない動的区切り文字を使う
+    let delimiter = `CHECK_CROSS_LINKS_SUMMARY_${crypto.randomUUID()}`;
+    while (report.summary.includes(delimiter)) {
+      delimiter = `CHECK_CROSS_LINKS_SUMMARY_${crypto.randomUUID()}`;
+    }
+    `summary<<${delimiter}`,
     report.summary,
-    "CHECK_CROSS_LINKS_SUMMARY_EOF",
+    delimiter,
     "",
   ].join("\n");
   await appendFile(outputPath, lines);
