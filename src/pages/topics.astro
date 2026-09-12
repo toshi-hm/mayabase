@@ -1,4 +1,5 @@
 ---
+import SearchClearButton from "../components/SearchClearButton.astro";
 import Breadcrumb from "../components/Breadcrumb.astro";
 import SubscribeMilestoneNote from "../components/SubscribeMilestoneNote.astro";
 import TopicListItem from "../components/TopicListItem.astro";
@@ -75,8 +76,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         id="topics-search"
         type="search"
         placeholder="例: セットアップ、比較、失敗談"
-        class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
+        class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 pr-11 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
       />
+      <SearchClearButton targetId="topics-search" />
       <p id="topics-count" aria-live="polite" class="mt-2 text-sm text-ink-muted">
         {topics.length} 件
       </p>
