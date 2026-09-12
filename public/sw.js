@@ -17,8 +17,7 @@ self.addEventListener("push", (event) => {
   }
 
   const title = typeof payload.title === "string" && payload.title ? payload.title : "MayaBase";
-  const notificationId =
-    typeof payload.id === "string" && payload.id ? payload.id : undefined;
+  const notificationId = typeof payload.id === "string" && payload.id ? payload.id : undefined;
   const options = {
     body: typeof payload.body === "string" ? payload.body : "",
     icon: "/icons/icon-192.png",
