@@ -40,6 +40,30 @@ test.describe("主要導線", () => {
     await expect(page.locator("#videos-count")).toHaveText(/^[1-9][0-9]* 件$/);
   });
 
+  test("各検索画面でクリアボタンを利用できる", async ({ page }) => {
+    const searchPages = [
+      { path: "/videos/", id: "video-search" },
+      { path: "/videos/category/ai/", id: "archive-search" },
+      { path: "/videos/series/futatsu-no-waraji/", id: "archive-search" },
+      { path: "/gear/", id: "gear-search" },
+      { path: "/faq/", id: "faq-search" },
+      { path: "/glossary/", id: "glossary-search" },
+      { path: "/topics/", id: "topics-search" },
+    ];
+
+    for (const { path, id } of searchPages) {
+      await page.goto(`${path}?q=__clearable__`);
+      const search = page.locator(`#${id}`);
+      const clear = page.locator(`[data-search-clear-for="${id}"]`);
+      await expect(search).toHaveValue("__clearable__");
+      await expect(clear).toBeVisible();
+      await clear.click();
+      await expect(search).toHaveValue("");
+      await expect(clear).toBeHidden();
+      await expect(search).toBeFocused();
+    }
+  });
+
   test("トップページのカルーセルを停止して手動操作できる", async ({ page }) => {
     await page.goto("/");
 
