@@ -28,20 +28,27 @@ const CHANNEL_STATS_HISTORY_JSON_PATH = fileURLToPath(
 let originalVideosJson: string;
 let originalChannelStatsJson: string;
 let originalChannelStatsHistoryJson: string;
+let originalPendingNotifications: string | null;
 
 beforeEach(async () => {
   originalVideosJson = await Bun.file(VIDEOS_JSON_PATH).text();
   originalChannelStatsJson = await Bun.file(CHANNEL_STATS_JSON_PATH).text();
   originalChannelStatsHistoryJson = await Bun.file(CHANNEL_STATS_HISTORY_JSON_PATH).text();
+  originalPendingNotifications = (await Bun.file(PENDING_NOTIFICATIONS_PATH).exists())
+    ? await Bun.file(PENDING_NOTIFICATIONS_PATH).text()
+    : null;
 });
 
 afterEach(async () => {
   await Bun.write(VIDEOS_JSON_PATH, originalVideosJson);
   await Bun.write(CHANNEL_STATS_JSON_PATH, originalChannelStatsJson);
   await Bun.write(CHANNEL_STATS_HISTORY_JSON_PATH, originalChannelStatsHistoryJson);
-  // #323: 通知待ちファイルはリポジトリに存在しない一時ファイルのため退避/復元は不要で、
-  // テストが作った分だけ確実に消す(既存repoの状態を汚さない)。
-  await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
+  // #402: 通知アウトボックスは永続データのため、テスト前の内容を復元する。
+  if (originalPendingNotifications === null) {
+    await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
+  } else {
+    await Bun.write(PENDING_NOTIFICATIONS_PATH, originalPendingNotifications);
+  }
 });
 
 /** 呼ばれたら失敗させる fetchFn(このパスでは fetch が発生しないはず、を検証するため) */
