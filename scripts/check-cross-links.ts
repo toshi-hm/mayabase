@@ -16,6 +16,7 @@
  */
 
 import { appendFile } from "node:fs/promises";
+import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import { fileURLToPath } from "node:url";
 import {
   type GearData,
@@ -112,19 +113,12 @@ async function writeGitHubOutput(report: CrossLinkReport): Promise<void> {
     console.log("[check-cross-links] GITHUB_OUTPUT 未設定のため標準出力のみに結果を表示します");
     return;
   }
-  let delimiter = `CHECK_CROSS_LINKS_SUMMARY_${crypto.randomUUID()}`;
-  while (report.summary.includes(delimiter)) {
-    delimiter = `CHECK_CROSS_LINKS_SUMMARY_${crypto.randomUUID()}`;
-  }
-  const lines = [
-    `has_orphans=${report.hasOrphans}`,
-    `orphaned_gear_count=${report.orphanedGearCount}`,
-    `orphaned_glossary_count=${report.orphanedGlossaryCount}`,
-    `summary<<${delimiter}`,
+  const lines = formatGitHubMultilineOutput(
+    { has_orphans: report.hasOrphans, orphaned_gear_count: report.orphanedGearCount, orphaned_glossary_count: report.orphanedGlossaryCount },
+    "summary",
     report.summary,
-    delimiter,
-    "",
-  ].join("\n");
+    "CHECK_CROSS_LINKS_SUMMARY",
+  );
   await appendFile(outputPath, lines);
 }
 
