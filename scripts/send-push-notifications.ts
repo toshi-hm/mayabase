@@ -231,6 +231,7 @@ export async function sendNewVideoNotifications(
 
   let sent = 0;
   let expired = 0;
+  let cleanupFailed = 0;
   let failed = 0;
   for (const key of keys) {
     let subscription: StoredPushSubscription | null;
@@ -256,13 +257,16 @@ export async function sendNewVideoNotifications(
       const statusCode = (error as { statusCode?: number }).statusCode;
       if (statusCode === 404 || statusCode === 410) {
         // ブラウザ側で解除済み等、失効した購読は二度と送らないようKVから削除する
-        await deleteSubscription(config, key, fetchFn).catch((error) => {
+        try {
+          await deleteSubscription(config, key, fetchFn);
+          expired += 1;
+        } catch (cleanupError) {
+          cleanupFailed += 1;
           console.warn(
             "[send-push-notifications] 失効購読の削除に失敗しました:",
-            error instanceof Error ? error.message : String(error),
+            cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
           );
-        });
-        expired += 1;
+        }
       } else {
         failed += 1;
         console.warn(
@@ -273,10 +277,12 @@ export async function sendNewVideoNotifications(
     }
   }
   console.log(
-    `[send-push-notifications] 送信完了(成功: ${sent}件、失効削除: ${expired}件、失敗: ${failed}件)`,
+    `[send-push-notifications] 送信完了(成功: ${sent}件、失効削除: ${expired}件、削除失敗: ${cleanupFailed}件、失敗: ${failed}件)`,
   );
-  if (failed > 0) {
-    throw new Error(`${failed}件の通知送信に失敗したため、次回実行で再試行します`);
+  if (failed > 0 || cleanupFailed > 0) {
+    throw new Error(
+      `通知処理に失敗したため、次回実行で再試行します (送信失敗: ${failed}件、削除失敗: ${cleanupFailed}件)`,
+    );
   }
   return true;
 }
