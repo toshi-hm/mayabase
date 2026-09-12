@@ -73,6 +73,42 @@ const { videoId, aspect = "video" } = Astro.props;
   // videoId 単位で行わないと、片方のクリックで届いた新しい値をもう片方の古いレスポンスが
   // 巻き戻してしまう。
   const requestVersions = new Map<string, number>();
+  const REACTED_STORAGE_KEY = "mayabase:interest-reacted:v1";
+
+  const readReactedVideoIds = (): string[] => {
+    try {
+      const value: unknown = JSON.parse(localStorage.getItem(REACTED_STORAGE_KEY) ?? "[]");
+      return Array.isArray(value) && value.every((id) => typeof id === "string") ? value : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveReactedVideoIds = (videoIds: string[]): void => {
+    try {
+      localStorage.setItem(REACTED_STORAGE_KEY, JSON.stringify([...new Set(videoIds)]));
+    } catch {
+      // localStorage が利用できない環境でもリアクション送信自体は継続する。
+    }
+  };
+
+  const markReactedToVideo = (videoId: string): void => {
+    saveReactedVideoIds([...readReactedVideoIds(), videoId]);
+    document
+      .querySelectorAll<HTMLButtonElement>(`[data-interest-video-id="${CSS.escape(videoId)}"]`)
+      .forEach((button) => {
+        button.disabled = true;
+        button.setAttribute("aria-pressed", "true");
+        button.setAttribute("aria-label", "気になるに追加済み");
+      });
+  };
+
+  const applyStoredReactionState = (button: HTMLButtonElement, videoId: string): void => {
+    if (!readReactedVideoIds().includes(videoId)) return;
+    button.disabled = true;
+    button.setAttribute("aria-pressed", "true");
+    button.setAttribute("aria-label", "気になるに追加済み");
+  };
 
   // 静的プレビューにはWorker APIがないため、Lighthouse/ローカル確認時の不要な404を避ける。
   const isStaticPreview = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
@@ -136,6 +172,7 @@ const { videoId, aspect = "video" } = Astro.props;
     const videoId = button.dataset.interestVideoId;
     if (!videoId) return;
     button.dataset.interestInitialized = "true";
+    applyStoredReactionState(button, videoId);
     scheduleCountLoad(button, videoId);
   };
 
@@ -155,6 +192,7 @@ const { videoId, aspect = "video" } = Astro.props;
       const data = (await response.json()) as { count?: unknown };
       if (typeof data.count === "number" && requestVersions.get(videoId) === version) {
         applyCountToVideo(videoId, data.count);
+        markReactedToVideo(videoId);
       }
     } finally {
       button.disabled = false;
