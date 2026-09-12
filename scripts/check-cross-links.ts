@@ -106,31 +106,26 @@ export function buildCrossLinkReport(
   };
 }
 
-async function writeGitHubOutput(report: CrossLinkReport): Promise<void> {
+async function writeGitHubOutput(report: LinkCheckReport): Promise<void> {
   const outputPath = process.env.GITHUB_OUTPUT;
   if (!outputPath) {
     console.log("[check-cross-links] GITHUB_OUTPUT 未設定のため標準出力のみに結果を表示します");
     return;
   }
+  let delimiter = `CHECK_CROSS_LINKS_SUMMARY_${crypto.randomUUID()}`;
+  while (report.summary.includes(delimiter)) {
+    delimiter = `CHECK_CROSS_LINKS_SUMMARY_${crypto.randomUUID()}`;
+  }
   const lines = [
     `has_orphans=${report.hasOrphans}`,
     `orphaned_gear_count=${report.orphanedGearCount}`,
     `orphaned_glossary_count=${report.orphanedGlossaryCount}`,
-    // summary は改行を含むため GitHub Actions のマルチライン出力構文(delimiter)を使う
-    // (check-links.ts と同じパターン)
-    // summary は改行を含むため、内容と衝突しない動的区切り文字を使う
-    let delimiter = `CHECK_CROSS_LINKS_SUMMARY_${crypto.randomUUID()}`;
-    while (report.summary.includes(delimiter)) {
-      delimiter = `CHECK_CROSS_LINKS_SUMMARY_${crypto.randomUUID()}`;
-    }
     `summary<<${delimiter}`,
     report.summary,
     delimiter,
     "",
   ].join("\n");
   await appendFile(outputPath, lines);
-}
-
 async function main(): Promise<void> {
   const gear = parseGearData(await Bun.file(GEAR_JSON_PATH).json());
   const glossary = parseGlossaryData(await Bun.file(GLOSSARY_JSON_PATH).json());
