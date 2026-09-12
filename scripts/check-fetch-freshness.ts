@@ -16,6 +16,7 @@
  *   ローカル実行等で `$GITHUB_OUTPUT` が無い場合は標準出力へ結果を表示するのみ。
  */
 import { appendFile } from "node:fs/promises";
+import { formatGitHubMultilineOutput } from "../src/lib/githubOutput";
 import { fileURLToPath } from "node:url";
 import { parseVideosData } from "../src/lib/youtube";
 
@@ -84,19 +85,12 @@ async function writeGitHubOutput(result: FreshnessResult): Promise<void> {
     console.log("[check-fetch-freshness] GITHUB_OUTPUT 未設定のため標準出力のみに結果を表示します");
     return;
   }
-  let delimiter = `FRESHNESS_SUMMARY_${crypto.randomUUID()}`;
-  while (result.summary.includes(delimiter)) {
-    delimiter = `FRESHNESS_SUMMARY_${crypto.randomUUID()}`;
-  }
-  const lines = [
-    `stale=${result.stale}`,
-    `fetched_at=${result.fetchedAt ?? ""}`,
-    `hours_since_fetch=${result.hoursSinceFetch ?? ""}`,
-    `summary<<${delimiter}`,
+  const lines = formatGitHubMultilineOutput(
+    { stale: result.stale, fetched_at: result.fetchedAt ?? "", hours_since_fetch: result.hoursSinceFetch ?? "" },
+    "summary",
     result.summary,
-    delimiter,
-    "",
-  ].join("\n");
+    "FRESHNESS_SUMMARY",
+  );
   await appendFile(outputPath, lines);
 }
 
