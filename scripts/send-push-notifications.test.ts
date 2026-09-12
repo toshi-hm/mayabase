@@ -71,6 +71,14 @@ describe("main", () => {
     });
     expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(false);
   });
+
+  test("通知待ちファイルが破損している場合は削除せず失敗として扱う(#402)", async () => {
+    await Bun.write(PENDING_NOTIFICATIONS_PATH, "{ broken");
+
+    await main();
+
+    expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(true);
+  });
 });
 
 describe("Cloudflare KV error handling", () => {
@@ -88,6 +96,18 @@ describe("Cloudflare KV error handling", () => {
     await expect(
       listSubscriptionKeys(config, async () => new Response(null, { status: 503 })),
     ).rejects.toThrow("HTTP 503");
+  });
+
+  test("一時的な購読一覧エラーは再試行して復旧する(#402)", async () => {
+    if (!config) throw new Error("テスト用設定の生成に失敗しました");
+    let attempts = 0;
+    const result = await listSubscriptionKeys(config, async () => {
+      attempts += 1;
+      if (attempts < 3) return new Response(null, { status: 503 });
+      return new Response(JSON.stringify({ success: true, result: [{ name: "subscription" }] }));
+    });
+    expect(attempts).toBe(3);
+    expect(result).toEqual(["subscription"]);
   });
 
   test("購読情報のHTTPエラーを空データとして扱わず失敗させる(#402)", async () => {
