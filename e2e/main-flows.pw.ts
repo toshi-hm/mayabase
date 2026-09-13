@@ -57,6 +57,27 @@ test.describe("主要導線", () => {
     await expect(page.locator("#video-lightbox")).toBeHidden();
   });
 
+  test("カテゴリ別ページで「もっと見る」から未実体化の動画を表示できる(#419)", async ({ page }) => {
+    // vlog カテゴリは INITIAL_COUNT(12件)を超える動画数があり、超過分が <template> として
+    // 描画される(未クリック時は #archive-grid > li が12件のみ存在するはず)
+    await page.goto("/videos/category/vlog/");
+
+    const grid = page.locator("#archive-grid");
+    await expect(grid.locator(":scope > li")).toHaveCount(12);
+    await expect(grid.locator(":scope > template[data-video-slot]").first()).toBeAttached();
+
+    const moreButton = page.locator("#archive-more");
+    await expect(moreButton).toBeVisible();
+    await expect(moreButton).toHaveText(/もっと見る/);
+
+    await moreButton.click();
+
+    await expect(moreButton).toBeHidden();
+    await expect(grid.locator(":scope > template[data-video-slot]")).toHaveCount(0);
+    // フォーカスが新たに実体化された最初のカードのリンクへ移る
+    await expect(page.locator(":focus")).toHaveAttribute("target", "_blank");
+  });
+
   test("動画詳細ページの「次の動画」オーバーレイをEscapeキーで閉じられる(#382)", async ({
     page,
   }) => {

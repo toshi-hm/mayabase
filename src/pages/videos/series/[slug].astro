@@ -25,6 +25,8 @@ import {
   thumbnailFallbackUrl,
   thumbnailUrl,
   type Video,
+  videoDurationBucket,
+  videoLengthFilterValue,
   videoUrl,
 } from "../../../lib/youtube";
 
@@ -46,6 +48,13 @@ interface Props {
 
 const { series, seriesVideos }: Props = Astro.props;
 const bingeQueueJson = JSON.stringify(createVideoQueue(seriesVideos)).replace(/</g, "\\u003c");
+
+// INITIAL_COUNT 件を超える分は、videos.astro (#177) と同じく通常の <li> ではなく <template>
+// の中身として描画し、必要になった時点で実体化する(#419: シリーズページだけ動画本数が
+// 増えてもDOMサイズが線形に増加し続けていた)。
+const INITIAL_COUNT = 12;
+const eagerVideos = seriesVideos.slice(0, INITIAL_COUNT);
+const deferredVideos = seriesVideos.slice(INITIAL_COUNT);
 
 // 再生回数ソートのトグル(#342)。RSS のみ(YOUTUBE_API_KEY 未設定)の環境では
 // 全動画の viewCount が null になるため、1 件も取得できていなければトグル自体を非表示にする
@@ -263,12 +272,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     <h2 class="sr-only">{series.title}の動画一覧</h2>
     <ul
       id="archive-grid"
+      data-initial-count={INITIAL_COUNT}
       role="list"
       data-binge-queue={bingeQueueJson}
       class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
     >
       {
-        seriesVideos.map((video, index) => (
+        eagerVideos.map((video, index) => (
           <ArchiveCard
             video={video}
             category={categorizeVideo(video)}
@@ -278,7 +288,57 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           />
         ))
       }
+      {
+        /* INITIAL_COUNT 超過分は <template> に格納する(videos.astro と同じ方針・#419)。data-* は
+        実体化前の絞り込み・並び替え判定用に <template> 自身にも複製しておく。 */
+      }
+      {
+        deferredVideos.map((video) => (
+          <template
+            data-video-slot
+            data-category={categorizeVideo(video)}
+            data-duration-bucket={videoDurationBucket(video)}
+            data-length={videoLengthFilterValue(video)}
+            data-title={video.title.toLowerCase()}
+            data-video-id={video.id}
+            data-view-count={video.viewCount ?? ""}
+          >
+            <ArchiveCard
+              video={video}
+              category={categorizeVideo(video)}
+              gearItems={videoGearMap.get(video.id) ?? []}
+            />
+          </template>
+        ))
+      }
     </ul>
+    {
+      /* JS 無効時は <template> の中身が展開されないため、INITIAL_COUNT 超過分の動画へ
+      たどり着けなくなる。videos.astro と同じくフォールバックのリンク一覧を用意する(#419)。 */
+    }
+    {
+      deferredVideos.length > 0 && (
+        <noscript>
+          <p class="mt-6 text-sm text-ink-muted">
+            {INITIAL_COUNT} 件目以降の動画(JavaScript 無効時の一覧)
+          </p>
+          <ul class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {deferredVideos.map((video) => (
+              <li>
+                <a
+                  href={videoUrl(video)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-brand-accent underline-offset-4 hover:underline"
+                >
+                  {video.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </noscript>
+      )
+    }
     <p
       id="archive-empty"
       hidden
@@ -286,6 +346,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     >
       条件に一致する動画が見つかりませんでした。キーワードを変えてお試しください。
     </p>
+    {/* 「もっと見る」ボタン。videos.astro と同じく、一度押すと以降は全件表示のまま(#419) */}
+    <div class="mt-10 text-center">
+      <button
+        id="archive-more"
+        type="button"
+        hidden
+        class="cursor-pointer rounded-full border border-ink-muted px-8 py-3 font-semibold transition hover:border-ink hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        もっと見る
+      </button>
+    </div>
 
     <section aria-labelledby="series-cta-heading" class="pt-16">
       <div class="rounded-2xl bg-surface-raised p-8 text-center">
