@@ -1,0 +1,55 @@
+---
+interface Props {
+  targetId: string;
+}
+const { targetId } = Astro.props;
+---
+
+<button
+  type="button"
+  data-search-clear-for={targetId}
+  hidden
+  aria-label="検索キーワードをクリア"
+  class="absolute top-1/2 right-2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-xl leading-none text-ink-muted hover:bg-ink/10 hover:text-ink focus-visible:outline-2 focus-visible:outline-brand"
+>
+  <span aria-hidden="true">×</span>
+</button>
+
+<script>
+  const updateClearButton = (button: HTMLButtonElement): void => {
+    const targetId = button.dataset.searchClearFor;
+    const input = targetId ? document.getElementById(targetId) : null;
+    if (!(input instanceof HTMLInputElement)) return;
+    button.hidden = input.value.length === 0;
+  };
+
+  const initializeClearButton = (button: HTMLButtonElement): void => {
+    const targetId = button.dataset.searchClearFor;
+    const input = targetId ? document.getElementById(targetId) : null;
+    if (!(input instanceof HTMLInputElement)) return;
+    const update = (): void => updateClearButton(button);
+    input.addEventListener("input", update);
+    input.addEventListener("change", update);
+    button.addEventListener("click", () => {
+      input.value = "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+      updateClearButton(button);
+    });
+    update();
+  };
+
+  const refreshClearButtons = (): void => {
+    document
+      .querySelectorAll<HTMLButtonElement>("[data-search-clear-for]")
+      .forEach(updateClearButton);
+  };
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-search-clear-for]")
+    .forEach(initializeClearButton);
+  // URL復元や戻る/進む後の値変更はinputイベントを伴わないため、描画後にも再同期する。
+  window.addEventListener("load", refreshClearButtons);
+  window.addEventListener("pageshow", refreshClearButtons);
+  window.addEventListener("popstate", () => queueMicrotask(refreshClearButtons));
+</script>

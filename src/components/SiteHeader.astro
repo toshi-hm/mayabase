@@ -1,4 +1,5 @@
 ---
+import SearchClearButton from "./SearchClearButton.astro";
 import PushNotificationController from "./PushNotificationController.astro";
 import ThemeToggle from "./ThemeToggle.astro";
 import { site } from "../config/site";
@@ -124,8 +125,9 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
           aria-expanded="false"
           aria-controls="site-search-listbox"
           aria-autocomplete="list"
-          class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
+          class="w-full rounded-xl border border-ink-muted bg-surface-raised px-4 py-2 pr-11 placeholder:text-ink-muted/60 focus-visible:outline-2 focus-visible:outline-brand"
         />
+        <SearchClearButton targetId="site-search-input" />
         <ul
           id="site-search-listbox"
           role="listbox"

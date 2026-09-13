@@ -148,3 +148,14 @@ body {
 :root.theme-light ::selection {
   background: color-mix(in oklab, var(--color-brand) 24%, white);
 }
+
+/*
+ * type="search" はChromium/Safari系ブラウザがネイティブのクリアボタン(丸に×)を
+ * 自動描画する。SearchClearButton.astro が同じ右端位置に独自の×ボタンを重ねて
+ * 表示するため、ネイティブ側を非表示にしないと×が二重に見えてしまう(#421)。
+ */
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
