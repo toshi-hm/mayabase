@@ -1,6 +1,7 @@
 const YOUTUBE_IFRAME_API_SRC = "https://www.youtube.com/iframe_api";
 
 type YouTubeApiWindow = Window & {
+  YT?: unknown;
   onYouTubeIframeAPIReady?: () => void;
 };
 
