@@ -16,7 +16,11 @@ export function loadYouTubeIframeApi<T>(): Promise<T> {
   apiPromise = new Promise<void>((resolve, reject) => {
     const previousReady = browserWindow.onYouTubeIframeAPIReady;
     browserWindow.onYouTubeIframeAPIReady = () => {
-      previousReady?.();
+      try {
+        previousReady?.();
+      } catch {
+        // 既存ハンドラーの失敗で、他の利用者の初期化を止めない。
+      }
       if (browserWindow.YT) resolve();
       else reject(new Error("YouTube IFrame API is unavailable"));
     };
