@@ -12,6 +12,7 @@ import { formatFetchedAt, formatSubscriberCount, parseChannelStats } from "../li
 import {
   buildSparklinePoints,
   buildViewCountSparklinePoints,
+  findViewCountHistoryStartDate,
   parseChannelStatsHistory,
   sparklinePointsToPolyline,
 } from "../lib/channelStatsHistory";
@@ -50,6 +51,9 @@ const viewCountSparkline = buildViewCountSparklinePoints(
 const viewCountPolyline = viewCountSparkline ? sparklinePointsToPolyline(viewCountSparkline) : null;
 
 const historyStartDate = channelStatsHistory[0]?.date ?? null;
+// 総再生回数グラフは viewCount を持つエントリのみが対象のため、履歴全体の開始日とは
+// 別に、この系列自身の実際の開始日を算出する(#435)。
+const viewCountHistoryStartDate = findViewCountHistoryStartDate(channelStatsHistory);
 
 const pageTitle = `チャンネル成長記録 | ${site.name}`;
 const pageDescription = `${site.name} の登録者数・総再生回数の推移や動画本数、更新頻度をまとめた成長記録ページです。`;
@@ -131,16 +135,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <SectionHeading
             id="stats-trend-heading"
             title="推移グラフ"
-            subtitle={
-              historyStartDate
-                ? `${historyStartDate} 以降の記録に基づく推移です(直近90日分を保持)。`
-                : undefined
-            }
+            subtitle="直近90日分の記録を保持しています。"
           />
           <div class="flex flex-col gap-8">
             {subscriberPolyline && (
               <div>
                 <p class="mb-2 text-sm font-semibold text-ink-muted">チャンネル登録者数の推移</p>
+                {historyStartDate && (
+                  <p class="mb-2 text-xs text-ink-muted">
+                    {historyStartDate} 以降の記録に基づく推移です。
+                  </p>
+                )}
                 <svg
                   width={CHART_WIDTH}
                   height={CHART_HEIGHT}
@@ -163,6 +168,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             {viewCountPolyline && (
               <div>
                 <p class="mb-2 text-sm font-semibold text-ink-muted">総再生回数の推移</p>
+                {viewCountHistoryStartDate && (
+                  <p class="mb-2 text-xs text-ink-muted">
+                    {viewCountHistoryStartDate} 以降の記録に基づく推移です。
+                  </p>
+                )}
                 <svg
                   width={CHART_WIDTH}
                   height={CHART_HEIGHT}
