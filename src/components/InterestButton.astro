@@ -134,11 +134,14 @@ const { videoId, aspect = "video" } = Astro.props;
     const videoId = button.dataset.interestVideoId ?? "";
     const isReacted = readReactedVideoIds().includes(videoId);
     const isInFlight = inFlightVideoIds.has(videoId);
+    const isPopular = count >= 10;
     if (!isReacted && !isInFlight) {
-      button.setAttribute("aria-label", "気になる " + count + "件");
+      // 視覚的な「話題」バッジと同じ情報をスクリーンリーダー利用者にも伝える(#436)。
+      // aria-label を持つ要素の子要素テキスト(バッジの文言)はアクセシブルネームの算出に
+      // 使われないため、件数だけでなくここに明示する必要がある。
+      button.setAttribute("aria-label", "気になる " + count + "件" + (isPopular ? "(話題)" : ""));
     }
     const badge = button.querySelector<HTMLElement>("[data-interest-popular-badge]");
-    const isPopular = count >= 10;
     if (isPopular) {
       button.dataset.interestPopular = "true";
     } else {

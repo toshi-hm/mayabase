@@ -4,6 +4,7 @@ import {
   buildSparklinePoints,
   buildViewCountSparklinePoints,
   createEmptyChannelStatsHistory,
+  findViewCountHistoryStartDate,
   MAX_HISTORY_ENTRIES,
   parseChannelStatsHistory,
   sparklinePointsToPolyline,
@@ -196,6 +197,29 @@ describe("buildViewCountSparklinePoints", () => {
     expect(points).toHaveLength(2);
     expect(points?.[0]?.y).toBe(20);
     expect(points?.[1]?.y).toBe(0);
+  });
+});
+
+describe("findViewCountHistoryStartDate", () => {
+  test("履歴が空なら null を返す", () => {
+    expect(findViewCountHistoryStartDate([])).toBeNull();
+  });
+
+  test("viewCount を持つエントリが無ければ null を返す", () => {
+    const history = [
+      { date: "2026-08-01", subscriberCount: 100 },
+      { date: "2026-08-02", subscriberCount: 105 },
+    ];
+    expect(findViewCountHistoryStartDate(history)).toBeNull();
+  });
+
+  test("viewCount を持つ最初のエントリの date を返す(履歴全体の開始日とは異なりうる、#435)", () => {
+    const history = [
+      { date: "2026-08-01", subscriberCount: 100 },
+      { date: "2026-08-02", subscriberCount: 105, viewCount: 1000 },
+      { date: "2026-08-03", subscriberCount: 110, viewCount: 2000 },
+    ];
+    expect(findViewCountHistoryStartDate(history)).toBe("2026-08-02");
   });
 });
 

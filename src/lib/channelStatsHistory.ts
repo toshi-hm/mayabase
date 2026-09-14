@@ -152,6 +152,18 @@ export function buildViewCountSparklinePoints(
   return buildSparklinePointsFromValues(values, width, height, padding);
 }
 
+/**
+ * チャンネル総再生回数の推移グラフが実際にカバーする開始日を算出する(#435)。
+ * `viewCount` はフィールド追加前の既存エントリには存在しないため、履歴全体の開始日
+ * (`history[0].date`)とは一致しないことがある。グラフの説明文には、登録者数推移の
+ * 開始日ではなくこちらを使う必要がある。
+ */
+export function findViewCountHistoryStartDate(
+  history: readonly ChannelStatsHistoryEntry[],
+): string | null {
+  return history.find((h) => h.viewCount !== undefined)?.date ?? null;
+}
+
 /** buildSparklinePoints() の結果を `<polyline points="...">` 属性値へ変換する */
 export function sparklinePointsToPolyline(points: readonly SparklinePoint[]): string {
   return points.map((p) => `${p.x},${p.y}`).join(" ");
