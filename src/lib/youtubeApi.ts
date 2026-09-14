@@ -1,9 +1,8 @@
 const YOUTUBE_IFRAME_API_SRC = "https://www.youtube.com/iframe_api";
 
-interface YouTubeApiWindow extends Window {
-  YT?: unknown;
+type YouTubeApiWindow = Window & {
   onYouTubeIframeAPIReady?: () => void;
-}
+};
 
 let apiPromise: Promise<unknown> | null = null;
 
