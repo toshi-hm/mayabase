@@ -254,9 +254,16 @@ import { site, subscribeUrl } from "../config/site";
       const videoId = trigger.dataset.lightboxVideoId;
       if (!videoId) return;
       const queueRoot = trigger.closest<HTMLElement>("[data-binge-queue]");
-      const queue = getVisibleQueue(queueRoot).length
-        ? getVisibleQueue(queueRoot)
-        : parseVideoQueue(queueRoot?.dataset.bingeQueue);
+      const serializedQueue = parseVideoQueue(queueRoot?.dataset.bingeQueue);
+      const visibleQueue = getVisibleQueue(queueRoot);
+      // 未展開の template は実DOMに含まれないため、可視件数が全件JSONに届かない場合は
+      // data-binge-queue を使って一気見の後続動画を失わないようにする(#441)。
+      const queue =
+        visibleQueue.length >= serializedQueue.length && visibleQueue.length > 0
+          ? visibleQueue
+          : serializedQueue.length > 0
+            ? serializedQueue
+            : visibleQueue;
       openLightbox(
         videoId,
         trigger.dataset.lightboxTitle ?? "",
