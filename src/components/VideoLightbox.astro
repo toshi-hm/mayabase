@@ -76,7 +76,6 @@ import { site, subscribeUrl } from "../config/site";
   import {
     createVisibleVideoQueue,
     nextVideoInQueue,
-    parseVideoQueue,
     type VideoQueueItem,
   } from "../lib/videoQueue";
 
@@ -172,6 +171,41 @@ import { site, subscribeUrl } from "../config/site";
       );
     };
 
+    // 未実体化のtemplateを含めつつ、現在の絞り込みで非表示になったカードは除外する(#441)。
+    const getQueueIncludingTemplates = (queueRoot: HTMLElement | null): VideoQueueItem[] => {
+      if (!queueRoot) return [];
+      const slots = [
+        ...queueRoot.querySelectorAll<HTMLElement>(
+          ":scope > li, :scope > template[data-video-slot]",
+        ),
+      ];
+      if (slots.length === 0) return getVisibleQueue(queueRoot);
+
+      return createVisibleVideoQueue(
+        slots
+          .map((slot) => {
+            const trigger =
+              slot instanceof HTMLTemplateElement
+                ? slot.content.querySelector<HTMLElement>("[data-lightbox-video-id]")
+                : slot.querySelector<HTMLElement>("[data-lightbox-video-id]");
+            if (!trigger) return null;
+            const aspect: VideoQueueItem["aspect"] =
+              trigger.dataset.lightboxAspect === "short" ? "short" : "video";
+            return {
+              id: trigger.dataset.lightboxVideoId ?? "",
+              title: trigger.dataset.lightboxTitle ?? "",
+              aspect,
+              hidden:
+                slot.hidden ||
+                slot.dataset.filterHidden === "true" ||
+                !trigger.dataset.lightboxVideoId ||
+                !trigger.dataset.lightboxTitle,
+            };
+          })
+          .filter((item): item is VideoQueueItem & { hidden: boolean } => item !== null),
+      );
+    };
+
     const attachPlayer = async (generation: number): Promise<void> => {
       if (activeQueue.length < 2) return;
       try {
@@ -254,16 +288,7 @@ import { site, subscribeUrl } from "../config/site";
       const videoId = trigger.dataset.lightboxVideoId;
       if (!videoId) return;
       const queueRoot = trigger.closest<HTMLElement>("[data-binge-queue]");
-      const serializedQueue = parseVideoQueue(queueRoot?.dataset.bingeQueue);
-      const visibleQueue = getVisibleQueue(queueRoot);
-      // 未展開の template は実DOMに含まれないため、可視件数が全件JSONに届かない場合は
-      // data-binge-queue を使って一気見の後続動画を失わないようにする(#441)。
-      const queue =
-        visibleQueue.length >= serializedQueue.length && visibleQueue.length > 0
-          ? visibleQueue
-          : serializedQueue.length > 0
-            ? serializedQueue
-            : visibleQueue;
+      const queue = getQueueIncludingTemplates(queueRoot);
       openLightbox(
         videoId,
         trigger.dataset.lightboxTitle ?? "",
