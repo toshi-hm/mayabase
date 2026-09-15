@@ -131,25 +131,118 @@ describe("fetch", () => {
 
   test("動画リアクションをKVで加算する", async () => {
     const kv = createKv();
-    const request = () =>
+    const request = (cookie?: string) =>
       new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(cookie ? { cookie } : {}),
+        },
         body: JSON.stringify({ videoId: "abc123" }),
       });
     const first = await worker.fetch(request(), {
       ASSETS: assets,
       PUSH_SUBSCRIPTIONS: kv,
     });
-    const second = await worker.fetch(request(), {
+    const visitorCookie = first.headers.get("set-cookie");
+    expect(visitorCookie).toMatch(/^MAYABASE_VISITOR_ID=[0-9a-f-]{36};/);
+    const second = await worker.fetch(request(visitorCookie?.split(";")[0]), {
       ASSETS: assets,
       PUSH_SUBSCRIPTIONS: kv,
     });
     expect(await first.json()).toEqual({ count: 1 });
-    expect(await second.json()).toEqual({ count: 2 });
+    expect(await second.json()).toEqual({ count: 1, duplicate: true });
     expect(kv.options.get("reaction:abc123")).toEqual({
       expirationTtl: 365 * 24 * 60 * 60,
     });
+    expect(
+      [...kv.store.keys()].filter((key) => key.startsWith("reaction:abc123:visitor:")),
+    ).toHaveLength(1);
+  });
+
+  test("集計更新の部分失敗は同じCookieの再送で復旧する", async () => {
+    const kv = createKv();
+    const originalPut = kv.put;
+    let shouldFailAggregatePut = true;
+    kv.put = async (key, value, options) => {
+      if (shouldFailAggregatePut && key === "reaction:partial-test") {
+        shouldFailAggregatePut = false;
+        throw new Error("aggregate put failed");
+      }
+      await originalPut(key, value, options);
+    };
+
+    const first = await worker.fetch(postJson("/api/video-reaction", { videoId: "partial-test" }), {
+      ASSETS: assets,
+      PUSH_SUBSCRIPTIONS: kv,
+    });
+    expect(first.status).toBe(502);
+    const visitorCookie = first.headers.get("set-cookie");
+    expect(visitorCookie).toMatch(/^MAYABASE_VISITOR_ID=[0-9a-f-]{36};/);
+
+    const recovered = await worker.fetch(
+      new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: visitorCookie?.split(";")[0] ?? "",
+        },
+        body: JSON.stringify({ videoId: "partial-test" }),
+      }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ count: 1 });
+    expect(kv.store.get("reaction:partial-test")).toBe("1");
+  });
+
+  test("committed保存の部分失敗後も既存のpending目標値を再利用する", async () => {
+    const kv = createKv();
+    const originalPut = kv.put;
+    let shouldFailCommittedPut = true;
+    let firstVisitorId = "";
+    kv.put = async (key, value, options) => {
+      if (
+        shouldFailCommittedPut &&
+        key.startsWith("reaction:commit-retry:visitor:") &&
+        value.includes('"status":"committed"')
+      ) {
+        shouldFailCommittedPut = false;
+        throw new Error("committed marker put failed");
+      }
+      await originalPut(key, value, options);
+    };
+
+    const first = await worker.fetch(
+      postJson("/api/video-reaction", { videoId: "commit-retry" }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(first.status).toBe(502);
+    const visitorCookie = first.headers.get("set-cookie");
+    expect(visitorCookie).toMatch(/^MAYABASE_VISITOR_ID=[0-9a-f-]{36};/);
+    firstVisitorId = visitorCookie?.split(";")[0] ?? "";
+
+    const second = await worker.fetch(
+      postJson("/api/video-reaction", { videoId: "commit-retry" }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(second.status).toBe(200);
+    expect(await second.json()).toEqual({ count: 2 });
+
+    const recovered = await worker.fetch(
+      new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: firstVisitorId,
+        },
+        body: JSON.stringify({ videoId: "commit-retry" }),
+      }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ count: 2 });
+    expect(kv.store.get("reaction:commit-retry")).toBe("2");
   });
 
   test("保存済みリアクション件数をGETで取得する", async () => {
