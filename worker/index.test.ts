@@ -213,10 +213,10 @@ describe("fetch", () => {
       await originalPut(key, value, options);
     };
 
-    const first = await worker.fetch(
-      postJson("/api/video-reaction", { videoId: "commit-retry" }),
-      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
-    );
+    const first = await worker.fetch(postJson("/api/video-reaction", { videoId: "commit-retry" }), {
+      ASSETS: assets,
+      PUSH_SUBSCRIPTIONS: kv,
+    });
     expect(first.status).toBe(502);
     const visitorCookie = first.headers.get("set-cookie");
     expect(visitorCookie).toMatch(/^MAYABASE_VISITOR_ID=[0-9a-f-]{36};/);
