@@ -140,7 +140,9 @@
       let shown = 0; // 実際に表示している数(未展開時は INITIAL_COUNT で頭打ち)
       for (let i = 0; i < cards.length; i++) {
         const slot = cards[i];
-        if (cardMatches(slot, query)) {
+        const matches = cardMatches(slot, query);
+        if (matches) {
+          if (slot instanceof HTMLTemplateElement) slot.dataset.filterHidden = "false";
           matched += 1;
           const withinLimit = expanded || matched <= INITIAL_COUNT;
           if (withinLimit) {
@@ -153,8 +155,9 @@
           } else if (slot instanceof HTMLLIElement) {
             slot.hidden = true;
           }
-        } else if (slot instanceof HTMLLIElement) {
-          slot.hidden = true;
+        } else {
+          if (slot instanceof HTMLTemplateElement) slot.dataset.filterHidden = "true";
+          if (slot instanceof HTMLLIElement) slot.hidden = true;
         }
       }
       if (count) count.textContent = `${matched} 件`;

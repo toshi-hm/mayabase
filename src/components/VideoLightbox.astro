@@ -73,10 +73,10 @@ import { site, subscribeUrl } from "../config/site";
     parseLightboxAspect,
     parseLightboxStartSeconds,
   } from "../lib/lightbox";
+  import { loadYouTubeIframeApi } from "../lib/youtubeApi";
   import {
     createVisibleVideoQueue,
     nextVideoInQueue,
-    parseVideoQueue,
     type VideoQueueItem,
   } from "../lib/videoQueue";
 
@@ -97,12 +97,6 @@ import { site, subscribeUrl } from "../config/site";
     ) => LightboxYouTubePlayer;
     PlayerState: { ENDED: number };
   }
-  type LightboxWindow = Window & {
-    YT?: LightboxYouTubeIframeApi;
-    onYouTubeIframeAPIReady?: () => void;
-  };
-  const browserWindow = window as LightboxWindow;
-
   const dialog = document.getElementById("video-lightbox");
   const player = document.getElementById("video-lightbox-player");
   const iframeElement = document.getElementById("video-lightbox-iframe");
@@ -122,26 +116,7 @@ import { site, subscribeUrl } from "../config/site";
     let activeQueue: VideoQueueItem[] = [];
     let activeVideoId = "";
     let youtubePlayer: LightboxYouTubePlayer | null = null;
-    let youtubeApiPromise: Promise<LightboxYouTubeIframeApi> | null = null;
     let openGeneration = 0;
-
-    const loadYouTubeApi = (): Promise<LightboxYouTubeIframeApi> => {
-      if (browserWindow.YT) return Promise.resolve(browserWindow.YT);
-      if (youtubeApiPromise) return youtubeApiPromise;
-      youtubeApiPromise = new Promise<LightboxYouTubeIframeApi>((resolve, reject) => {
-        const previousReady = browserWindow.onYouTubeIframeAPIReady;
-        browserWindow.onYouTubeIframeAPIReady = () => {
-          previousReady?.();
-          if (browserWindow.YT) resolve(browserWindow.YT);
-          else reject(new Error("YouTube IFrame API is unavailable"));
-        };
-        const apiScript = document.createElement("script");
-        apiScript.src = "https://www.youtube.com/iframe_api";
-        apiScript.onerror = () => reject(new Error("YouTube IFrame API failed to load"));
-        document.head.appendChild(apiScript);
-      });
-      return youtubeApiPromise;
-    };
 
     const updateQueueStatus = (): void => {
       const index = activeQueue.findIndex((item) => item.id === activeVideoId);
@@ -172,10 +147,45 @@ import { site, subscribeUrl } from "../config/site";
       );
     };
 
+    // 未実体化のtemplateを含めつつ、現在の絞り込みで非表示になったカードは除外する(#441)。
+    const getQueueIncludingTemplates = (queueRoot: HTMLElement | null): VideoQueueItem[] => {
+      if (!queueRoot) return [];
+      const slots = [
+        ...queueRoot.querySelectorAll<HTMLElement>(
+          ":scope > li, :scope > template[data-video-slot]",
+        ),
+      ];
+      if (slots.length === 0) return getVisibleQueue(queueRoot);
+
+      return createVisibleVideoQueue(
+        slots
+          .map((slot) => {
+            const trigger =
+              slot instanceof HTMLTemplateElement
+                ? slot.content.querySelector<HTMLElement>("[data-lightbox-video-id]")
+                : slot.querySelector<HTMLElement>("[data-lightbox-video-id]");
+            if (!trigger) return null;
+            const aspect: VideoQueueItem["aspect"] =
+              trigger.dataset.lightboxAspect === "short" ? "short" : "video";
+            return {
+              id: trigger.dataset.lightboxVideoId ?? "",
+              title: trigger.dataset.lightboxTitle ?? "",
+              aspect,
+              hidden:
+                slot.hidden ||
+                slot.dataset.filterHidden === "true" ||
+                !trigger.dataset.lightboxVideoId ||
+                !trigger.dataset.lightboxTitle,
+            };
+          })
+          .filter((item): item is VideoQueueItem & { hidden: boolean } => item !== null),
+      );
+    };
+
     const attachPlayer = async (generation: number): Promise<void> => {
       if (activeQueue.length < 2) return;
       try {
-        const YT = await loadYouTubeApi();
+        const YT = await loadYouTubeIframeApi<LightboxYouTubeIframeApi>();
         if (!dialog.open || generation !== openGeneration || !activeQueue.length) return;
         youtubePlayer = new YT.Player(iframe, {
           events: {
@@ -214,7 +224,7 @@ import { site, subscribeUrl } from "../config/site";
       player.className = getLightboxContainerClass(parseLightboxAspect(aspect));
       const url = new URL(buildLightboxSrc(videoId, parseLightboxStartSeconds(startSeconds)));
       url.searchParams.set("enablejsapi", "1");
-      url.searchParams.set("origin", browserWindow.location.origin);
+      url.searchParams.set("origin", window.location.origin);
       iframe.src = url.toString();
       iframe.title = title;
       titleEl.textContent = title;
@@ -254,9 +264,7 @@ import { site, subscribeUrl } from "../config/site";
       const videoId = trigger.dataset.lightboxVideoId;
       if (!videoId) return;
       const queueRoot = trigger.closest<HTMLElement>("[data-binge-queue]");
-      const queue = getVisibleQueue(queueRoot).length
-        ? getVisibleQueue(queueRoot)
-        : parseVideoQueue(queueRoot?.dataset.bingeQueue);
+      const queue = getQueueIncludingTemplates(queueRoot);
       openLightbox(
         videoId,
         trigger.dataset.lightboxTitle ?? "",
