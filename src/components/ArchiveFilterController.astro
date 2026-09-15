@@ -52,6 +52,18 @@
     : [];
   // applyFilter が参照する「現在の表示順」。並び替え時に reorderGrid() が差し替える。
   let cards: CardSlot[] = originalOrder;
+  // 動画説明は遅延取得し、取得後に現在の絞り込みを再評価する(#442)。
+  let descriptions: Record<string, string> = {};
+  let descriptionsPromise: Promise<void> | null = null;
+
+  function parseVideoDescriptions(value: unknown): Record<string, string> {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+    return Object.fromEntries(
+      Object.entries(value).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  }
 
   // このコントローラーを使うページが無い(該当マークアップが存在しない)場合は何もしない
   if (grid && cards.length > 0) {
@@ -130,7 +142,8 @@
       return (
         (length === "all" || card.dataset.length === length) &&
         (durationBucket === "all" || card.dataset.durationBucket === durationBucket) &&
-        textMatchesKeyword(card.dataset.title ?? "", query)
+        (textMatchesKeyword(card.dataset.title ?? "", query) ||
+          textMatchesKeyword(descriptions[card.dataset.videoId ?? ""] ?? "", query))
       );
     }
 
@@ -272,8 +285,20 @@
       });
     }
 
+    function loadDescriptions(): void {
+      if (descriptionsPromise) return;
+      descriptionsPromise = fetch("/video-descriptions.json")
+        .then((res) => (res.ok ? res.json() : {}))
+        .then((data: unknown) => {
+          descriptions = parseVideoDescriptions(data);
+          applyFilter();
+        })
+        .catch(() => {});
+    }
+
     search?.addEventListener("input", () => {
       expanded = false;
+      if (search.value.trim()) loadDescriptions();
       applyFilter();
       // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
       syncUrl("replace");
@@ -302,5 +327,7 @@
 
     restoreStateFromUrl();
     applyFilter();
+
+    if (search?.value.trim()) loadDescriptions();
   }
 </script>
