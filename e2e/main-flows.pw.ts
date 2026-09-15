@@ -1,4 +1,10 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+import { WATCH_LATER_STORAGE_KEY } from "../src/lib/watchLater";
+
+const videosDataPath = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
+const videosData: { videos: { id: string }[] } = JSON.parse(readFileSync(videosDataPath, "utf-8"));
 
 test.describe("主要導線", () => {
   test("動画ライブラリのカテゴリ絞り込みと検索を操作できる", async ({ page }) => {
@@ -185,6 +191,25 @@ test.describe("主要導線", () => {
 
     await page.keyboard.press("Escape");
     await expect(overlay).toBeHidden();
+  });
+
+  test("「あとで見る」51件保存時、一括再生リンクは直近保存した50件になる(#449)", async ({
+    page,
+  }) => {
+    // storedIds は保存順(古い→新しい)。id[0] が最も古く、末尾が最も新しい。
+    const storedIds = videosData.videos.slice(0, 51).map((video) => video.id);
+    await page.addInitScript(([key, ids]) => localStorage.setItem(key, JSON.stringify(ids)), [
+      WATCH_LATER_STORAGE_KEY,
+      storedIds,
+    ] as const);
+
+    await page.goto("/watch-later/");
+
+    const playlistLink = page.locator("#watch-later-playlist");
+    await expect(playlistLink).toBeVisible();
+    const href = await playlistLink.getAttribute("href");
+    expect(href).toContain(storedIds.at(-1));
+    expect(href).not.toContain(storedIds[0]);
   });
 });
 
