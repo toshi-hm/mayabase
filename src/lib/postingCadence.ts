@@ -53,7 +53,7 @@ export function computePostingCadence(
   const longTimes = videos
     .filter((v) => v.isShort !== true)
     .map((v) => Date.parse(v.publishedAt))
-    .filter((t) => !Number.isNaN(t));
+    .filter((t) => !Number.isNaN(t) && t <= now.getTime());
   const latestLongTime = longTimes.length > 0 ? Math.max(...longTimes) : null;
   const daysSinceLatestLong =
     latestLongTime === null ? null : jstCalendarDayDiff(new Date(latestLongTime), now);

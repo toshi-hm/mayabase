@@ -68,6 +68,15 @@ describe("computePostingCadence", () => {
     expect(result?.recentLongCount).toBe(1);
   });
 
+  test("未来日時の長尺動画は daysSinceLatestLong の算出対象にしない(負の日数を表示させない)", () => {
+    const videos = [
+      { publishedAt: daysAgo(base, 5), isShort: false },
+      { publishedAt: daysAgo(base, -3), isShort: false }, // 未来日時(データ不整合・時刻ずれ等)
+    ];
+    const result = computePostingCadence(videos, base);
+    expect(result?.daysSinceLatestLong).toBe(5);
+  });
+
   test("経過日数が STAGNATION_THRESHOLD_DAYS(14日)未満なら停滞扱いにしない", () => {
     const videos = [{ publishedAt: daysAgo(base, 13), isShort: false }];
     expect(computePostingCadence(videos, base)?.isStagnant).toBe(false);
