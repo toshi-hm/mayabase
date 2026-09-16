@@ -148,6 +148,17 @@ describe("probeLink", () => {
       error: "network error",
     });
   });
+
+  test("ブラウザ相当のUser-Agentを付与する(#448: UA無しの既定値はWAFに恒常的にブロックされうる)", async () => {
+    let receivedUserAgent: string | null = null;
+    const fetchFn: FetchLike = async (_url, init) => {
+      const headers = new Headers(init?.headers);
+      receivedUserAgent = headers.get("User-Agent");
+      return new Response(null, { status: 200 });
+    };
+    await probeLink("https://example.com", fetchFn);
+    expect(receivedUserAgent).toMatch(/Mozilla/);
+  });
 });
 
 describe("shouldRetryLinkProbe", () => {

@@ -33,6 +33,14 @@ const FETCH_TIMEOUT_MS = 15_000;
  * 非2xx(404等)とは異なりリトライ対象に含める。
  */
 const BOT_PROTECTION_STATUSES = new Set([403, 503]);
+/**
+ * Bun/Node の既定 User-Agent(UA無し、または `Bun/x.y.z` 等の非ブラウザ表記)は、
+ * marshmallow-qa.com 等のWAFで恒常的に403としてブロックされうる(#448、#376で同一URLが
+ * 既に一度「実際には生存」と確認済み)。ブラウザ相当のUAを付与することで、
+ * この種の恒常的な誤検知(実際にはリンク切れでない)を減らす。
+ */
+const LINK_PROBE_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 /** チェック対象のリンク 1 件。同一 URL が複数箇所から参照される場合は sources にまとめる */
 export interface LinkTarget {
@@ -99,7 +107,11 @@ export async function probeLink(url: string, fetchFn: FetchLike = fetch): Promis
   let lastStatus: number | null = null;
   for (const method of ["HEAD", "GET"] as const) {
     try {
-      const res = await fetchFn(url, { method, redirect: "follow" });
+      const res = await fetchFn(url, {
+        method,
+        redirect: "follow",
+        headers: { "User-Agent": LINK_PROBE_USER_AGENT },
+      });
       lastStatus = res.status;
       if (res.ok) return { ok: true, status: res.status, error: null };
       if (method === "HEAD") continue;
