@@ -36,11 +36,15 @@ const BOT_PROTECTION_STATUSES = new Set([403, 503]);
 /**
  * Bun/Node の既定 User-Agent(UA無し、または `Bun/x.y.z` 等の非ブラウザ表記)は、
  * marshmallow-qa.com 等のWAFで恒常的に403としてブロックされうる(#448、#376で同一URLが
- * 既に一度「実際には生存」と確認済み)。ブラウザ相当のUAを付与することで、
- * この種の恒常的な誤検知(実際にはリンク切れでない)を減らす。
+ * 既に一度「実際には生存」と確認済み)。
+ *
+ * 実ブラウザへの成りすましではなく、Googlebot 等と同様に `Mozilla/5.0 (compatible; <bot名>; <URL>)`
+ * という広く知られた「素性を明かすボット」の慣例に沿ったUAを付与する。多くのWAF/Botマネジメントは
+ * この形式の既知パターンを許容していることが多く、かつ本スクリプトが死活監視ボットであることを
+ * サイト運営者に対して正直に示せる(レビュー指摘: #457)。
  */
 const LINK_PROBE_USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  "Mozilla/5.0 (compatible; MayabaseLinkChecker/1.0; +https://portal.mayabase.workers.dev)";
 
 /** チェック対象のリンク 1 件。同一 URL が複数箇所から参照される場合は sources にまとめる */
 export interface LinkTarget {
