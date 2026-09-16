@@ -150,6 +150,53 @@ test.describe("主要導線", () => {
     await expect(page.locator(":focus")).toHaveAttribute("target", "_blank");
   });
 
+  test("カテゴリ別・シリーズ別ページの検索がタイトルだけでなく概要欄本文にも一致する(#442)", async ({
+    page,
+  }) => {
+    for (const path of ["/videos/category/ai/", "/videos/series/futatsu-no-waraji/"]) {
+      await page.goto(path);
+
+      const grid = page.locator("#archive-grid");
+      const firstCard = grid.locator(":scope > li").first();
+      const videoId = await firstCard.getAttribute("data-video-id");
+      expect(videoId).toBeTruthy();
+
+      // /video-descriptions.json をモックし、対象動画の概要欄にしか登場しない語を仕込む。
+      // タイトルには含まれない語のため、概要欄検索が機能して初めてヒットする。
+      await page.route("**/video-descriptions.json", (route) =>
+        route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ [videoId as string]: "__description-only-keyword__" }),
+        }),
+      );
+
+      const search = page.locator("#archive-search");
+      await search.fill("__description-only-keyword__");
+
+      // 説明データの取得(非同期)完了後に再フィルタされ、対象動画だけがヒットする
+      await expect(page.locator("#archive-count")).toHaveText("1 件");
+      await expect(grid.locator(`:scope > li[data-video-id="${videoId}"]`)).toBeVisible();
+
+      await page.unroute("**/video-descriptions.json");
+    }
+  });
+
+  test("概要欄データの取得に失敗してもカテゴリ別ページのタイトル検索は継続する(#442)", async ({
+    page,
+  }) => {
+    await page.route("**/video-descriptions.json", (route) =>
+      route.fulfill({ status: 500, contentType: "application/json", body: "{}" }),
+    );
+
+    await page.goto("/videos/category/ai/");
+
+    const search = page.locator("#archive-search");
+    await search.fill("__definitely-no-match__");
+
+    await expect(page.locator("#archive-count")).toHaveText("0 件");
+    await expect(page.locator("#archive-empty")).toBeVisible();
+  });
+
   test("動画詳細ページの「次の動画」オーバーレイをEscapeキーで閉じられる(#382)", async ({
     page,
   }) => {

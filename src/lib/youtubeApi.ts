@@ -13,7 +13,7 @@ export function loadYouTubeIframeApi<T>(): Promise<T> {
   if (browserWindow.YT) return Promise.resolve(browserWindow.YT as T);
   if (apiPromise) return apiPromise.then(() => browserWindow.YT as T);
 
-  apiPromise = new Promise<void>((resolve, reject) => {
+  const pending = new Promise<void>((resolve, reject) => {
     const previousReady = browserWindow.onYouTubeIframeAPIReady;
     browserWindow.onYouTubeIframeAPIReady = () => {
       try {
@@ -43,9 +43,18 @@ export function loadYouTubeIframeApi<T>(): Promise<T> {
     document.head.appendChild(apiScript);
   });
 
-  return apiPromise.then(() => {
+  const resultPromise: Promise<T> = pending.then(() => {
     const api = browserWindow.YT;
     if (!api) throw new Error("YouTube IFrame API is unavailable");
     return api as T;
   });
+  apiPromise = resultPromise;
+
+  // 失敗時は次回呼び出しで再試行できるよう、保持中のPromiseを解放する。
+  // (このcatchは呼び出し元へは伝播しない別チェーンなので、resultPromise自体は reject のまま呼び出し元に返る)
+  resultPromise.catch(() => {
+    if (apiPromise === resultPromise) apiPromise = null;
+  });
+
+  return resultPromise;
 }
