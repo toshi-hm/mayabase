@@ -119,6 +119,28 @@ function parseReactionMarker(value: string | null): ReactionMarker | null {
   return { status: "committed" };
 }
 
+/**
+ * 集計KVの値は `${count}:${writerVisitorId}` の形式で保存する。writerVisitorId に
+ * 直近の書き込みを行った訪問者IDを含めることで、部分障害からの再送時に「自分自身の
+ * 集計put が既に反映済みか」をシンプルな値の大小比較よりも確実に判定できるようにする(#433)。
+ */
+function parseReactionCount(value: string | null): {
+  count: number;
+  writerVisitorId: string | null;
+} {
+  if (value === null) return { count: 0, writerVisitorId: null };
+  const separatorIndex = value.indexOf(":");
+  const countPart = separatorIndex === -1 ? value : value.slice(0, separatorIndex);
+  const writerVisitorId = separatorIndex === -1 ? null : value.slice(separatorIndex + 1) || null;
+  const parsed = Number.parseInt(countPart, 10);
+  const count = Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
+  return { count, writerVisitorId };
+}
+
+function serializeReactionCount(count: number, writerVisitorId: string): string {
+  return `${count}:${writerVisitorId}`;
+}
+
 const REACTION_BODY_MAX_BYTES = 8 * 1024;
 
 async function readJsonBody(
@@ -264,35 +286,41 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
     if (request.method === "POST" && visitor && visitorKey) {
       const marker = parseReactionMarker(await kv.get(visitorKey));
       if (marker?.status === "committed") {
-        const current = await kv.get(key);
-        const count = current === null ? 0 : Number.parseInt(current, 10);
+        const { count } = parseReactionCount(await kv.get(key));
         return withReactionVisitorCookie(
-          jsonResponse({
-            count: Number.isSafeInteger(count) && count >= 0 ? count : 0,
-            duplicate: true,
-          }),
+          jsonResponse({ count, duplicate: true }),
           visitor.id,
           visitor.shouldSetCookie,
         );
       }
 
-      const current = await kv.get(key);
-      const currentCount =
-        current !== null && Number.isSafeInteger(Number.parseInt(current, 10))
-          ? Math.max(0, Number.parseInt(current, 10))
-          : 0;
-      const targetCount =
-        marker?.status === "pending" && marker.targetCount !== undefined
-          ? Math.max(marker.targetCount, currentCount)
-          : currentCount + 1;
+      const { count: currentCount, writerVisitorId } = parseReactionCount(await kv.get(key));
+
+      // 自分自身の集計put(#433)が既に反映済みかどうかを判定する。
+      // - writerVisitorId が自分自身なら、直近の集計書き込みは確実に自分によるもの。
+      // - pendingマーカーのtargetCountより現在値が大きいなら、自分の書き込みが
+      //   成功した後に別訪問者がさらに加算したということなので、自分の加算は
+      //   既に取り込まれている(取り込まれていなければ、別訪問者はより小さい
+      //   currentCountから+1した値しか書き込めないため、targetCountを超えない)。
+      // - それ以外(currentCountがtargetCount以下でwriterVisitorIdも自分ではない)は、
+      //   自分の集計putがまだ反映されていないと確実に判定できる。この場合だけ
+      //   currentCountを基準に取り直して加算する。これにより、集計put自体が
+      //   失敗した直後に別訪問者が同じ目標値まで進めてしまうケースでも、
+      //   自分の加算を取りこぼさない。
+      const alreadyApplied =
+        writerVisitorId === visitor.id ||
+        (marker?.status === "pending" &&
+          marker.targetCount !== undefined &&
+          currentCount > marker.targetCount);
+      const targetCount = alreadyApplied ? currentCount : currentCount + 1;
 
       // pendingを先に保存しておくことで、集計更新後のcommitted保存に失敗しても、
-      // 同じCookieの再送でtargetCountまで復旧できる(#433)。
+      // 同じCookieの再送で正しく復旧できる(#433)。
       await kv.put(visitorKey, JSON.stringify({ status: "pending", targetCount }), {
         expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
       });
-      if (targetCount > currentCount) {
-        await kv.put(key, String(targetCount), {
+      if (!alreadyApplied) {
+        await kv.put(key, serializeReactionCount(targetCount, visitor.id), {
           expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
         });
       }
@@ -306,18 +334,8 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
       );
     }
 
-    const current = await kv.get(key);
-    const count = current === null ? 0 : Number.parseInt(current, 10);
-    if (request.method === "GET") {
-      return jsonResponse({
-        count: Number.isSafeInteger(count) && count >= 0 ? count : 0,
-      });
-    }
-    return withReactionVisitorCookie(
-      jsonResponse({ count: Number.isSafeInteger(count) && count >= 0 ? count : 0 }),
-      visitor?.id ?? "",
-      visitor?.shouldSetCookie ?? false,
-    );
+    const { count } = parseReactionCount(await kv.get(key));
+    return jsonResponse({ count });
   } catch {
     return withReactionVisitorCookie(
       storageOperationFailedResponse(),
