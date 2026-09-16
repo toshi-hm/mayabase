@@ -25,6 +25,10 @@ interface PushSubscriptionsKv {
 }
 
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
+const REACTION_VISITOR_COOKIE = "MAYABASE_VISITOR_ID";
+const REACTION_VISITOR_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const REACTION_VISITOR_MARKER_TTL_SECONDS = 365 * 24 * 60 * 60;
 const REACTION_RATE_LIMIT_WINDOW_MS = 60_000;
 const REACTION_RATE_LIMIT_MAX = 30;
 const REACTION_READ_RATE_LIMIT_MAX = 120;
@@ -56,11 +60,85 @@ async function sha256Hex(input: string): Promise<string> {
     .join("");
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(body: unknown, status = 200, headers?: HeadersInit): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      ...headers,
+    },
   });
+}
+
+function reactionVisitorFromRequest(request: Request): { id: string; shouldSetCookie: boolean } {
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const cookie = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${REACTION_VISITOR_COOKIE}=`));
+  const value = cookie?.slice(REACTION_VISITOR_COOKIE.length + 1) ?? "";
+  if (REACTION_VISITOR_ID_PATTERN.test(value)) {
+    return { id: value, shouldSetCookie: false };
+  }
+  return { id: crypto.randomUUID(), shouldSetCookie: true };
+}
+
+function withReactionVisitorCookie(
+  response: Response,
+  visitorId: string,
+  shouldSetCookie: boolean,
+): Response {
+  if (shouldSetCookie) {
+    response.headers.set(
+      "set-cookie",
+      `${REACTION_VISITOR_COOKIE}=${visitorId}; Max-Age=${REACTION_VISITOR_MARKER_TTL_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Lax`,
+    );
+  }
+  return response;
+}
+
+type ReactionMarker = {
+  status: "pending" | "committed";
+  targetCount?: number;
+};
+
+function parseReactionMarker(value: string | null): ReactionMarker | null {
+  if (value === null) return null;
+  if (value === "1") return { status: "committed" };
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (typeof parsed !== "object" || parsed === null) return { status: "committed" };
+    const marker = parsed as { status?: unknown; targetCount?: unknown };
+    if (marker.status === "pending" && Number.isSafeInteger(marker.targetCount)) {
+      return { status: "pending", targetCount: marker.targetCount as number };
+    }
+    if (marker.status === "committed") return { status: "committed" };
+  } catch {
+    // 不正な既存マーカーは再加算を避けるため、完了済みとして扱う。
+  }
+  return { status: "committed" };
+}
+
+/**
+ * 集計KVの値は `${count}:${writerVisitorId}` の形式で保存する。writerVisitorId に
+ * 直近の書き込みを行った訪問者IDを含めることで、部分障害からの再送時に「自分自身の
+ * 集計put が既に反映済みか」をシンプルな値の大小比較よりも確実に判定できるようにする(#433)。
+ */
+function parseReactionCount(value: string | null): {
+  count: number;
+  writerVisitorId: string | null;
+} {
+  if (value === null) return { count: 0, writerVisitorId: null };
+  const separatorIndex = value.indexOf(":");
+  const countPart = separatorIndex === -1 ? value : value.slice(0, separatorIndex);
+  const writerVisitorId = separatorIndex === -1 ? null : value.slice(separatorIndex + 1) || null;
+  const parsed = Number.parseInt(countPart, 10);
+  const count = Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
+  return { count, writerVisitorId };
+}
+
+function serializeReactionCount(count: number, writerVisitorId: string): string {
+  return `${count}:${writerVisitorId}`;
 }
 
 const REACTION_BODY_MAX_BYTES = 8 * 1024;
@@ -202,19 +280,68 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
     return jsonResponse({ error: "rate limit exceeded" }, 429);
   }
   const key = `reaction:${videoId}`;
+  const visitor = request.method === "POST" ? reactionVisitorFromRequest(request) : null;
+  const visitorKey = visitor ? `${key}:visitor:${visitor.id}` : null;
   try {
-    const current = await kv.get(key);
-    const count = current === null ? 0 : Number.parseInt(current, 10);
-    if (request.method === "GET") {
-      return jsonResponse({
-        count: Number.isSafeInteger(count) && count >= 0 ? count : 0,
+    if (request.method === "POST" && visitor && visitorKey) {
+      const marker = parseReactionMarker(await kv.get(visitorKey));
+      if (marker?.status === "committed") {
+        const { count } = parseReactionCount(await kv.get(key));
+        return withReactionVisitorCookie(
+          jsonResponse({ count, duplicate: true }),
+          visitor.id,
+          visitor.shouldSetCookie,
+        );
+      }
+
+      const { count: currentCount, writerVisitorId } = parseReactionCount(await kv.get(key));
+
+      // 自分自身の集計put(#433)が既に反映済みかどうかを判定する。
+      // - writerVisitorId が自分自身なら、直近の集計書き込みは確実に自分によるもの。
+      // - pendingマーカーのtargetCountより現在値が大きいなら、自分の書き込みが
+      //   成功した後に別訪問者がさらに加算したということなので、自分の加算は
+      //   既に取り込まれている(取り込まれていなければ、別訪問者はより小さい
+      //   currentCountから+1した値しか書き込めないため、targetCountを超えない)。
+      // - それ以外(currentCountがtargetCount以下でwriterVisitorIdも自分ではない)は、
+      //   自分の集計putがまだ反映されていないと確実に判定できる。この場合だけ
+      //   currentCountを基準に取り直して加算する。これにより、集計put自体が
+      //   失敗した直後に別訪問者が同じ目標値まで進めてしまうケースでも、
+      //   自分の加算を取りこぼさない。
+      const alreadyApplied =
+        writerVisitorId === visitor.id ||
+        (marker?.status === "pending" &&
+          marker.targetCount !== undefined &&
+          currentCount > marker.targetCount);
+      const targetCount = alreadyApplied ? currentCount : currentCount + 1;
+
+      // pendingを先に保存しておくことで、集計更新後のcommitted保存に失敗しても、
+      // 同じCookieの再送で正しく復旧できる(#433)。
+      await kv.put(visitorKey, JSON.stringify({ status: "pending", targetCount }), {
+        expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
       });
+      if (!alreadyApplied) {
+        await kv.put(key, serializeReactionCount(targetCount, visitor.id), {
+          expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
+        });
+      }
+      await kv.put(visitorKey, JSON.stringify({ status: "committed" }), {
+        expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
+      });
+      return withReactionVisitorCookie(
+        jsonResponse({ count: targetCount }),
+        visitor.id,
+        visitor.shouldSetCookie,
+      );
     }
-    const nextCount = Number.isSafeInteger(count) && count >= 0 ? count + 1 : 1;
-    await kv.put(key, String(nextCount), { expirationTtl: 365 * 24 * 60 * 60 });
-    return jsonResponse({ count: nextCount });
+
+    const { count } = parseReactionCount(await kv.get(key));
+    return jsonResponse({ count });
   } catch {
-    return storageOperationFailedResponse();
+    return withReactionVisitorCookie(
+      storageOperationFailedResponse(),
+      visitor?.id ?? "",
+      visitor?.shouldSetCookie ?? false,
+    );
   }
 }
 

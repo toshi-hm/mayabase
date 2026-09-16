@@ -131,25 +131,235 @@ describe("fetch", () => {
 
   test("動画リアクションをKVで加算する", async () => {
     const kv = createKv();
-    const request = () =>
+    const request = (cookie?: string) =>
       new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(cookie ? { cookie } : {}),
+        },
         body: JSON.stringify({ videoId: "abc123" }),
       });
     const first = await worker.fetch(request(), {
       ASSETS: assets,
       PUSH_SUBSCRIPTIONS: kv,
     });
-    const second = await worker.fetch(request(), {
+    const visitorCookie = first.headers.get("set-cookie");
+    expect(visitorCookie).toMatch(/^MAYABASE_VISITOR_ID=[0-9a-f-]{36};/);
+    const second = await worker.fetch(request(visitorCookie?.split(";")[0]), {
       ASSETS: assets,
       PUSH_SUBSCRIPTIONS: kv,
     });
     expect(await first.json()).toEqual({ count: 1 });
-    expect(await second.json()).toEqual({ count: 2 });
+    expect(await second.json()).toEqual({ count: 1, duplicate: true });
     expect(kv.options.get("reaction:abc123")).toEqual({
       expirationTtl: 365 * 24 * 60 * 60,
     });
+    expect(
+      [...kv.store.keys()].filter((key) => key.startsWith("reaction:abc123:visitor:")),
+    ).toHaveLength(1);
+  });
+
+  test("集計更新の部分失敗は同じCookieの再送で復旧する", async () => {
+    const kv = createKv();
+    const originalPut = kv.put;
+    let shouldFailAggregatePut = true;
+    kv.put = async (key, value, options) => {
+      if (shouldFailAggregatePut && key === "reaction:partial-test") {
+        shouldFailAggregatePut = false;
+        throw new Error("aggregate put failed");
+      }
+      await originalPut(key, value, options);
+    };
+
+    const first = await worker.fetch(postJson("/api/video-reaction", { videoId: "partial-test" }), {
+      ASSETS: assets,
+      PUSH_SUBSCRIPTIONS: kv,
+    });
+    expect(first.status).toBe(502);
+    const visitorCookie = first.headers.get("set-cookie");
+    expect(visitorCookie).toMatch(/^MAYABASE_VISITOR_ID=[0-9a-f-]{36};/);
+
+    const recovered = await worker.fetch(
+      new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: visitorCookie?.split(";")[0] ?? "",
+        },
+        body: JSON.stringify({ videoId: "partial-test" }),
+      }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ count: 1 });
+    expect(kv.store.get("reaction:partial-test")).toMatch(/^1:[0-9a-f-]{36}$/);
+  });
+
+  test("committed保存の部分失敗後、別訪問者がさらに加算しても自分の分を再加算しない", async () => {
+    const kv = createKv();
+    const originalPut = kv.put;
+    let shouldFailCommittedPut = true;
+    let firstVisitorId = "";
+    kv.put = async (key, value, options) => {
+      if (
+        shouldFailCommittedPut &&
+        key.startsWith("reaction:commit-retry:visitor:") &&
+        value === '{"status":"committed"}'
+      ) {
+        shouldFailCommittedPut = false;
+        throw new Error("committed marker put failed");
+      }
+      await originalPut(key, value, options);
+    };
+
+    const first = await worker.fetch(postJson("/api/video-reaction", { videoId: "commit-retry" }), {
+      ASSETS: assets,
+      PUSH_SUBSCRIPTIONS: kv,
+    });
+    expect(first.status).toBe(502);
+    const visitorCookie = first.headers.get("set-cookie");
+    expect(visitorCookie).toMatch(/^MAYABASE_VISITOR_ID=[0-9a-f-]{36};/);
+    firstVisitorId = visitorCookie?.split(";")[0] ?? "";
+
+    const second = await worker.fetch(
+      postJson("/api/video-reaction", { videoId: "commit-retry" }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(second.status).toBe(200);
+    expect(await second.json()).toEqual({ count: 2 });
+
+    const recovered = await worker.fetch(
+      new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: firstVisitorId,
+        },
+        body: JSON.stringify({ videoId: "commit-retry" }),
+      }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ count: 2 });
+    expect(kv.store.get("reaction:commit-retry")).toMatch(/^2:[0-9a-f-]{36}$/);
+  });
+
+  test("集計putの部分失敗後、別訪問者が同じ目標値まで進めても自分の加算を取りこぼさない", async () => {
+    // Issue #433のレビューで指摘された回帰: 訪問者Aの集計put自体が失敗し、
+    // 集計値が更新されないまま訪問者Bが同じtargetCountまで正しく加算した場合、
+    // Aが再送すると「自分の目標値に達している」と誤判定して自分の加算を
+    // 永久に取りこぼしてはならない。
+    const kv = createKv();
+    const originalPut = kv.put;
+    let shouldFailAggregatePut = true;
+    kv.put = async (key, value, options) => {
+      if (shouldFailAggregatePut && key === "reaction:collision-test") {
+        shouldFailAggregatePut = false;
+        throw new Error("aggregate put failed");
+      }
+      await originalPut(key, value, options);
+    };
+
+    const first = await worker.fetch(
+      postJson("/api/video-reaction", { videoId: "collision-test" }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(first.status).toBe(502);
+    const visitorACookie = first.headers.get("set-cookie");
+    expect(visitorACookie).toMatch(/^MAYABASE_VISITOR_ID=[0-9a-f-]{36};/);
+
+    // 訪問者B(別Cookie)が同じ動画へ反応し、集計値を0→1へ正しく進める。
+    const fromB = await worker.fetch(
+      postJson("/api/video-reaction", { videoId: "collision-test" }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(fromB.status).toBe(200);
+    expect(await fromB.json()).toEqual({ count: 1 });
+
+    // 訪問者Aが同じCookieで再送すると、自分の加算がまだ反映されていないと
+    // 正しく判定し、二重加算にはならずに1件だけ加算されて合計2になる。
+    const recoveredA = await worker.fetch(
+      new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: visitorACookie?.split(";")[0] ?? "",
+        },
+        body: JSON.stringify({ videoId: "collision-test" }),
+      }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(recoveredA.status).toBe(200);
+    expect(await recoveredA.json()).toEqual({ count: 2 });
+    expect(kv.store.get("reaction:collision-test")).toMatch(/^2:[0-9a-f-]{36}$/);
+  });
+
+  test("同一動画への異なる訪問者はそれぞれ加算され、duplicateにならない", async () => {
+    const kv = createKv();
+    const first = await worker.fetch(
+      postJson("/api/video-reaction", { videoId: "multi-visitor" }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(await first.json()).toEqual({ count: 1 });
+
+    const second = await worker.fetch(
+      postJson("/api/video-reaction", { videoId: "multi-visitor" }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(await second.json()).toEqual({ count: 2 });
+
+    expect(
+      [...kv.store.keys()].filter((storeKey) =>
+        storeKey.startsWith("reaction:multi-visitor:visitor:"),
+      ),
+    ).toHaveLength(2);
+  });
+
+  test("不正なCookie値は無視され、新しい訪問者IDが発行される", async () => {
+    const kv = createKv();
+    const response = await worker.fetch(
+      new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: "MAYABASE_VISITOR_ID=not-a-valid-uuid",
+        },
+        body: JSON.stringify({ videoId: "bad-cookie" }),
+      }),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ count: 1 });
+    const setCookie = response.headers.get("set-cookie");
+    expect(setCookie).toMatch(/^MAYABASE_VISITOR_ID=[0-9a-f-]{36};/);
+    expect(setCookie).not.toContain("not-a-valid-uuid");
+  });
+
+  test("同一Cookieの並行POSTでも例外にならず、件数は不正な値にならない", async () => {
+    const kv = createKv();
+    const request = () =>
+      new Request("https://portal.mayabase.workers.dev/api/video-reaction", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: "MAYABASE_VISITOR_ID=11111111-1111-4111-8111-111111111111",
+        },
+        body: JSON.stringify({ videoId: "concurrent-test" }),
+      });
+
+    // Cloudflare KVには条件付き書き込みがないため、完全同時リクエストの原子性は
+    // 保証しない(PR本文の制約どおり)。ここでは例外を投げずに応答し、
+    // 件数が非負の整数として安定していることだけを確認する。
+    const [responseA, responseB] = await Promise.all([
+      worker.fetch(request(), { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv }),
+      worker.fetch(request(), { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv }),
+    ]);
+    expect(responseA.status).toBe(200);
+    expect(responseB.status).toBe(200);
+    const [bodyA, bodyB] = await Promise.all([responseA.json(), responseB.json()]);
+    expect(Number.isSafeInteger(bodyA.count) && bodyA.count >= 1).toBe(true);
+    expect(Number.isSafeInteger(bodyB.count) && bodyB.count >= 1).toBe(true);
   });
 
   test("保存済みリアクション件数をGETで取得する", async () => {
