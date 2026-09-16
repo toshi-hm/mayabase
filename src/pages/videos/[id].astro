@@ -558,6 +558,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   interface YouTubePlayerStateChangeEvent {
     data: number;
   }
+  import { loadYouTubeIframeApi } from "../../lib/youtubeApi";
   import {
     CONTINUE_WATCHING_PROGRESS_STORAGE_KEY,
     clearContinueWatchingProgress,
@@ -583,13 +584,6 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     ) => YouTubePlayer;
     PlayerState: { ENDED: number; PLAYING: number };
   }
-  declare global {
-    interface Window {
-      YT?: YouTubeIframeApi;
-      onYouTubeIframeAPIReady?: () => void;
-    }
-  }
-
   const frame = document.getElementById("video-player-frame");
   const chapterLinks = document.querySelectorAll<HTMLAnchorElement>("[data-chapter-seconds]");
   const nextVideoOverlay = document.getElementById("next-video-overlay");
@@ -697,9 +691,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       hideNextVideo();
     });
 
-    window.onYouTubeIframeAPIReady = () => {
-      const YT = window.YT;
-      if (!YT) return;
+    const initializePlayer = (YT: YouTubeIframeApi): void => {
       // frame は iframe_api 読み込み前後で不変(このスクリプトが差し替えるのは src のみ)。
       // 既存の iframe を渡すことで API 側が enablejsapi=1 のプレイヤーとして認識する(公式仕様)。
       player = new YT.Player(frame, {
@@ -726,8 +718,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       });
     };
 
-    const apiScript = document.createElement("script");
-    apiScript.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(apiScript);
+    loadYouTubeIframeApi<YouTubeIframeApi>()
+      .then(initializePlayer)
+      .catch(() => {});
   }
 </script>
