@@ -146,7 +146,6 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     buildWatchLaterPlaylistUrl,
     orderSavedIdsByStorage,
     parseStoredWatchLaterIds,
-    WATCH_LATER_PLAYLIST_MAX_ITEMS,
     WATCH_LATER_STORAGE_KEY,
   } from "../lib/watchLater";
 
@@ -184,9 +183,10 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       // 再生順はカードのDOM順(公開日時降順)ではなく、ユーザーが保存した順(storedIds)にする(#364)。
       const visibleIds = orderSavedIdsByStorage(storedIds, cardIds);
       playlistLink.hidden = visibleIds.length < 2;
-      playlistLink.href = buildWatchLaterPlaylistUrl(
-        visibleIds.slice(0, WATCH_LATER_PLAYLIST_MAX_ITEMS),
-      );
+      // 上限(50件)超過時に直近保存分を優先するロジックは buildWatchLaterPlaylistUrl 内部に
+      // 既にあるため、ここで先頭から事前に切り詰めない(#449: 事前スライスにより内部の
+      // 「末尾優先」ロジックが無効化され、最も古い50件が再生されてしまっていた)。
+      playlistLink.href = buildWatchLaterPlaylistUrl(visibleIds);
     }
     if (empty) empty.hidden = visibleCount > 0;
   }
