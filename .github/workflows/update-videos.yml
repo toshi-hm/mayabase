@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
-      # 沈黙的な取得失敗の検知時に Issue を起票/クローズするため(#201)
+      # 沈黙的な取得失敗・投稿停滞の検知時に Issue を起票/クローズするため(#201, #460)
       issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -123,6 +123,86 @@ jobs:
               }
             } catch (error) {
               console.warn(`Fetch freshness alert step failed non-fatally: ${error}`);
+            }
+
+      - name: 投稿ペースのチェック
+        # トップページに直接表示していた「投稿間隔が空いています」は運営者向けの意図に反して
+        # 全訪問者に見えていたため撤去し、代わりにここで運営者向けの Issue 通知に切り替える(#460)。
+        id: posting-cadence
+        run: bun run fetch:check-posting-cadence
+
+      - name: 投稿停滞時の Issue 通知(#460)
+        # 投稿ペースチェックが停滞(#454 の閾値超過)を検知した場合に Issue を起票して通知する。
+        # 既にアラート Issue が open であれば重複作成せず、逆に復旧を検知したら自動クローズする
+        # (取得停滞アラート(#201)と同じパターン)。
+        # ワークフロー自体はこれまで通り exit 0 を維持するため、この通知処理自体が失敗しても
+        # ワークフローは失敗させない(try/catch で握りつぶす)。
+        uses: actions/github-script@v8
+        env:
+          POSTING_CADENCE_STAGNANT: ${{ steps.posting-cadence.outputs.stagnant }}
+          POSTING_CADENCE_SUMMARY: ${{ steps.posting-cadence.outputs.summary }}
+        with:
+          script: |
+            try {
+              const marker = "<!-- posting-cadence-alert (#460) -->";
+              const label = "posting-cadence-alert";
+              const title = "⚠️ 長尺動画の投稿間隔が空いています";
+              const stagnant = process.env.POSTING_CADENCE_STAGNANT === "true";
+              const summary = process.env.POSTING_CADENCE_SUMMARY || "(詳細不明)";
+              const runUrl =
+                `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+                `/actions/runs/${context.runId}`;
+
+              const { data: openIssues } = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: "open",
+                labels: label,
+                per_page: 100,
+              });
+              const existing = openIssues.find((issue) => issue.body?.includes(marker));
+
+              if (stagnant) {
+                if (existing) {
+                  console.log(
+                    `既存のアラート Issue #${existing.number} が既に open のため、新規作成せず終了します(重複防止)。`,
+                  );
+                  return;
+                }
+                const body = [
+                  marker,
+                  summary,
+                  "",
+                  `直近の実行: ${runUrl}`,
+                  "",
+                  "新しい長尺動画を投稿すると、このIssueは次回実行時に自動的にクローズされます。",
+                ].join("\n");
+                const created = await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title,
+                  body,
+                  labels: [label],
+                });
+                console.log(`アラート Issue #${created.data.number} を作成しました。`);
+              } else if (existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body: `✅ 新しい長尺動画の投稿を確認しました。${summary}`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  state: "closed",
+                  state_reason: "completed",
+                });
+                console.log(`復旧を確認したため Issue #${existing.number} をクローズしました。`);
+              }
+            } catch (error) {
+              console.warn(`Posting cadence alert step failed non-fatally: ${error}`);
             }
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
