@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import {\n  getAdjacentVideos,\n  getRelatedVideos,\n  pickNextVideo,\n  sortRelatedVideosByReaction,\n} from "./relatedVideos";
+import {
+  getAdjacentVideos,
+  getRelatedVideos,
+  pickNextVideo,
+  sortRelatedVideosByReaction,
+} from "./relatedVideos";
 import type { Video } from "./youtube";
 
 // カテゴリ判定はタイトルに依存する(categorizeVideo)ため、テスト用動画のタイトルは
