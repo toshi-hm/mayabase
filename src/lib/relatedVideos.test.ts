@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "./relatedVideos";
+import {\n  getAdjacentVideos,\n  getRelatedVideos,\n  pickNextVideo,\n  sortRelatedVideosByReaction,\n} from "./relatedVideos";
 import type { Video } from "./youtube";
 
 // カテゴリ判定はタイトルに依存する(categorizeVideo)ため、テスト用動画のタイトルは
@@ -112,5 +112,38 @@ describe("pickNextVideo", () => {
 
   test("どちらも無ければ null(提示UI自体を出さない)", () => {
     expect(pickNextVideo({ newer: null }, [])).toBeNull();
+  });
+});
+
+
+describe("sortRelatedVideosByReaction", () => {
+  const newest = video("newest", "ChatGPT 最新機能", "2026-07-01T00:00:00+09:00");
+  const popular = video("popular", "GPT-5 レビュー", "2026-06-01T00:00:00+09:00");
+  const older = video("older", "OpenAI の新発表", "2026-01-01T00:00:00+09:00");
+
+  test("リアクション数の多い順に並ぶ", () => {
+    const sorted = sortRelatedVideosByReaction(
+      [newest, popular, older],
+      new Map([
+        ["newest", 2],
+        ["popular", 10],
+        ["older", 5],
+      ]),
+    );
+    expect(sorted.map((item) => item.id)).toEqual(["popular", "older", "newest"]);
+  });
+
+  test("同数・未取得は公開日の新しい順で安定する", () => {
+    const sorted = sortRelatedVideosByReaction(
+      [older, newest, popular],
+      new Map([["popular", 3]]),
+    );
+    expect(sorted.map((item) => item.id)).toEqual(["popular", "newest", "older"]);
+  });
+
+  test("入力配列を変更しない", () => {
+    const input = [older, newest];
+    sortRelatedVideosByReaction(input, new Map([["older", 4]]));
+    expect(input.map((item) => item.id)).toEqual(["older", "newest"]);
   });
 });
