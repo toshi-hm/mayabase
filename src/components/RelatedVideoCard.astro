@@ -33,7 +33,7 @@ const durationLabel = formatDurationLabel(video.duration);
   以前はこのリンクに付与されておらず、サイト内の関連動画経由で視聴した動画が
   「続きから」の対象にならなかった(#395)。 */
 }
-<li class="relative" data-related-video-id={video.id}>
+<li\n  class="relative"\n  data-related-video-id={video.id}\n  data-related-video-published-at={video.publishedAt}\n>
   <a
     href={`/videos/${video.id}/`}
     data-watch-track-id={video.id}
