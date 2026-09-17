@@ -511,7 +511,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             関連動画
           </h2>
           <p id="related-sort-status" class="mt-2 text-sm text-ink-muted">
-            「{CATEGORY_LABELS[category]}」カテゴリの他の動画です。気になる件数を取得できる環境では、反応の多い順に並びます。
+            「{CATEGORY_LABELS[category]}」カテゴリの他の動画です。気になる件数を取得できる環境では、
+            反応の多い順に並びます。
           </p>
           <ul
             id="related-videos-list"
@@ -573,15 +574,18 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // 本番では既存のリアクション読み取りAPIから件数を取得してから並べ替えるため、
   // API未設定・一時障害時も関連動画自体は表示し続ける(#463)。
   if (relatedList && !isStaticPreview) {
-    const relatedItems = [...relatedList.querySelectorAll<HTMLElement>("[data-related-video-id]")].map(
-      (element) => ({
+    const relatedItems = [
+      ...relatedList.querySelectorAll<HTMLElement>("[data-related-video-id]"),
+    ].map((element) => ({
         element,
         id: element.dataset.relatedVideoId ?? "",
         publishedAt: element.dataset.relatedVideoPublishedAt ?? "",
       }),
     );
 
-    const loadReactionCount = async (videoId: string): Promise<{ count: number; loaded: boolean }> => {
+    const loadReactionCount = async (
+      videoId: string,
+    ): Promise<{ count: number; loaded: boolean }> => {
       try {
         const response = await fetch(
           "/api/video-reaction?videoId=" + encodeURIComponent(videoId),
@@ -605,7 +609,10 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       const reactionCounts = new Map(
         loadedItems.map(({ item, result }) => [item.id, result.count] as const),
       );
-      const sortedItems = sortRelatedVideosByReaction(loadedItems.map(({ item }) => item), reactionCounts);
+      const sortedItems = sortRelatedVideosByReaction(
+        loadedItems.map(({ item }) => item),
+        reactionCounts,
+      );
       sortedItems.forEach(({ element }) => relatedList.append(element));
 
       if (relatedSortStatus && loadedItems.some(({ result }) => result.loaded)) {
