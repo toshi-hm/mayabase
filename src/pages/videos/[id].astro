@@ -35,7 +35,6 @@ import {
   getAdjacentVideos,
   getRelatedVideos,
   pickNextVideo,
-  sortRelatedVideosByReaction,
 } from "../../lib/relatedVideos";
 import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../lib/series";
 import {
@@ -511,8 +510,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             関連動画
           </h2>
           <p id="related-sort-status" class="mt-2 text-sm text-ink-muted">
-            「{CATEGORY_LABELS[category]}」カテゴリの他の動画です。気になる件数を取得できる環境では、
-            反応の多い順に並びます。
+            「{CATEGORY_LABELS[category]}
+            」カテゴリの他の動画です。気になる件数を取得できる環境では、 反応の多い順に並びます。
           </p>
           <ul
             id="related-videos-list"
@@ -586,9 +585,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       videoId: string,
     ): Promise<{ count: number; loaded: boolean }> => {
       try {
-        const response = await fetch(
-          "/api/video-reaction?videoId=" + encodeURIComponent(videoId),
-        );
+        const response = await fetch("/api/video-reaction?videoId=" + encodeURIComponent(videoId));
         if (!response.ok) return { count: 0, loaded: false };
         const data = (await response.json()) as { count?: unknown };
         return typeof data.count === "number" && Number.isSafeInteger(data.count) && data.count >= 0
