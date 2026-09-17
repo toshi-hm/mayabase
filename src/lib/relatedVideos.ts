@@ -19,6 +19,22 @@ export function getRelatedVideos(
     .slice(0, limit);
 }
 
+/**
+ * 「気になる」リアクション数の多い順に関連動画を並べる。
+ *
+ * 件数が同じ場合は公開日の新しい順に戻す。KVの読み取りに失敗した動画や
+ * 未取得の動画は0件として扱うため、取得できない環境でも既存の公開日順を維持する。
+ */
+export function sortRelatedVideosByReaction<T extends Pick<Video, "id" | "publishedAt">>(
+  videos: readonly T[],
+  reactionCounts: ReadonlyMap<string, number>,
+): T[] {
+  return [...videos].sort((a, b) => {
+    const reactionDifference = (reactionCounts.get(b.id) ?? 0) - (reactionCounts.get(a.id) ?? 0);
+    return reactionDifference || sortTime(b) - sortTime(a);
+  });
+}
+
 /** ソート用の時刻値。不正な日付は最古扱いにして降順リストの末尾へ寄せる(youtube.ts / rss.ts の sortTime と同じ方針) */
 function sortTime(video: Pick<Video, "publishedAt">): number {
   const time = Date.parse(video.publishedAt);
