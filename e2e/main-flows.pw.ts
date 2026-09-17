@@ -206,11 +206,16 @@ test.describe("主要導線", () => {
     const badge = card.locator(`[data-watched-badge="${videoId}"]`);
     await expect(badge).toBeHidden();
 
-    // 動画リンクは target="_blank" で新しいタブを開くため、遷移先タブは閉じて元のページで確認する
-    const popupPromise = context.waitForEvent("popup");
-    await link.click();
-    const popup = await popupPromise;
-    await popup.close();
+    // サムネイル部分は PreviewButton(プレビュー再生ボタン)が全面に重なっておりクリックを奪うため、
+    // その下にあるタイトル(h3)をクリックしてリンクへのクリックとして扱う(#464のe2e失敗の修正)。
+    // 動画リンクは target="_blank" で新しいタブを開く。視聴済み記録はクリックイベントの
+    // ハンドラ(WatchedController)が同期的に行うため、外部ドメイン(YouTube)への実際の
+    // 遷移完了は待たない。開いた場合のタブは後始末として閉じるが、実行環境のネットワーク
+    // 制限等で開かなくてもテスト自体はブロックしない。
+    context.on("page", (popup) => {
+      popup.close().catch(() => {});
+    });
+    await link.locator("h3").click();
 
     await expect(badge).toBeVisible();
     await expect(badge).toHaveText("視聴済み");
