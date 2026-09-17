@@ -31,7 +31,7 @@ import {
 } from "../../lib/glossary";
 import { getLightboxContainerClass } from "../../lib/lightbox";
 import { getTranscript, parseTranscriptsData } from "../../lib/transcripts";
-import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "../../lib/relatedVideos";
+import {\n  getAdjacentVideos,\n  getRelatedVideos,\n  pickNextVideo,\n  sortRelatedVideosByReaction,\n} from "../../lib/relatedVideos";
 import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../lib/series";
 import {
   buildPlayerCardMeta,
@@ -505,10 +505,15 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <h2 id="related-heading" class="text-xl font-bold">
             関連動画
           </h2>
-          <p class="mt-2 text-sm text-ink-muted">
-            「{CATEGORY_LABELS[category]}」カテゴリの他の動画です。
+          <p id="related-sort-status" class="mt-2 text-sm text-ink-muted">
+            「{CATEGORY_LABELS[category]}」カテゴリの他の動画です。気になる件数を取得できる環境では、反応の多い順に並びます。
           </p>
-          <ul role="list" class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul
+            id="related-videos-list"
+            data-related-videos
+            role="list"
+            class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          >
             {relatedVideos.map((relatedVideo) => (
               <RelatedVideoCard video={relatedVideo} category={category} />
             ))}
@@ -551,6 +556,60 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     </section>
   </main>
 </Base>
+
+<script>
+  import { sortRelatedVideosByReaction } from "../../lib/relatedVideos";
+
+  const relatedList = document.querySelector<HTMLElement>("[data-related-videos]");
+  const relatedSortStatus = document.getElementById("related-sort-status");
+  const isStaticPreview = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+
+  // 静的プレビューやJS無効環境では、SSRの公開日順をそのまま使う。
+  // 本番では既存のリアクション読み取りAPIから件数を取得してから並べ替えるため、
+  // API未設定・一時障害時も関連動画自体は表示し続ける(#463)。
+  if (relatedList && !isStaticPreview) {
+    const relatedItems = [...relatedList.querySelectorAll<HTMLElement>("[data-related-video-id]")].map(
+      (element) => ({
+        element,
+        id: element.dataset.relatedVideoId ?? "",
+        publishedAt: element.dataset.relatedVideoPublishedAt ?? "",
+      }),
+    );
+
+    const loadReactionCount = async (videoId: string): Promise<{ count: number; loaded: boolean }> => {
+      try {
+        const response = await fetch(
+          "/api/video-reaction?videoId=" + encodeURIComponent(videoId),
+        );
+        if (!response.ok) return { count: 0, loaded: false };
+        const data = (await response.json()) as { count?: unknown };
+        return typeof data.count === "number" && Number.isSafeInteger(data.count) && data.count >= 0
+          ? { count: data.count, loaded: true }
+          : { count: 0, loaded: false };
+      } catch {
+        return { count: 0, loaded: false };
+      }
+    };
+
+    void Promise.all(
+      relatedItems.map(async (item) => ({
+        item,
+        result: await loadReactionCount(item.id),
+      })),
+    ).then((loadedItems) => {
+      const reactionCounts = new Map(
+        loadedItems.map(({ item, result }) => [item.id, result.count] as const),
+      );
+      const sortedItems = sortRelatedVideosByReaction(loadedItems.map(({ item }) => item), reactionCounts);
+      sortedItems.forEach(({ element }) => relatedList.append(element));
+
+      if (relatedSortStatus && loadedItems.some(({ result }) => result.loaded)) {
+        relatedSortStatus.textContent =
+          "「気になる」の反応が多い順です。同数の場合は公開日の新しい順です。";
+      }
+    });
+  }
+</script>
 
 <script>
   // YouTube IFrame Player API の最小限の型(公式 @types パッケージは導入していないため自前で宣言)。
