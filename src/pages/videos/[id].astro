@@ -577,11 +577,10 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     const relatedItems = [
       ...relatedList.querySelectorAll<HTMLElement>("[data-related-video-id]"),
     ].map((element) => ({
-        element,
-        id: element.dataset.relatedVideoId ?? "",
-        publishedAt: element.dataset.relatedVideoPublishedAt ?? "",
-      }),
-    );
+      element,
+      id: element.dataset.relatedVideoId ?? "",
+      publishedAt: element.dataset.relatedVideoPublishedAt ?? "",
+    }));
 
     const loadReactionCount = async (
       videoId: string,
