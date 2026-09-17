@@ -36,13 +36,15 @@ function jstCalendarDayDiff(from: Date, to: Date): number {
 }
 
 /**
- * トップページ「最新動画」セクション向けに投稿ペースの目安を算出する(#454)。
- * 既存の `computeUpdateFrequencyLabel`(長尺・Shorts合算の週次/月次ペース)とは別に、
- * 運営者が投稿停滞にポータル上で気付けるよう「経過日数」と「直近30日の本数」を
- * 長尺/Shorts別に出す。`isShort !== true` を長尺として扱う点は index.astro の
- * `regularVideos` フィルタ(未判定は横動画として扱う)と揃えている。
- * 動画データが1件も無い場合は null を返し、呼び出し側でセクションごと非表示にする
- * (channelStats 等と同じ「取得できなければ非表示」の方針)。
+ * 運営者向けに投稿ペースの目安を算出する(#454, #460)。
+ * 既存の `computeUpdateFrequencyLabel`(長尺・Shorts合算の週次/月次ペース、訪問者向け)とは別に、
+ * 運営者が投稿停滞に気付けるよう「経過日数」と「直近30日の本数」を長尺/Shorts別に出す。
+ * `isShort !== true` を長尺として扱う点は index.astro の `regularVideos` フィルタ
+ * (未判定は横動画として扱う)と揃えている。
+ * `isStagnant` は訪問者向けページには表示せず、`scripts/check-posting-cadence.ts` から
+ * 運営者向けの Issue 通知にのみ使う(全訪問者に見える一等地に「投稿停滞」を出すと
+ * チャンネル登録の妨げになるため、#460 で index.astro から表示を撤去した)。
+ * 動画データが1件も無い場合は null を返す。
  */
 export function computePostingCadence(
   videos: readonly Pick<Video, "publishedAt" | "isShort">[],
