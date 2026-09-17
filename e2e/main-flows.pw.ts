@@ -197,6 +197,33 @@ test.describe("主要導線", () => {
     await expect(page.locator("#archive-empty")).toBeVisible();
   });
 
+  test("動画リンクをクリックすると視聴済みバッジが表示される(#423)", async ({ page, context }) => {
+    await page.goto("/videos/");
+
+    const card = page.locator("#videos-grid > li").first();
+    const link = card.locator("a[data-watch-track-id]");
+    const videoId = await link.getAttribute("data-watch-track-id");
+    const badge = card.locator(`[data-watched-badge="${videoId}"]`);
+    await expect(badge).toBeHidden();
+
+    // 動画リンクは target="_blank" で新しいタブを開くため、遷移先タブは閉じて元のページで確認する
+    const popupPromise = context.waitForEvent("popup");
+    await link.click();
+    const popup = await popupPromise;
+    await popup.close();
+
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText("視聴済み");
+
+    // 再読み込み後も localStorage の記録から視聴済み状態を復元できる
+    await page.reload();
+    const badgeAfterReload = page
+      .locator("#videos-grid > li")
+      .first()
+      .locator(`[data-watched-badge="${videoId}"]`);
+    await expect(badgeAfterReload).toBeVisible();
+  });
+
   test("動画詳細ページの「次の動画」オーバーレイをEscapeキーで閉じられる(#382)", async ({
     page,
   }) => {

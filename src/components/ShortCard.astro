@@ -67,8 +67,19 @@ const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
         {video.title}
         <span class="sr-only">(YouTube・新しいタブで開きます)</span>
       </h3>
-      <p class="mt-1.5 text-xs text-ink-muted">
+      <p class="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-muted">
         <time datetime={video.publishedAt}>{formatDateJa(video.publishedAt)}</time>
+        {
+          /* data-watched-badge は視聴済みバッジ(#423)向け。SSR時は hidden で非表示にし、
+          WatchedController.astro が保存済み視聴履歴と一致する場合のみ表示に切り替える。 */
+        }
+        <span
+          data-watched-badge={video.id}
+          hidden
+          class="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold text-ink-muted"
+        >
+          視聴済み
+        </span>
       </p>
     </div>
   </a>

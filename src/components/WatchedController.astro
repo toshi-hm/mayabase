@@ -1,0 +1,75 @@
+---
+/**
+ * 「視聴済み」バッジ(#423)のクリック記録・表示切り替えを一元管理するコントローラー。
+ * WatchLaterController.astro と同じ方針で Base.astro に 1 つだけ配置し、ページ内の
+ * 動画カードの視聴リンク(data-watch-track-id 属性。VideoCard/ArchiveCard/ShortCard/
+ * RelatedVideoCard に既に付与済み)のクリックをイベント委譲で拾って localStorage に記録し、
+ * 対応する data-watched-badge 要素の表示/非表示に反映する。DOM 要素自体は持たない
+ * (スクリプトのみ)。
+ *
+ * ContinueWatchingController.astro が扱う CONTINUE_WATCHING_STORAGE_KEY は「前回の続きから」
+ * バナー用に直近5件しか保持しない設計のため、6件目以降の視聴履歴が失われてしまう。
+ * そのため視聴済みバッジには専用の WATCHED_STORAGE_KEY を用いる(既存の続き視聴機能とは別物)。
+ */
+---
+
+<script>
+  import { parseStoredWatchedIds, recordWatchedId, WATCHED_STORAGE_KEY } from "../lib/watched";
+
+  function readStoredIds(): string[] {
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(WATCHED_STORAGE_KEY);
+    } catch {
+      // プライベートモード等で localStorage が使えない場合は空扱い
+    }
+    return parseStoredWatchedIds(raw);
+  }
+
+  function writeStoredIds(ids: string[]): void {
+    try {
+      localStorage.setItem(WATCHED_STORAGE_KEY, JSON.stringify(ids));
+    } catch {
+      // 保存に失敗しても当該セッション内の表示切り替え自体は継続する
+    }
+  }
+
+  // root 配下のバッジを、保存済みID一覧に照らして初期状態に同期する
+  function syncBadgesIn(root: ParentNode): void {
+    const savedIds = readStoredIds();
+    for (const badge of root.querySelectorAll<HTMLElement>("[data-watched-badge]")) {
+      const id = badge.dataset.watchedBadge;
+      if (id) badge.hidden = !savedIds.includes(id);
+    }
+  }
+
+  // ページ内の全バッジを初期状態に同期する
+  syncBadgesIn(document);
+
+  // videos.astro(#177)やカテゴリ・シリーズ別ページ(#432)等、DOM 肥大化対策で
+  // <template> の中身をクライアント側で後から実体化するページ向けのフック。
+  // 新しく挿入された DOM にも保存済み状態を反映する。
+  document.addEventListener("mayabase:card-materialized", (event) => {
+    const root = (event as CustomEvent<{ root?: ParentNode }>).detail?.root;
+    if (root) syncBadgesIn(root);
+  });
+
+  // イベント委譲: ページ内に何百枚カードがあってもリスナーは1つで済む(WatchLaterController と同じ方針)
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const trigger = target.closest<HTMLElement>("[data-watch-track-id]");
+    if (!trigger) return;
+    const id = trigger.dataset.watchTrackId;
+    if (!id) return;
+
+    writeStoredIds(recordWatchedId(readStoredIds(), id));
+
+    // 同じ動画のバッジは一覧・カルーセル・関連動画等、同一ページ内に複数存在し得るため全て同期する
+    for (const badge of document.querySelectorAll<HTMLElement>(
+      `[data-watched-badge="${CSS.escape(id)}"]`,
+    )) {
+      badge.hidden = false;
+    }
+  });
+</script>
