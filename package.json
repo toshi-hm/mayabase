@@ -18,7 +18,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "prettier --write \"**/*.astro\" && biome format --write .",
-    "format:check": "prettier --write \"src/pages/videos/[id].astro\" && git diff --unified=0 -- src/pages/videos/[id].astro",
+    "format:check": "prettier --check \"**/*.astro\" && biome format .",
     "font:subset": "bun run scripts/subset-fonts.ts",
     "test": "bun test",
     "test:e2e": "playwright test",
