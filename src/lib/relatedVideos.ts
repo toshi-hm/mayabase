@@ -25,10 +25,10 @@ export function getRelatedVideos(
  * 件数が同じ場合は公開日の新しい順に戻す。KVの読み取りに失敗した動画や
  * 未取得の動画は0件として扱うため、取得できない環境でも既存の公開日順を維持する。
  */
-export function sortRelatedVideosByReaction(
-  videos: readonly Video[],
+export function sortRelatedVideosByReaction<T extends Pick<Video, "id" | "publishedAt">>(
+  videos: readonly T[],
   reactionCounts: ReadonlyMap<string, number>,
-): Video[] {
+): T[] {
   return [...videos].sort((a, b) => {
     const reactionDifference = (reactionCounts.get(b.id) ?? 0) - (reactionCounts.get(a.id) ?? 0);
     return reactionDifference || sortTime(b) - sortTime(a);
