@@ -505,9 +505,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <h2 id="related-heading" class="text-xl font-bold">
             関連動画
           </h2>
-          <p id="related-sort-status" class="mt-2 text-sm text-ink-muted">
-            「{CATEGORY_LABELS[category]}
-            」カテゴリの他の動画です。気になる件数を取得できる環境では、 反応の多い順に並びます。
+          <p
+            id="related-sort-status"
+            aria-live="polite"
+            class="mt-2 text-sm text-ink-muted"
+          >
+            <span>「{CATEGORY_LABELS[category]}」カテゴリの他の動画です。</span>{" "}
+            <span>気になる件数を取得できる環境では、反応の多い順に並びます。</span>
           </p>
           <ul
             id="related-videos-list"
