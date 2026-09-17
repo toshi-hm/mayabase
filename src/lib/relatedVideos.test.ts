@@ -120,7 +120,6 @@ describe("pickNextVideo", () => {
   });
 });
 
-
 describe("sortRelatedVideosByReaction", () => {
   const newest = video("newest", "ChatGPT 最新機能", "2026-07-01T00:00:00+09:00");
   const popular = video("popular", "GPT-5 レビュー", "2026-06-01T00:00:00+09:00");
@@ -139,10 +138,7 @@ describe("sortRelatedVideosByReaction", () => {
   });
 
   test("同数・未取得は公開日の新しい順で安定する", () => {
-    const sorted = sortRelatedVideosByReaction(
-      [older, newest, popular],
-      new Map([["popular", 3]]),
-    );
+    const sorted = sortRelatedVideosByReaction([older, newest, popular], new Map([["popular", 3]]));
     expect(sorted.map((item) => item.id)).toEqual(["popular", "newest", "older"]);
   });
 
