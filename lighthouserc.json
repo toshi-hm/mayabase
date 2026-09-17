@@ -17,7 +17,8 @@
       ],
       "numberOfRuns": 5,
       "settings": {
-        "chromeFlags": "--no-sandbox --headless=new"
+        "chromeFlags": "--no-sandbox --headless=new",
+        "onlyCategories": ["performance", "accessibility", "best-practices", "seo"]
       }
     },
     "assert": {

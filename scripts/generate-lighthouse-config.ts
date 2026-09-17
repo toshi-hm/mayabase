@@ -52,6 +52,22 @@ export function selectVideoPaths(videos: Video[], availableIds: string[], count 
     .map((id) => `/videos/${id}/index.html`);
 }
 
+export function splitUrlsForShard(
+  urls: string[],
+  shardIndex: number,
+  shardCount: number,
+): string[] {
+  if (shardCount <= 1) {
+    return urls;
+  }
+  if (!Number.isInteger(shardIndex) || shardIndex < 1 || shardIndex > shardCount) {
+    throw new Error(
+      `shardIndexは1以上shardCount(${shardCount})以下の整数である必要があります: ${shardIndex}`,
+    );
+  }
+  return urls.filter((_, index) => index % shardCount === shardIndex - 1);
+}
+
 export async function generateLighthouseConfig(
   basePath = "lighthouserc.json",
   videosPath = "src/data/videos.json",
@@ -84,5 +100,17 @@ export async function generateLighthouseConfig(
 
 if (import.meta.main) {
   const config = await generateLighthouseConfig();
-  await writeFile("lighthouserc.generated.json", `${JSON.stringify(config, null, 2)}\n`);
+
+  const shardCount = Number(process.env.LHCI_SHARD_COUNT ?? "1");
+  const shardIndex = Number(process.env.LHCI_SHARD_INDEX ?? "1");
+  const shardedUrls = splitUrlsForShard(config.ci.collect.url, shardIndex, shardCount);
+  if (shardedUrls.length === 0) {
+    throw new Error(`shard ${shardIndex}/${shardCount} に割り当てるURLがありません`);
+  }
+  const shardedConfig: LighthouseConfig = {
+    ...config,
+    ci: { ...config.ci, collect: { ...config.ci.collect, url: shardedUrls } },
+  };
+
+  await writeFile("lighthouserc.generated.json", `${JSON.stringify(shardedConfig, null, 2)}\n`);
 }

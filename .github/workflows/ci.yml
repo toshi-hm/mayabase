@@ -99,14 +99,17 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  lighthouse:
+  lighthouse-shard:
     runs-on: ubuntu-latest
-    # 代表URLをトップ/一覧のみから9ページ(カテゴリ・動画詳細・シリーズ含む)に拡張したため、
-    # numberOfRuns: 5 を維持したまま計測しても収まるよう猶予を広げる(#248)。
-    # さらに13ページ(シリーズ一覧・用語集・チャプター検索・あとで見る を追加)に拡張したため
-    # 同じ理由で再度猶予を広げる(#374)。
-    timeout-minutes: 28
+    # 13ページ x numberOfRuns:5 の計測を4シャードに分割して並列実行することで
+    # 直列実行(以前は timeout-minutes: 28 が必要だった)より大幅に短縮する。
+    # numberOfRuns: 5 自体は計測の安定性のため維持する(#248 / #374)。
+    timeout-minutes: 12
     needs: ci
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -119,7 +122,10 @@ jobs:
         with:
           bun-version: 1.3.11
 
-      - name: Lighthouse対象動画URLの生成
+      - name: Lighthouse対象動画URLの生成(shard ${{ matrix.shard }}/4)
+        env:
+          LHCI_SHARD_INDEX: ${{ matrix.shard }}
+          LHCI_SHARD_COUNT: 4
         run: bun run scripts/generate-lighthouse-config.ts
 
       - name: Lighthouse CI(SEO=100 ほかを lighthouserc.json の assertion でゲート)
@@ -129,6 +135,20 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: lighthouse-reports
+          name: lighthouse-reports-shard-${{ matrix.shard }}
           path: .lighthouseci/
           retention-days: 7
+
+  lighthouse:
+    # 必須ステータスチェック名を維持するための集約ジョブ。
+    # 実体の計測は lighthouse-shard の並列マトリクスで行う。
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    needs: lighthouse-shard
+    if: always()
+    steps:
+      - name: 全シャードの結果を確認
+        run: |
+          result="${{ needs.lighthouse-shard.result }}"
+          echo "lighthouse-shard result: ${result}"
+          test "${result}" = "success"
