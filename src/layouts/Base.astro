@@ -3,6 +3,7 @@ import ContinueWatchingController from "../components/ContinueWatchingController
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import VideoLightbox from "../components/VideoLightbox.astro";
+import WatchedController from "../components/WatchedController.astro";
 import WatchLaterController from "../components/WatchLaterController.astro";
 import { site } from "../config/site";
 import { THEME_STORAGE_KEY } from "../lib/theme";
@@ -181,5 +182,7 @@ const ogImage = new URL(ogImagePath, Astro.site);
     <WatchLaterController />
     {/* 「前回の続きから」導線の視聴記録(#188)。DOM は持たずスクリプトのみ */}
     <ContinueWatchingController />
+    {/* 視聴済みバッジの記録・表示切り替え(#423)。DOM は持たずスクリプトのみ */}
+    <WatchedController />
   </body>
 </html>

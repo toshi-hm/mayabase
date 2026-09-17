@@ -197,6 +197,38 @@ test.describe("主要導線", () => {
     await expect(page.locator("#archive-empty")).toBeVisible();
   });
 
+  test("動画リンクをクリックすると視聴済みバッジが表示される(#423)", async ({ page, context }) => {
+    await page.goto("/videos/");
+
+    const card = page.locator("#videos-grid > li").first();
+    const link = card.locator("a[data-watch-track-id]");
+    const videoId = await link.getAttribute("data-watch-track-id");
+    const badge = card.locator(`[data-watched-badge="${videoId}"]`);
+    await expect(badge).toBeHidden();
+
+    // サムネイル部分は PreviewButton(プレビュー再生ボタン)が全面に重なっておりクリックを奪うため、
+    // その下にあるタイトル(h3)をクリックしてリンクへのクリックとして扱う(#464のe2e失敗の修正)。
+    // 動画リンクは target="_blank" で新しいタブを開く。視聴済み記録はクリックイベントの
+    // ハンドラ(WatchedController)が同期的に行うため、外部ドメイン(YouTube)への実際の
+    // 遷移完了は待たない。開いた場合のタブは後始末として閉じるが、実行環境のネットワーク
+    // 制限等で開かなくてもテスト自体はブロックしない。
+    context.on("page", (popup) => {
+      popup.close().catch(() => {});
+    });
+    await link.locator("h3").click();
+
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText("視聴済み");
+
+    // 再読み込み後も localStorage の記録から視聴済み状態を復元できる
+    await page.reload();
+    const badgeAfterReload = page
+      .locator("#videos-grid > li")
+      .first()
+      .locator(`[data-watched-badge="${videoId}"]`);
+    await expect(badgeAfterReload).toBeVisible();
+  });
+
   test("動画詳細ページの「次の動画」オーバーレイをEscapeキーで閉じられる(#382)", async ({
     page,
   }) => {
