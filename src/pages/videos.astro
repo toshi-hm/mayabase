@@ -458,14 +458,21 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // (Lighthouse performance低下の一因・#324)ため、インライン埋め込みではなく
   // ヘッダー横断検索(search-index.json.ts・#318)と同じ方針で遅延取得する。
   // 取得が完了するまではタイトルのみで絞り込み、完了後に概要欄本文も対象に加えて再絞り込みする。
+  // ArchiveFilterController.astro と同様、検索語が入力されている(またはURLの q に含まれる)
+  // ときだけ取得する(#459: 以前はガード無しで全訪問者に無条件で取得していた)。
   let descriptions: Record<string, string> = {};
-  fetch("/video-descriptions.json")
-    .then((res) => (res.ok ? res.json() : {}))
-    .then((data: Record<string, string>) => {
-      descriptions = data;
-      applyFilter();
-    })
-    .catch(() => {});
+  let descriptionsPromise: Promise<void> | null = null;
+
+  function loadDescriptions(): void {
+    if (descriptionsPromise) return;
+    descriptionsPromise = fetch("/video-descriptions.json")
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data: Record<string, string>) => {
+        descriptions = data;
+        applyFilter();
+      })
+      .catch(() => {});
+  }
   const count = document.getElementById("videos-count");
   const empty = document.getElementById("videos-empty");
   const moreButton = document.getElementById("videos-more") as HTMLButtonElement | null;
@@ -725,6 +732,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   search?.addEventListener("input", () => {
     // カテゴリ・長さ・並び替えと同様、独立した絞り込み状態への切り替えとみなし展開状態をリセットする(#273)
     expanded = false;
+    if (search.value.trim()) loadDescriptions();
     applyFilter();
     // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
     syncUrl("replace");
@@ -779,13 +787,16 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   });
 
   // 戻る/進むボタン操作時は URL から絞り込み状態を再構築する
+  // (#461: 検索語を含む状態に復元される場合は概要欄データも取得し直す)
   window.addEventListener("popstate", () => {
     restoreStateFromUrl();
+    if (search?.value.trim()) loadDescriptions();
     applyFilter();
   });
 
   // 初期表示:URL のクエリパラメータから絞り込み状態を復元してから表示する
   // (件数が INITIAL_COUNT を超えていれば頭打ち + ボタン表示)
   restoreStateFromUrl();
+  if (search?.value.trim()) loadDescriptions();
   applyFilter();
 </script>

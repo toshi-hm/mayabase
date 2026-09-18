@@ -197,6 +197,68 @@ test.describe("主要導線", () => {
     await expect(page.locator("#archive-empty")).toBeVisible();
   });
 
+  test("検索を使わずに/videos/を開いても概要欄データを取得しない(#459)", async ({ page }) => {
+    let requestCount = 0;
+    await page.route("**/video-descriptions.json", (route) => {
+      requestCount += 1;
+      return route.fulfill({ contentType: "application/json", body: "{}" });
+    });
+
+    await page.goto("/videos/");
+    await expect(page.locator("#videos-count")).toHaveText(/^[1-9][0-9]* 件$/);
+    expect(requestCount).toBe(0);
+
+    // 検索語を入力した時点で初めて取得される(遅延取得そのものが壊れていないことも確認する)
+    await page.locator("#video-search").fill("keyword");
+    await expect.poll(() => requestCount).toBe(1);
+
+    await page.unroute("**/video-descriptions.json");
+  });
+
+  test("ブラウザ「戻る」で検索状態に復元された際も概要欄検索が機能する(#461)", async ({ page }) => {
+    for (const { path, gridSelector, countSelector, searchSelector } of [
+      {
+        path: "/videos/category/ai/",
+        gridSelector: "#archive-grid",
+        countSelector: "#archive-count",
+        searchSelector: "#archive-search",
+      },
+      {
+        path: "/videos/",
+        gridSelector: "#videos-grid",
+        countSelector: "#videos-count",
+        searchSelector: "#video-search",
+      },
+    ]) {
+      await page.goto(path);
+
+      const grid = page.locator(gridSelector);
+      const firstCard = grid.locator(":scope > li").first();
+      const videoId = await firstCard.getAttribute("data-video-id");
+      expect(videoId).toBeTruthy();
+
+      await page.route("**/video-descriptions.json", (route) =>
+        route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ [videoId as string]: "__description-only-keyword__" }),
+        }),
+      );
+
+      // 検索 → 別ページへ遷移 → 戻る、という操作で popstate 経由の状態復元を発生させる
+      await page.locator(searchSelector).fill("__description-only-keyword__");
+      await expect(page.locator(countSelector)).toHaveText("1 件");
+
+      await page.goto("/");
+      await page.goBack();
+
+      await expect(page.locator(searchSelector)).toHaveValue("__description-only-keyword__");
+      await expect(page.locator(countSelector)).toHaveText("1 件");
+      await expect(grid.locator(`:scope > li[data-video-id="${videoId}"]`)).toBeVisible();
+
+      await page.unroute("**/video-descriptions.json");
+    }
+  });
+
   test("動画リンクをクリックすると視聴済みバッジが表示される(#423)", async ({ page, context }) => {
     await page.goto("/videos/");
 
