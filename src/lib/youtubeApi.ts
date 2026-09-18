@@ -6,6 +6,10 @@ type YouTubeApiWindow = Window & {
 };
 
 let apiPromise: Promise<unknown> | null = null;
+// 読み込みに失敗した<script>タグへの参照。<script>のerrorイベントは一度発火すると
+// 二度と再発火しないため、保持したまま次回呼び出しでこのタグにリスナーを足しても
+// 永久にpendingのままになる。次回呼び出し時にDOMから取り除き、新しいタグに差し替える。
+let failedScript: HTMLScriptElement | null = null;
 
 /** YouTube IFrame APIをページ内で一度だけ読み込み、全利用者で同じready処理を共有する。 */
 export function loadYouTubeIframeApi<T>(): Promise<T> {
@@ -25,13 +29,21 @@ export function loadYouTubeIframeApi<T>(): Promise<T> {
       else reject(new Error("YouTube IFrame API is unavailable"));
     };
 
+    if (failedScript) {
+      failedScript.remove();
+      failedScript = null;
+    }
+
     const existingScript = document.querySelector<HTMLScriptElement>(
       `script[src="${YOUTUBE_IFRAME_API_SRC}"]`,
     );
     if (existingScript) {
       existingScript.addEventListener(
         "error",
-        () => reject(new Error("YouTube IFrame API failed to load")),
+        () => {
+          failedScript = existingScript;
+          reject(new Error("YouTube IFrame API failed to load"));
+        },
         { once: true },
       );
       return;
@@ -39,7 +51,10 @@ export function loadYouTubeIframeApi<T>(): Promise<T> {
 
     const apiScript = document.createElement("script");
     apiScript.src = YOUTUBE_IFRAME_API_SRC;
-    apiScript.onerror = () => reject(new Error("YouTube IFrame API failed to load"));
+    apiScript.onerror = () => {
+      failedScript = apiScript;
+      reject(new Error("YouTube IFrame API failed to load"));
+    };
     document.head.appendChild(apiScript);
   });
 
