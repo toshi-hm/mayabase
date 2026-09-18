@@ -6,6 +6,7 @@ const IFRAME_API_SRC = "https://www.youtube.com/iframe_api";
 class FakeScriptElement {
   src = "";
   onerror: (() => void) | null = null;
+  removed = false;
   private errorListeners: Array<() => void> = [];
 
   addEventListener(type: string, callback: () => void): void {
@@ -15,6 +16,10 @@ class FakeScriptElement {
   fail(): void {
     this.onerror?.();
     for (const listener of this.errorListeners) listener();
+  }
+
+  remove(): void {
+    this.removed = true;
   }
 }
 
@@ -29,18 +34,25 @@ const fakeGlobal = globalThis as FakeGlobal;
  * window/documentをテスト用の最小フェイクに差し替える。
  * `window === globalThis` とすることで、youtubeApi.ts内の `window.YT` /
  * `window.onYouTubeIframeAPIReady` への読み書きをテストから直接観測・操作できる。
+ *
+ * querySelectorは実DOMと同様、事前に渡した`existingScripts`だけでなく
+ * `appendChild`で後から追加された(かつ`remove()`されていない)タグも対象にする。
+ * そうしないと、読み込み失敗後にDOMへ残り続ける<script>タグを次回呼び出しが
+ * 誤って見失う不具合(#XXX)をテストが検出できない。
  */
 function installFakeDom(existingScripts: FakeScriptElement[] = []) {
+  const documentScripts: FakeScriptElement[] = [...existingScripts];
   const appended: FakeScriptElement[] = [];
   Object.assign(fakeGlobal, {
     window: fakeGlobal,
     document: {
       querySelector: (selector: string) =>
-        existingScripts.find((s) => selector === `script[src="${s.src}"]`) ?? null,
+        documentScripts.find((s) => !s.removed && selector === `script[src="${s.src}"]`) ?? null,
       createElement: () => new FakeScriptElement(),
       head: {
         appendChild: (el: FakeScriptElement) => {
           el.src = el.src || IFRAME_API_SRC;
+          documentScripts.push(el);
           appended.push(el);
         },
       },

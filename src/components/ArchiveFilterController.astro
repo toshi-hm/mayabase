@@ -320,8 +320,10 @@
       if (revealed instanceof HTMLLIElement) revealed.querySelector("a")?.focus();
     });
 
+    // #461: 検索語を含む状態に復元される場合は概要欄データも取得し直す
     window.addEventListener("popstate", () => {
       restoreStateFromUrl();
+      if (search?.value.trim()) loadDescriptions();
       applyFilter();
     });
 
