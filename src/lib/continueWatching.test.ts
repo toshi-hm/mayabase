@@ -164,6 +164,21 @@ describe("再生位置", () => {
     expect(result.id0).toBe(99);
   });
 
+  test("既存エントリを更新すると最新(最後尾)扱いになり、間引き対象にならない(#473)", () => {
+    const full = Object.fromEntries(
+      Array.from({ length: CONTINUE_WATCHING_PROGRESS_MAX_ITEMS }, (_, i) => [`id${i}`, i]),
+    );
+    // id0(最古の挿入順)を直近再視聴として更新する
+    const updated = recordContinueWatchingProgress(full, "id0", 99);
+    // その後、新規エントリを1件追加して上限を超えさせる
+    const result = recordContinueWatchingProgress(updated, "new-id", 10);
+    expect(Object.keys(result)).toHaveLength(CONTINUE_WATCHING_PROGRESS_MAX_ITEMS);
+    // 直近更新した id0 は残り、更新されていない id1(次に古い)が間引かれる
+    expect(result.id0).toBe(99);
+    expect(result["new-id"]).toBe(10);
+    expect(result.id1).toBeUndefined();
+  });
+
   test("元のオブジェクトを変更しない", () => {
     const original = { abc123: 2 };
     recordContinueWatchingProgress(original, "def456", 10);
