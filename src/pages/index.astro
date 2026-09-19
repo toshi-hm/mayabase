@@ -141,7 +141,7 @@ const continueWatchingCandidatesSafe = JSON.stringify(continueWatchingCandidates
 // 更新頻度の目安(#187)。初回訪問者が登録を判断する材料として提示する。
 // データ不足・ペースが低すぎる・間隔が不規則、のいずれかの場合は算出結果を出さない
 // (subscriberCount 等と同じ「取得できなければ非表示」の方針)。
-const updateFrequencyText = computeUpdateFrequencyLabel(videos);
+const updateFrequencyText = computeUpdateFrequencyLabel(videos, new Date());
 
 // JSON-LD 構造化データ(VideoObject は Google 必須の name / description / thumbnailUrl / uploadDate を含む)
 if (!Astro.site) {
