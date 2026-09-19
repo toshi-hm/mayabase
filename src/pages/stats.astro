@@ -34,7 +34,7 @@ const channelStatsHistory = parseChannelStatsHistory(channelStatsHistoryJson);
 const subscriberText = subscriberCount !== null ? formatSubscriberCount(subscriberCount) : null;
 const totalViewCountText = viewCount !== null ? formatViewCount(viewCount) : null;
 const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt, new Date()) : null;
-const updateFrequencyText = computeUpdateFrequencyLabel(videos);
+const updateFrequencyText = computeUpdateFrequencyLabel(videos, new Date());
 
 // トップページのスパークライン(88x24)より大きく、推移が読み取りやすいサイズにする
 const CHART_WIDTH = 320;

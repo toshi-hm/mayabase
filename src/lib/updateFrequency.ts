@@ -8,6 +8,12 @@ const MIN_INTERVALS = 4;
 const MAX_MEDIAN_INTERVAL_DAYS = 30;
 /** 間隔のばらつき(p75 / p25)がこれを超える場合は「不規則」とみなし表示しない */
 const MAX_IRREGULARITY_RATIO = 4;
+/**
+ * 最新動画の公開から「算出したペースの遅い方(p75)」の何倍を超えて経過したら
+ * 投稿停止とみなし非表示にするか(#470)。間隔パターン自体は規則的でも、
+ * 最後の投稿からこの倍率を超えて日数が経過している場合は古いペース表示を止める。
+ */
+const STALE_THRESHOLD_MULTIPLIER = 2;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -26,11 +32,13 @@ function percentile(sorted: readonly number[], p: number): number {
  * 直近の公開間隔から更新頻度の目安を算出する(#187)。
  * 中央値(p50)を基準に採否を判定し、p25/p75 を使って「週2〜3本」のような幅で提示することで、
  * 単発の外れ値(まとめ公開・長期休止等)に引きずられにくくする。
- * データ不足・更新ペースが低すぎる・間隔が不規則、のいずれかに該当する場合は null を返し、
- * 呼び出し側でセクションごと非表示にする(channelStats と同じフォールバック方針)。
+ * データ不足・更新ペースが低すぎる・間隔が不規則・最新動画から算出ペースを大きく
+ * 超えて投稿が途絶えている、のいずれかに該当する場合は null を返し、呼び出し側で
+ * セクションごと非表示にする(channelStats と同じフォールバック方針)。
  */
 export function computeUpdateFrequencyLabel(
   videos: readonly Pick<Video, "publishedAt">[],
+  now: Date,
 ): string | null {
   const times = videos
     .map((v) => Date.parse(v.publishedAt))
@@ -52,6 +60,9 @@ export function computeUpdateFrequencyLabel(
   const p25 = percentile(sorted, 0.25);
   const p75 = percentile(sorted, 0.75);
   if (p25 <= 0 || p75 / p25 > MAX_IRREGULARITY_RATIO) return null;
+
+  const daysSinceLatest = (now.getTime() - (times[0] as number)) / DAY_MS;
+  if (daysSinceLatest > p75 * STALE_THRESHOLD_MULTIPLIER) return null;
 
   // 間隔が短い(p25)ほど頻度は高くなる
   const fastPerWeek = 7 / p25;
