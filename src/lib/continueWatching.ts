@@ -131,7 +131,11 @@ export function recordContinueWatchingProgress(
   if (!/^[A-Za-z0-9_-]+$/.test(videoId) || !Number.isFinite(seconds) || seconds < 0) {
     return { ...progress };
   }
-  const next = { ...progress, [videoId]: Math.floor(seconds) };
+  // 既存キーへの再代入はオブジェクトの列挙順(=挿入順)上の位置を変えないため、
+  // 一旦 delete してから代入し直すことで、更新時も必ず最後尾(最新)に来るようにする(#473)。
+  const next = { ...progress };
+  delete next[videoId];
+  next[videoId] = Math.floor(seconds);
   const ids = Object.keys(next);
   const overflow = ids.length - CONTINUE_WATCHING_PROGRESS_MAX_ITEMS;
   if (overflow > 0) {
