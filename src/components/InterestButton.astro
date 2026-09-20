@@ -199,6 +199,31 @@ const { videoId, aspect = "video" } = Astro.props;
     scheduleCountLoad(button, videoId);
   };
 
+  let errorToastHideTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // 送信失敗(ネットワークエラー・非2xxレスポンス)を一時的なトーストで知らせる。
+  // WatchLaterController.astro の showWatchLaterLimitToast と同じ方針で、
+  // ボタンごとではなくページ内で共有する単一のトーストとして表示する。
+  function showInterestErrorToast(): void {
+    let toast = document.getElementById("interest-error-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "interest-error-toast";
+      toast.setAttribute("role", "status");
+      toast.setAttribute("aria-live", "polite");
+      toast.className =
+        "fixed inset-x-4 bottom-4 z-50 mx-auto w-fit max-w-[calc(100%-2rem)] rounded-full bg-ink px-4 py-2 text-center text-sm font-semibold text-surface shadow-lg";
+      document.body.append(toast);
+    }
+    toast.textContent = "「気になる」を送信できませんでした。時間を置いてもう一度お試しください。";
+    toast.hidden = false;
+
+    clearTimeout(errorToastHideTimer);
+    errorToastHideTimer = setTimeout(() => {
+      if (toast) toast.hidden = true;
+    }, 4000);
+  }
+
   const submitReaction = async (button: HTMLButtonElement) => {
     const videoId = button.dataset.interestVideoId;
     if (
@@ -218,13 +243,18 @@ const { videoId, aspect = "video" } = Astro.props;
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ videoId }),
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        showInterestErrorToast();
+        return;
+      }
       // HTTP成功を受けた時点で再送を抑止し、レスポンスJSONが壊れていても二重送信しない。
       markReactedToVideo(videoId);
       const data = (await response.json()) as { count?: unknown };
       if (typeof data.count === "number" && requestVersions.get(videoId) === version) {
         applyCountToVideo(videoId, data.count);
       }
+    } catch {
+      showInterestErrorToast();
     } finally {
       inFlightVideoIds.delete(videoId);
       applyReactionStateToVideo(videoId);
