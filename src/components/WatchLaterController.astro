@@ -114,4 +114,14 @@
     // /watch-later/ ページ等、保存状態の変化を監視したいページへ通知する
     window.dispatchEvent(new CustomEvent("watch-later-change", { detail: { id, saved } }));
   });
+
+  // 他タブでの追加/削除(clear() を含む)を反映する(#478)。InterestButton.astro と同じ方針。
+  window.addEventListener("storage", (event) => {
+    // clear() は key=null で通知されるため、タブ間の状態も正しく解除する。
+    if (event.key !== WATCH_LATER_STORAGE_KEY && event.key !== null) return;
+    syncButtonsIn(document);
+    window.dispatchEvent(
+      new CustomEvent("watch-later-change", { detail: { id: null, saved: false } }),
+    );
+  });
 </script>
