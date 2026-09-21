@@ -352,6 +352,75 @@ test.describe("主要導線", () => {
     expect(href).toContain(storedIds.at(-1));
     expect(href).not.toContain(storedIds[0]);
   });
+
+  test("navigator.share対応環境ではシェアボタンからネイティブ共有シートを呼び出す(#479)", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.__shareCalls = [];
+      Object.defineProperty(window.navigator, "share", {
+        configurable: true,
+        value: (data: ShareData) => {
+          window.__shareCalls.push(data);
+          return Promise.resolve();
+        },
+      });
+    });
+    await page.goto("/videos/");
+
+    const shareButton = page.locator("a[data-share-url]").first();
+    const expectedUrl = await shareButton.getAttribute("data-share-url");
+    const expectedTitle = await shareButton.getAttribute("data-share-title");
+    await shareButton.click();
+
+    await expect.poll(() => page.evaluate(() => window.__shareCalls.length)).toBe(1);
+    const call = await page.evaluate(() => window.__shareCalls[0]);
+    expect(call.url).toBe(expectedUrl);
+    expect(call.title).toBe(expectedTitle);
+  });
+
+  test("navigator.shareがキャンセルされても(AbortError)エラー扱いにならない(#479)", async ({
+    page,
+  }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, "share", {
+        configurable: true,
+        value: () => {
+          const rejection = Promise.reject(new DOMException("cancelled", "AbortError"));
+          rejection
+            .catch(() => {})
+            .finally(() => {
+              window.__shareSettled = true;
+            });
+          return rejection;
+        },
+      });
+    });
+    await page.goto("/videos/");
+
+    await page.locator("a[data-share-url]").first().click();
+    await page.waitForFunction(() => window.__shareSettled === true);
+
+    expect(pageErrors).toHaveLength(0);
+  });
+
+  test("navigator.share非対応環境ではXの共有リンクへのフォールバックを維持する(#479)", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      // Web Share API 非対応環境(デスクトップ等)を模す(#479)。
+      const proto = Object.getPrototypeOf(navigator) as { share?: unknown };
+      if (proto && "share" in proto) delete proto.share;
+    });
+    await page.goto("/videos/");
+
+    const shareLink = page.locator("a[data-share-url]").first();
+    await expect(shareLink).toHaveAttribute("href", /^https:\/\/x\.com\/intent\/tweet\?/);
+    await expect(shareLink).toHaveAttribute("target", "_blank");
+  });
 });
 
 declare global {
@@ -359,5 +428,7 @@ declare global {
     __ytEvents: { onStateChange: (event: { data: number }) => void };
     YT: { PlayerState: { ENDED: number; PLAYING: number } };
     onYouTubeIframeAPIReady?: () => void;
+    __shareCalls: ShareData[];
+    __shareSettled?: boolean;
   }
 }
