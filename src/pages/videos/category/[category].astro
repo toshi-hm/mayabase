@@ -120,6 +120,8 @@ const jsonLd = {
           uploadDate: video.publishedAt,
           embedUrl: embedUrl(video.id),
           url: videoUrl(video),
+          // index.astro で定義済みの Person(運営者)ノードと同一エンティティとして紐付ける(#451)
+          creator: { "@id": `${siteUrl}#owner` },
           // Google 推奨プロパティ。取得できない動画は省略する(#173)
           ...(video.duration !== null && { duration: video.duration }),
         },

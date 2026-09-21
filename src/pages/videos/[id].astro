@@ -120,6 +120,10 @@ const pageTitle = `${video.title} | ${site.name}`;
 // meta description はハッシュタグ等を含む概要欄をそのまま出すと読みづらいため、
 // 冒頭の署名欄ハッシュタグ・末尾の定型文を除いた本文相当部分を要約する(#125)
 const pageDescription = truncate(extractSearchableText(video.description), 140) || video.title;
+// 「この動画を作っている人」ブロック用の一言プロフィール(#451)。
+// 検索経由で動画詳細ページへ直接着地する訪問者にも運営者の専門性が伝わるよう、
+// フルプロフィール(Profile.astro・トップページのみ)とは別に、コンパクトな要約を1行で示す。
+const creatorBioSummary = truncate(site.profile.bio, 60);
 // X(Twitter) Player Card / og:video 用メタ。Shorts では null(#243)
 const playerCardMeta = buildPlayerCardMeta(video);
 
@@ -152,6 +156,8 @@ const jsonLd = {
       uploadDate: video.publishedAt,
       embedUrl: embedUrl(video.id),
       url: videoUrl(video),
+      // index.astro で定義済みの Person(運営者)ノードと同一エンティティとして紐付ける(#451)
+      creator: { "@id": `${siteUrl}#owner` },
       // Google 推奨プロパティ。ISO 8601 のまま出力できる(#173)。取得できない動画は省略する
       // (viewCount と同じ「取得できたものだけ表示」方針)。
       ...(video.duration !== null && { duration: video.duration }),
@@ -521,6 +527,43 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         </section>
       )
     }
+
+    {
+      /* この動画を作っている人(#451)。検索経由でこのページへ直接着地した訪問者にも、
+      運営者がどんな専門性を持って発信しているかが伝わるよう、トップページの
+      フルプロフィール(Profile.astro)とは別にコンパクトな要約を掲載する。
+      表示データは site.profile を再利用し、文言の二重管理を避ける。 */
+    }
+    <section aria-labelledby="creator-heading" class="mt-16">
+      <h2 id="creator-heading" class="text-xl font-bold">この動画を作っている人</h2>
+      <div
+        class="mt-4 flex flex-col items-start gap-4 rounded-xl bg-surface-raised p-5 sm:flex-row sm:items-center"
+      >
+        <img
+          src={site.profile.image}
+          alt={site.profile.name}
+          width="96"
+          height="96"
+          loading="lazy"
+          decoding="async"
+          class="aspect-square w-16 shrink-0 rounded-full object-cover"
+        />
+        <div class="min-w-0">
+          <p class="font-bold">{site.profile.name}</p>
+          <p class="text-sm font-semibold text-accent">{site.profile.role}</p>
+          <p class="mt-1 text-sm text-ink-muted">{creatorBioSummary}</p>
+        </div>
+        <a
+          href={subscribeUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="shrink-0 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-strong sm:ml-auto"
+        >
+          チャンネル登録する <span aria-hidden="true">↗</span>
+          <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+        </a>
+      </div>
+    </section>
 
     <section aria-labelledby="video-cta-heading" class="mt-16">
       <div class="rounded-2xl bg-surface-raised p-8 text-center">
