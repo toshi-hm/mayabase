@@ -223,6 +223,11 @@ export function buildChannelStatsView(
 ): ChannelStatsView {
   const { subscriberCount, viewCount, fetchedAt } = stats;
   const nextMilestone = subscriberCount !== null ? nextSubscriberMilestone(subscriberCount) : null;
+  // formatFetchedAt は不正な日時文字列(パース不能)の場合に例外ではなく空文字列を返す(#80)。
+  // fetchedAt が非 null でもここで "" になり得るため、`fetchedAtText` / `updateFailedText` が
+  // 「どちらか一方だけが必ず入る」という下記の契約を保つには、空文字を null に正規化してから
+  // updateFailedText の判定に使う必要がある(空文字のままだと両方とも実質「空」になり得る)。
+  const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt, now) || null : null;
   return {
     subscriberCount,
     subscriberText: subscriberCount !== null ? formatSubscriberCount(subscriberCount) : null,
@@ -236,8 +241,8 @@ export function buildChannelStatsView(
         ? formatSubscriberCount(nextMilestone - subscriberCount)
         : null,
     fetchedAt,
-    fetchedAtText: fetchedAt !== null ? formatFetchedAt(fetchedAt, now) : null,
+    fetchedAtText,
     updateFailedText:
-      fetchedAt === null ? "更新失敗(登録者数・総再生回数は取得できていません)" : null,
+      fetchedAtText === null ? "更新失敗(登録者数・総再生回数は取得できていません)" : null,
   };
 }

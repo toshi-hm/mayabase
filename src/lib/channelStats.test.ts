@@ -257,4 +257,17 @@ describe("buildChannelStatsView", () => {
     expect(failure.fetchedAtText).toBeNull();
     expect(failure.updateFailedText).not.toBeNull();
   });
+
+  test("fetchedAt が不正な日時文字列(パース不能)の場合も updateFailedText が入る(#438: 排他性の維持)", () => {
+    // formatFetchedAt は不正な日時文字列に対して例外ではなく空文字列を返す(#80)。
+    // fetchedAt 自体は non-null なので、空文字を null に正規化しないと
+    // fetchedAtText / updateFailedText が両方とも実質「空」になってしまう。
+    const view = buildChannelStatsView(
+      { subscriberCount: 1, viewCount: 1, fetchedAt: "not-a-date" },
+      1,
+      now,
+    );
+    expect(view.fetchedAtText).toBeNull();
+    expect(view.updateFailedText).toBe("更新失敗(登録者数・総再生回数は取得できていません)");
+  });
 });
