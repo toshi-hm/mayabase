@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import {
   appendChannelStatsHistory,
   buildSparklinePoints,
+  buildSubscriberTrendSummary,
   buildViewCountSparklinePoints,
+  buildViewCountTrendSummary,
   createEmptyChannelStatsHistory,
   findViewCountHistoryStartDate,
   MAX_HISTORY_ENTRIES,
@@ -10,6 +12,8 @@ import {
   sparklinePointsToPolyline,
   toJstDateString,
 } from "./channelStatsHistory";
+
+const formatCount = (count: number) => `${count.toLocaleString("ja-JP")}人`;
 
 describe("createEmptyChannelStatsHistory", () => {
   test("空配列を返す", () => {
@@ -220,6 +224,67 @@ describe("findViewCountHistoryStartDate", () => {
       { date: "2026-08-03", subscriberCount: 110, viewCount: 2000 },
     ];
     expect(findViewCountHistoryStartDate(history)).toBe("2026-08-02");
+  });
+});
+
+describe("buildSubscriberTrendSummary", () => {
+  test("履歴が1件以下なら null を返す(スパークラインが描けない場合と同じ方針、#481)", () => {
+    expect(buildSubscriberTrendSummary([], formatCount)).toBeNull();
+    expect(
+      buildSubscriberTrendSummary([{ date: "2026-08-01", subscriberCount: 100 }], formatCount),
+    ).toBeNull();
+  });
+
+  test("増加傾向なら開始値・終了値・増加分をテキストで返す(#481)", () => {
+    const history = [
+      { date: "2026-08-01", subscriberCount: 1000 },
+      { date: "2026-08-02", subscriberCount: 1050 },
+      { date: "2026-08-03", subscriberCount: 1200 },
+    ];
+    expect(buildSubscriberTrendSummary(history, formatCount)).toBe(
+      "1,000人から1,200人へ、200人増加",
+    );
+  });
+
+  test("減少傾向なら減少分をテキストで返す(#481)", () => {
+    const history = [
+      { date: "2026-08-01", subscriberCount: 1200 },
+      { date: "2026-08-02", subscriberCount: 1000 },
+    ];
+    expect(buildSubscriberTrendSummary(history, formatCount)).toBe(
+      "1,200人から1,000人へ、200人減少",
+    );
+  });
+
+  test("増減が無ければ横ばいとテキストで返す(#481)", () => {
+    const history = [
+      { date: "2026-08-01", subscriberCount: 1000 },
+      { date: "2026-08-02", subscriberCount: 1000 },
+    ];
+    expect(buildSubscriberTrendSummary(history, formatCount)).toBe("1,000人から1,000人へ、横ばい");
+  });
+});
+
+describe("buildViewCountTrendSummary", () => {
+  test("viewCount を持つエントリが2件未満なら null を返す(#481)", () => {
+    expect(buildViewCountTrendSummary([], formatCount)).toBeNull();
+    expect(
+      buildViewCountTrendSummary(
+        [{ date: "2026-08-01", subscriberCount: 100, viewCount: 1000 }],
+        formatCount,
+      ),
+    ).toBeNull();
+  });
+
+  test("viewCount が無いエントリを除外して要約する(#481)", () => {
+    const history = [
+      { date: "2026-08-01", subscriberCount: 100 },
+      { date: "2026-08-02", subscriberCount: 105, viewCount: 1000 },
+      { date: "2026-08-03", subscriberCount: 110, viewCount: 1500 },
+    ];
+    expect(buildViewCountTrendSummary(history, formatCount)).toBe(
+      "1,000人から1,500人へ、500人増加",
+    );
   });
 });
 

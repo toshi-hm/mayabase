@@ -53,6 +53,17 @@ export function formatViewCount(count: number): string {
   return `${count.toLocaleString("ja-JP")}回`;
 }
 
+/**
+ * 再生回数を省略せず3桁区切りで整形する(#481)。
+ * `formatViewCount` は1万以上を「○.○万回」に丸めるため、推移の開始値・終了値を
+ * 丸めた値で表示すると、実際は異なる値でも同じ表示文字列に収束し、増減テキストと
+ * 矛盾しうる(例: 147,132回→150,451回が両方「15万回」に丸まる)。丸めない表記が必要な
+ * 箇所(スクリーンリーダー向けの推移要約等)ではこちらを使う。
+ */
+export function formatViewCountFull(count: number): string {
+  return `${count.toLocaleString("ja-JP")}回`;
+}
+
 // 概要欄末尾の定型署名欄(Profile・SNS・連絡先・使用ガジェット・チャンネル登録案内等)に
 // 使われる見出し語。「【もくじ】」「【紹介した商品】」のような本文内容の見出しは対象に含めない
 // (#234)。実データ(94本)で全動画共通に使われている見出し語から構成している。
