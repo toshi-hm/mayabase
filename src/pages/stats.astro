@@ -8,7 +8,12 @@ import channelStatsJson from "../data/channel-stats.json";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
-import { formatFetchedAt, formatSubscriberCount, parseChannelStats } from "../lib/channelStats";
+import {
+  formatFetchedAt,
+  formatSubscriberCount,
+  formatSubscriberCountFull,
+  parseChannelStats,
+} from "../lib/channelStats";
 import {
   buildSparklinePoints,
   buildSubscriberTrendSummary,
@@ -18,7 +23,7 @@ import {
   parseChannelStatsHistory,
   sparklinePointsToPolyline,
 } from "../lib/channelStatsHistory";
-import { formatViewCount } from "../lib/format";
+import { formatViewCount, formatViewCountFull } from "../lib/format";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseVideosData } from "../lib/youtube";
 
@@ -54,11 +59,14 @@ const viewCountPolyline = viewCountSparkline ? sparklinePointsToPolyline(viewCou
 
 // スパークラインは折れ線の傾きで増減を視覚的に伝えるが、同じ情報がスクリーンリーダー
 // 利用者には渡らないため、開始値・終了値・増減をテキストで要約する(#481)。
+// formatSubscriberCount/formatViewCount(1万以上を「○.○万」に丸める表示用フォーマッタ)
+// ではなく、丸めない *Full 版を使う。丸めた値だと、実際は異なる開始値・終了値が同じ
+// 表示文字列に収束し、増減テキストと矛盾しうるため(レビュー指摘 #484)。
 const subscriberTrendSummary = buildSubscriberTrendSummary(
   channelStatsHistory,
-  formatSubscriberCount,
+  formatSubscriberCountFull,
 );
-const viewCountTrendSummary = buildViewCountTrendSummary(channelStatsHistory, formatViewCount);
+const viewCountTrendSummary = buildViewCountTrendSummary(channelStatsHistory, formatViewCountFull);
 
 const historyStartDate = channelStatsHistory[0]?.date ?? null;
 // 総再生回数グラフは viewCount を持つエントリのみが対象のため、履歴全体の開始日とは
@@ -180,7 +188,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                     />
                   </svg>
                   {subscriberTrendSummary && (
-                    <figcaption id="subscriber-trend-caption" class="mt-2 text-xs text-ink-muted">
+                    <figcaption
+                      id="subscriber-trend-caption"
+                      aria-hidden="true"
+                      class="mt-2 text-xs text-ink-muted"
+                    >
                       {subscriberTrendSummary}
                     </figcaption>
                   )}
@@ -215,7 +227,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                     />
                   </svg>
                   {viewCountTrendSummary && (
-                    <figcaption id="viewcount-trend-caption" class="mt-2 text-xs text-ink-muted">
+                    <figcaption
+                      id="viewcount-trend-caption"
+                      aria-hidden="true"
+                      class="mt-2 text-xs text-ink-muted"
+                    >
                       {viewCountTrendSummary}
                     </figcaption>
                   )}
