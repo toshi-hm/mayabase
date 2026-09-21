@@ -33,6 +33,7 @@ import { getLightboxContainerClass } from "../../lib/lightbox";
 import { getTranscript, parseTranscriptsData } from "../../lib/transcripts";
 import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "../../lib/relatedVideos";
 import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../lib/series";
+import { findAiFreshnessNoticeVideo } from "../../lib/videoFreshness";
 import {
   buildPlayerCardMeta,
   embedUrl,
@@ -106,6 +107,9 @@ const relatedVideos = getRelatedVideos(video, videos, category, RELATED_LIMIT);
 const adjacentVideos = getAdjacentVideos(video, videos);
 // 再生終了後に提示する「次の動画」(#175)。無ければ提示UI自体を出さない。
 const nextVideo = pickNextVideo(adjacentVideos, relatedVideos);
+// 古いAI系動画に「情報の公開時期」注記と新しい動画への導線を出す(#452)。
+// 該当なし(AI以外/12ヶ月未満/同カテゴリに新しい動画なし)なら null でセクション自体を非表示にする。
+const freshnessNoticeVideo = findAiFreshnessNoticeVideo(video, videos, new Date());
 const viewCountText = video.viewCount !== null ? formatViewCount(video.viewCount) : null;
 // 概要欄の段落(空行区切り)を保持したまま表示するため行単位に分割する
 const descriptionParagraphs = video.description.split("\n");
@@ -244,6 +248,38 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       </span>
       {viewCountText && <span>{viewCountText}視聴</span>}
     </p>
+
+    {
+      /* AI・テック系動画はツール側のUI・機能変更が頻繁なため、公開から12ヶ月以上経過した動画には
+      情報の公開時期を明示し、同カテゴリの新しい動画へ誘導する(#452)。該当する新しい動画が
+      無ければセクション自体を表示しない(gear/glossary セクション等と同じ「該当なしなら非表示」方針)。 */
+      freshnessNoticeVideo && (
+        <div class="mt-4 rounded-lg border border-line bg-surface-raised p-4 text-sm">
+          <p class="text-ink-muted">
+            この動画は{formatDateJa(video.publishedAt)}
+            時点の情報です。最新の操作方法は下記の動画もご確認ください。
+          </p>
+          <a
+            href={`/videos/${freshnessNoticeVideo.id}/`}
+            data-watch-track-id={freshnessNoticeVideo.id}
+            class="group/freshness -m-1 mt-3 flex items-center gap-3 rounded-lg p-1 transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            <img
+              src={thumbnailFallbackUrl(freshnessNoticeVideo.id)}
+              alt=""
+              width="120"
+              height="68"
+              loading="lazy"
+              decoding="async"
+              class="aspect-video w-20 shrink-0 rounded-lg object-cover"
+            />
+            <span class="line-clamp-2 font-semibold group-hover/freshness:text-brand-accent">
+              {freshnessNoticeVideo.title}
+            </span>
+          </a>
+        </div>
+      )
+    }
 
     <div class="mt-5 flex flex-wrap gap-3">
       <a
