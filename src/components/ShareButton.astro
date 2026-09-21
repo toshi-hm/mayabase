@@ -52,6 +52,11 @@ const { title, url, variant = "overlay" } = Astro.props;
   // WatchLaterButton/InterestButton と同じくイベント委譲で1つのリスナーにまとめる。
   document.addEventListener("click", (event) => {
     if (!("share" in navigator)) return;
+    // 修飾キー押下・中クリック等は「新しいタブ/ウィンドウで開く」という標準のリンク挙動を
+    // 期待した操作のため、ネイティブ共有シートへの横取りは行わない(#479 レビュー指摘)。
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
     const target = event.target;
     if (!(target instanceof Element)) return;
     const trigger = target.closest<HTMLAnchorElement>("[data-share-url]");

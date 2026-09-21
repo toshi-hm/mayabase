@@ -407,6 +407,35 @@ test.describe("主要導線", () => {
     expect(pageErrors).toHaveLength(0);
   });
 
+  test("Ctrl/Cmdクリック等の修飾キー付きクリックではnavigator.shareを呼び出さず標準のリンク挙動を維持する(#479)", async ({
+    page,
+    context,
+  }) => {
+    await page.addInitScript(() => {
+      window.__shareCalls = [];
+      Object.defineProperty(window.navigator, "share", {
+        configurable: true,
+        value: (data: ShareData) => {
+          window.__shareCalls.push(data);
+          return Promise.resolve();
+        },
+      });
+    });
+    await page.goto("/videos/");
+
+    const shareButton = page.locator("a[data-share-url]").first();
+    const [newPage] = await Promise.all([
+      context.waitForEvent("page"),
+      shareButton.click({ modifiers: ["ControlOrMeta"] }),
+    ]);
+    await newPage.waitForLoadState();
+
+    // 修飾キー付きクリックは target="_blank" の標準挙動(新しいタブで開く)のままであり、
+    // preventDefault によるネイティブ共有シートへの横取りは発生しない(#479 レビュー指摘)。
+    expect(await page.evaluate(() => window.__shareCalls.length)).toBe(0);
+    await newPage.close();
+  });
+
   test("navigator.share非対応環境ではXの共有リンクへのフォールバックを維持する(#479)", async ({
     page,
   }) => {
