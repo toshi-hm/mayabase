@@ -95,6 +95,16 @@ const { label } = Astro.props;
   <p class="sr-only" role="status" data-carousel-status></p>
 </div>
 
+<style>
+  /* Embla はスライド間の gap-4(1rem)を考慮してスクロール位置を計算するが、
+     loop:true 時の折り返し地点(最後のスライド→最初のスライド)には
+     gap が反映されないため、最後のスライドに同じ幅の margin を足して埋める
+     (https://www.embla-carousel.com/docs/guides/slide-gaps/) */
+  [data-carousel-container] > :global(:last-child) {
+    margin-inline-end: 1rem;
+  }
+</style>
+
 <script>
   import EmblaCarousel from "embla-carousel";
   import Autoplay from "embla-carousel-autoplay";
