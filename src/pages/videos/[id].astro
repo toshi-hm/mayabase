@@ -30,6 +30,7 @@ import {
   sortGlossaryTerms,
 } from "../../lib/glossary";
 import { getLightboxContainerClass } from "../../lib/lightbox";
+import { buildOwnerPersonJsonLd } from "../../lib/personJsonLd";
 import { getTranscript, parseTranscriptsData } from "../../lib/transcripts";
 import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "../../lib/relatedVideos";
 import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../lib/series";
@@ -145,6 +146,9 @@ const jsonLd = {
       "@type": "BreadcrumbList",
       itemListElement: buildBreadcrumbJsonLd(breadcrumbItems, siteUrl),
     },
+    // 下記 VideoObject.creator から @id 参照する Person ノード本体。構造化データの解釈は
+    // ページ単位で独立しているため、参照先を index.astro に置いたままでは解決されない(#451)
+    buildOwnerPersonJsonLd(siteUrl),
     {
       "@type": "VideoObject",
       "@id": `${siteUrl}videos/${video.id}/#video`,
@@ -156,7 +160,7 @@ const jsonLd = {
       uploadDate: video.publishedAt,
       embedUrl: embedUrl(video.id),
       url: videoUrl(video),
-      // index.astro で定義済みの Person(運営者)ノードと同一エンティティとして紐付ける(#451)
+      // 同じグラフ内で定義済みの Person(運営者)ノードと同一エンティティとして紐付ける(#451)
       creator: { "@id": `${siteUrl}#owner` },
       // Google 推奨プロパティ。ISO 8601 のまま出力できる(#173)。取得できない動画は省略する
       // (viewCount と同じ「取得できたものだけ表示」方針)。
