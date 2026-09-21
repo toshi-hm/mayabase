@@ -17,12 +17,19 @@ interface Props {
 const { title, url, variant = "overlay" } = Astro.props;
 ---
 
-{/* 親要素(カード全体)は視聴リンクの <a> のため、入れ子を避けて兄弟要素として重ねて配置する */}
+{
+  /* 親要素(カード全体)は視聴リンクの <a> のため、入れ子を避けて兄弟要素として重ねて配置する。
+  href は常に X 共有インテントを指す(#479)。navigator.share に対応するモバイル端末では
+  script 側でクリックを横取りしてOSのネイティブ共有シート(LINE・メール等)を開き、
+  非対応環境(デスクトップ等)ではそのままこのリンクへ遷移してXの投稿画面を開くフォールバックとして働く。 */
+}
 <a
   href={shareIntentUrl(title, url)}
   target="_blank"
   rel="noopener noreferrer"
-  aria-label={`「${title}」をXでシェア(新しいタブで開きます)`}
+  aria-label={`「${title}」をシェア`}
+  data-share-title={title}
+  data-share-url={url}
   class:list={[
     "rounded-full p-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
     variant === "overlay"
@@ -36,3 +43,33 @@ const { title, url, variant = "overlay" } = Astro.props;
     ></path>
   </svg>
 </a>
+
+<script>
+  // navigator.share 対応環境(主にモバイル)では、クリックをXの投稿画面遷移の前に横取りして
+  // OSのネイティブ共有シート(LINE・メール・その他インストール済みアプリ)を開く(#479)。
+  // 非対応環境(デスクトップ等)では preventDefault を呼ばず、既存の href(X共有インテント)へ
+  // そのまま遷移させる。同じコンポーネントがページ内に多数存在するため(カード一覧等)、
+  // WatchLaterButton/InterestButton と同じくイベント委譲で1つのリスナーにまとめる。
+  document.addEventListener("click", (event) => {
+    if (!("share" in navigator)) return;
+    // 修飾キー押下・中クリック等は「新しいタブ/ウィンドウで開く」という標準のリンク挙動を
+    // 期待した操作のため、ネイティブ共有シートへの横取りは行わない(#479 レビュー指摘)。
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const trigger = target.closest<HTMLAnchorElement>("[data-share-url]");
+    if (!trigger) return;
+
+    event.preventDefault();
+    const title = trigger.dataset.shareTitle ?? "";
+    const url = trigger.dataset.shareUrl ?? "";
+    navigator.share({ title, url }).catch((error: unknown) => {
+      // ユーザーによる共有シートのキャンセル(AbortError)はエラー扱いにしない。
+      // それ以外の失敗も、この <a> は元々X共有インテントへのリンクとして機能するため、
+      // 新たなエラーUIは設けずログ抑止のみ行う(#479)。
+      if (error instanceof DOMException && error.name === "AbortError") return;
+    });
+  });
+</script>
