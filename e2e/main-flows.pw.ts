@@ -118,6 +118,21 @@ test.describe("主要導線", () => {
       .not.toBe(selectedBefore);
   });
 
+  test("カルーセルのループ折り返し地点(最後→最初)でもスライド間と同じ gap が効いている(#489)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    const container = page.locator("section:has(#shorts-heading) [data-carousel-container]");
+    const gap = await container.evaluate((el) => getComputedStyle(el).columnGap);
+    const lastChildMarginEnd = await container.evaluate((el) => {
+      const last = el.lastElementChild as HTMLElement;
+      return getComputedStyle(last).marginInlineEnd;
+    });
+
+    expect(lastChildMarginEnd).toBe(gap);
+  });
+
   test("動画カードのライトボックスを開閉できる", async ({ page }) => {
     await page.goto("/videos/");
 
