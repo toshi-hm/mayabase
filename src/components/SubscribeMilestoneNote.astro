@@ -10,6 +10,12 @@
  *
  * 登録者数を取得できない環境(subscriberCount === null)では、index.astro と同じ方針で
  * 何も出力しない。
+ *
+ * 呼び出し元(videos.astro / stats.astro 等)がページ内の他の登録者数表示と同じ
+ * `subscriberCount` を既に算出済みの場合は props で渡す。その値をそのまま使うことで、
+ * 同じページ内の「登録者数」表示と「次の目標まであと○人」が必ず同じ値から計算され、
+ * 矛盾しなくなる(#438)。props を省略した場合は従来通りこのコンポーネント自身が
+ * channel-stats.json を読み直す(この改修がまだ及んでいない呼び出し元向けの後方互換)。
  */
 import channelStatsJson from "../data/channel-stats.json";
 import {
@@ -18,7 +24,15 @@ import {
   parseChannelStats,
 } from "../lib/channelStats";
 
-const { subscriberCount } = parseChannelStats(channelStatsJson);
+interface Props {
+  subscriberCount?: number | null;
+}
+
+const { subscriberCount: subscriberCountProp } = Astro.props;
+const subscriberCount =
+  subscriberCountProp !== undefined
+    ? subscriberCountProp
+    : parseChannelStats(channelStatsJson).subscriberCount;
 const nextMilestoneText =
   subscriberCount !== null ? formatSubscriberCount(nextSubscriberMilestone(subscriberCount)) : null;
 const milestoneRemainingText =

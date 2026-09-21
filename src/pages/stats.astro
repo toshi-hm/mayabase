@@ -8,7 +8,7 @@ import channelStatsJson from "../data/channel-stats.json";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
-import { formatFetchedAt, formatSubscriberCount, parseChannelStats } from "../lib/channelStats";
+import { buildChannelStatsView, parseChannelStats } from "../lib/channelStats";
 import {
   buildSparklinePoints,
   buildViewCountSparklinePoints,
@@ -16,7 +16,6 @@ import {
   parseChannelStatsHistory,
   sparklinePointsToPolyline,
 } from "../lib/channelStatsHistory";
-import { formatViewCount } from "../lib/format";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseVideosData } from "../lib/youtube";
 
@@ -28,12 +27,12 @@ import { parseVideosData } from "../lib/youtube";
  */
 
 const { videos } = parseVideosData(videosJson);
-const { subscriberCount, viewCount, fetchedAt } = parseChannelStats(channelStatsJson);
+// チャンネル統計(登録者数・総再生回数・動画本数・最終更新時刻)はトップ・動画ライブラリ
+// ページと同じ正規化ロジックを通し、ページ間で表示が食い違わないようにする(#438)。
+const channelStats = parseChannelStats(channelStatsJson);
+const statsView = buildChannelStatsView(channelStats, videos.length, new Date());
 const channelStatsHistory = parseChannelStatsHistory(channelStatsHistoryJson);
 
-const subscriberText = subscriberCount !== null ? formatSubscriberCount(subscriberCount) : null;
-const totalViewCountText = viewCount !== null ? formatViewCount(viewCount) : null;
-const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt, new Date()) : null;
 const updateFrequencyText = computeUpdateFrequencyLabel(videos, new Date());
 
 // トップページのスパークライン(88x24)より大きく、推移が読み取りやすいサイズにする
@@ -91,29 +90,39 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       <SectionHeading id="stats-summary-heading" title="現在の数字" />
       <dl class="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {
-          subscriberText && (
+          statsView.subscriberText && (
             <div class="rounded-xl bg-surface-raised p-5">
               <dt class="text-sm text-ink-muted">チャンネル登録者数</dt>
-              <dd class="mt-1 text-2xl font-black">{subscriberText}</dd>
+              <dd class="mt-1 text-2xl font-black">{statsView.subscriberText}</dd>
             </div>
           )
         }
         {
-          totalViewCountText && (
+          statsView.totalViewCountText && (
             <div class="rounded-xl bg-surface-raised p-5">
               <dt class="text-sm text-ink-muted">総再生回数</dt>
-              <dd class="mt-1 text-2xl font-black">{totalViewCountText}</dd>
+              <dd class="mt-1 text-2xl font-black">{statsView.totalViewCountText}</dd>
             </div>
           )
         }
         <div class="rounded-xl bg-surface-raised p-5">
           <dt class="text-sm text-ink-muted">動画本数</dt>
-          <dd class="mt-1 text-2xl font-black">{videos.length}本</dd>
+          <dd class="mt-1 text-2xl font-black">{statsView.videoCountText}</dd>
         </div>
       </dl>
-      {fetchedAtText && <p class="mt-3 text-xs text-ink-muted">{fetchedAtText}の数値です。</p>}
+      {
+        /* 最終更新日時は取得成功時、更新失敗は一度も取得できていない場合に必ずどちらかを
+        表示する(#438の受け入れ条件)。 */
+      }
+      <p class="mt-3 text-xs text-ink-muted">
+        {
+          statsView.fetchedAtText
+            ? `${statsView.fetchedAtText}の数値です。`
+            : statsView.updateFailedText
+        }
+      </p>
       <div class="mt-4">
-        <SubscribeMilestoneNote />
+        <SubscribeMilestoneNote subscriberCount={statsView.subscriberCount} />
       </div>
     </section>
 
