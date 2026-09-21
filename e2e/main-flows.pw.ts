@@ -374,6 +374,12 @@ test.describe("主要導線", () => {
     await buttonOnA.click();
     await expect(buttonOnB).toHaveAttribute("aria-pressed", "false");
 
+    // localStorage.clear()(event.key === null)による全解除もタブBへ反映される
+    await buttonOnA.click();
+    await expect(buttonOnB).toHaveAttribute("aria-pressed", "true");
+    await pageA.evaluate(() => localStorage.clear());
+    await expect(buttonOnB).toHaveAttribute("aria-pressed", "false");
+
     await pageA.close();
     await pageB.close();
   });
@@ -396,6 +402,10 @@ test.describe("主要導線", () => {
 
     // タブB は storage イベント経由で自動的に反映される(操作していない)
     await expect(badgeOnB).toBeVisible();
+
+    // localStorage.clear()(event.key === null)による全解除もタブBへ反映される
+    await pageA.evaluate(() => localStorage.clear());
+    await expect(badgeOnB).toBeHidden();
 
     await pageA.close();
     await pageB.close();
