@@ -4,8 +4,10 @@ import ArchiveCard from "../../../components/ArchiveCard.astro";
 import ArchiveFilterController from "../../../components/ArchiveFilterController.astro";
 import Breadcrumb from "../../../components/Breadcrumb.astro";
 import SubscribeMilestoneNote from "../../../components/SubscribeMilestoneNote.astro";
+import TestimonialsExcerpt from "../../../components/TestimonialsExcerpt.astro";
 import { site, subscribeUrl } from "../../../config/site";
 import gearJson from "../../../data/gear.json";
+import testimonialsJson from "../../../data/testimonials.json";
 import videosJson from "../../../data/videos.json";
 import Base from "../../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../../lib/breadcrumb";
@@ -19,6 +21,7 @@ import {
 import { extractSearchableText, truncate } from "../../../lib/format";
 import { buildVideoGearMap, parseGearData } from "../../../lib/gear";
 import { buildOwnerPersonJsonLd } from "../../../lib/personJsonLd";
+import { parseTestimonialsData } from "../../../lib/testimonials";
 import { createVideoQueue } from "../../../lib/videoQueue";
 import {
   embedUrl,
@@ -73,6 +76,9 @@ const hasDurations = categoryVideos.some((video) => !video.isShort && video.dura
 // 愛用ガジェットとの相互リンク(videos.astro と同じ #70)
 const { items: gearItems } = parseGearData(gearJson);
 const videoGearMap = buildVideoGearMap(gearItems);
+
+// チャンネル登録CTA付近に視聴者の声を抜粋表示する(#462)
+const { testimonials } = parseTestimonialsData(testimonialsJson);
 
 // 他のカテゴリへの内部リンク(全カテゴリ横断のページランク分散・回遊導線)
 const { videos: allVideos } = parseVideosData(videosJson);
@@ -395,6 +401,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         <p class="mx-auto mt-2 max-w-xl text-ink-muted">
           チャンネル登録すると、新着動画の通知を受け取れます。
         </p>
+        <TestimonialsExcerpt testimonials={testimonials} />
         <SubscribeMilestoneNote />
         <div class="mt-5 flex flex-wrap justify-center gap-4">
           <a
