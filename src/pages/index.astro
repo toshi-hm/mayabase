@@ -21,12 +21,7 @@ import {
   categorizeVideo,
   topVideosByCategory,
 } from "../lib/categories";
-import {
-  formatFetchedAt,
-  formatSubscriberCount,
-  nextSubscriberMilestone,
-  parseChannelStats,
-} from "../lib/channelStats";
+import { buildChannelStatsView, parseChannelStats } from "../lib/channelStats";
 import {
   buildSparklinePoints,
   parseChannelStatsHistory,
@@ -97,21 +92,11 @@ const onboardingPanels = buildOnboardingPanels(
   featuredVideos,
 );
 
-// 未取得(API キー未設定・取得失敗・非公開設定)の場合は null のまま非表示にする
-const { subscriberCount, viewCount, fetchedAt } = parseChannelStats(channelStatsJson);
-const subscriberText = subscriberCount !== null ? formatSubscriberCount(subscriberCount) : null;
-// チャンネル総再生回数(#60)。登録者数と同じフォールバック方針で、未取得時は非表示にする
-const totalViewCountText = viewCount !== null ? formatViewCount(viewCount) : null;
-// 次のマイルストーン(#200)。目標値は常に計算値のため、運用コストなしで最新の目標を維持できる。
-// 登録者数を取得できない環境(subscriberCount === null)では既存方針どおり非表示にする。
-const nextMilestoneText =
-  subscriberCount !== null ? formatSubscriberCount(nextSubscriberMilestone(subscriberCount)) : null;
-const milestoneRemainingText =
-  subscriberCount !== null
-    ? formatSubscriberCount(nextSubscriberMilestone(subscriberCount) - subscriberCount)
-    : null;
-// リアルタイム取得ではないため、取得日時を併記する
-const fetchedAtText = fetchedAt !== null ? formatFetchedAt(fetchedAt, new Date()) : null;
+// チャンネル統計(登録者数・総再生回数・動画本数・最終更新時刻・次のマイルストーン)は
+// 単一のビューモデルに正規化し、動画ライブラリ・成長記録ページと表示ロジックを共有する(#438)。
+// 未取得(API キー未設定・取得失敗・非公開設定)の場合は各テキストが null になり非表示にする。
+const channelStats = parseChannelStats(channelStatsJson);
+const statsView = buildChannelStatsView(channelStats, videos.length, new Date());
 
 // 登録者数の成長トレンド(スパークライン、#249)。history は日次cronで蓄積されるため、
 // 運用開始直後は1件しか無く折れ線を描けない(2件未満は null)。その間は静かに非表示にする。
@@ -217,48 +202,58 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             <p class="mb-2 text-sm font-bold text-brand-accent">ITで日常をより便利に</p>
             <h1 class="text-4xl font-black sm:text-6xl">{site.name}</h1>
             {
-              (subscriberText || totalViewCountText) && (
-                <p class="mt-2 text-sm font-semibold text-ink-muted">
-                  {subscriberText && (
-                    <>
-                      チャンネル登録者数 <span class="text-ink">{subscriberText}</span>
-                      {sparklinePolyline && (
-                        <svg
-                          width={SPARKLINE_WIDTH}
-                          height={SPARKLINE_HEIGHT}
-                          viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT}`}
-                          class="ml-2 inline-block align-middle text-brand-accent"
-                          role="img"
-                          aria-label="登録者数の推移(直近の成長トレンド)"
-                        >
-                          <polyline
-                            points={sparklinePolyline}
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          />
-                        </svg>
-                      )}
-                    </>
-                  )}
-                  {subscriberText && totalViewCountText && " / "}
-                  {totalViewCountText && (
-                    <>
-                      総再生回数 <span class="text-ink">{totalViewCountText}</span>
-                    </>
-                  )}
-                  {fetchedAtText && ` (${fetchedAtText})`}
-                </p>
-              )
+              /* 登録者数・総再生回数は未取得なら非表示にするが、動画本数と最終更新時刻/更新失敗は
+              常に算出できるため常に表示する(#438の受け入れ条件: 最終更新日時がユーザーに
+              分かる形で表示される・取得エラー時も最終更新日時または更新失敗が分かる)。 */
             }
+            <p class="mt-2 text-sm font-semibold text-ink-muted">
+              {
+                statsView.subscriberText && (
+                  <>
+                    チャンネル登録者数 <span class="text-ink">{statsView.subscriberText}</span>
+                    {sparklinePolyline && (
+                      <svg
+                        width={SPARKLINE_WIDTH}
+                        height={SPARKLINE_HEIGHT}
+                        viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT}`}
+                        class="ml-2 inline-block align-middle text-brand-accent"
+                        role="img"
+                        aria-label="登録者数の推移(直近の成長トレンド)"
+                      >
+                        <polyline
+                          points={sparklinePolyline}
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    )}
+                    {" / "}
+                  </>
+                )
+              }
+              {
+                statsView.totalViewCountText && (
+                  <>
+                    総再生回数 <span class="text-ink">{statsView.totalViewCountText}</span>
+                    {" / "}
+                  </>
+                )
+              }
+              動画本数 <span class="text-ink">{statsView.videoCountText}</span>
+              {` (${statsView.fetchedAtText ?? statsView.updateFailedText})`}
+            </p>
             {
-              subscriberText && nextMilestoneText && milestoneRemainingText && (
-                <p class="mt-1 text-sm font-semibold text-brand-accent">
-                  次の目標({nextMilestoneText})まであと{milestoneRemainingText}!
-                </p>
-              )
+              statsView.subscriberText &&
+                statsView.nextMilestoneText &&
+                statsView.milestoneRemainingText && (
+                  <p class="mt-1 text-sm font-semibold text-brand-accent">
+                    次の目標({statsView.nextMilestoneText})まであと
+                    {statsView.milestoneRemainingText}!
+                  </p>
+                )
             }
           </div>
           <div class="lg:pb-1">
