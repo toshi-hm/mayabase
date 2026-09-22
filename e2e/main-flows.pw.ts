@@ -523,6 +523,33 @@ test.describe("主要導線", () => {
     await expect(shareLink).toHaveAttribute("href", /^https:\/\/x\.com\/intent\/tweet\?/);
     await expect(shareLink).toHaveAttribute("target", "_blank");
   });
+
+  test("navigator.shareがAbortError以外で失敗した場合はXの共有リンクへフォールバック遷移する(#493)", async ({
+    page,
+    context,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, "share", {
+        configurable: true,
+        value: () => Promise.reject(new DOMException("failed", "NotAllowedError")),
+      });
+    });
+    // 実際のX(x.com)への外部アクセスに依存しないよう、共有インテントURLへの遷移をブラウザ側で横取りする。
+    await context.route("https://x.com/intent/tweet**", (route) =>
+      route.fulfill({ status: 200, contentType: "text/html", body: "<html></html>" }),
+    );
+    await page.goto("/videos/");
+
+    const shareButton = page.locator("a[data-share-url]").first();
+    const expectedHref = await shareButton.getAttribute("href");
+    const [newPage] = await Promise.all([context.waitForEvent("page"), shareButton.click()]);
+    await newPage.waitForLoadState();
+
+    // navigator.share が preventDefault 後に AbortError 以外で失敗しても、
+    // 無言のデッドエンドにならず本来のX共有インテントへ遷移する(#493)。
+    expect(newPage.url()).toBe(expectedHref);
+    await newPage.close();
+  });
 });
 
 declare global {
