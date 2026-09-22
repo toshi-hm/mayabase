@@ -67,9 +67,10 @@ const { title, url, variant = "overlay" } = Astro.props;
     const url = trigger.dataset.shareUrl ?? "";
     navigator.share({ title, url }).catch((error: unknown) => {
       // ユーザーによる共有シートのキャンセル(AbortError)はエラー扱いにしない。
-      // それ以外の失敗も、この <a> は元々X共有インテントへのリンクとして機能するため、
-      // 新たなエラーUIは設けずログ抑止のみ行う(#479)。
       if (error instanceof DOMException && error.name === "AbortError") return;
+      // それ以外の失敗(共有対象データが不正・OS側の権限拒否等)では、preventDefault で
+      // 止めていた本来の遷移先(X共有インテント)へ改めて遷移させ、無言のデッドエンドを防ぐ(#493)。
+      window.open(trigger.href, "_blank", "noopener,noreferrer");
     });
   });
 </script>
