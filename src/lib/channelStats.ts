@@ -98,6 +98,17 @@ export function formatSubscriberCount(count: number): string {
 }
 
 /**
+ * 登録者数を省略せず3桁区切りで整形する(#481)。
+ * `formatSubscriberCount` は1万以上を「○.○万人」に丸めるため、推移の開始値・終了値を
+ * 丸めた値で表示すると、実際は異なる値でも同じ表示文字列に収束し、増減テキストと
+ * 矛盾しうる(例: 147,132回→150,451回が両方「15万回」に丸まる)。丸めない表記が必要な
+ * 箇所(スクリーンリーダー向けの推移要約等)ではこちらを使う。
+ */
+export function formatSubscriberCountFull(count: number): string {
+  return `${count.toLocaleString("ja-JP")}人`;
+}
+
+/**
  * 登録者数の桁数に応じたマイルストーンの刻み幅。
  * 1,000未満は100人刻み、1,000〜10,000未満は1,000人刻み、以降も同様に一桁ずつ広げる(#200)。
  */

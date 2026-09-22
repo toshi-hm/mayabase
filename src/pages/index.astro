@@ -29,6 +29,7 @@ import {
 } from "../lib/channelStatsHistory";
 import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredVideos";
 import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
+import { buildOwnerPersonJsonLd } from "../lib/personJsonLd";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseXPostsData } from "../lib/x";
 import { buildOnboardingPanels } from "../lib/onboarding";
@@ -155,14 +156,7 @@ const jsonLd = {
         "query-input": "required name=search_term_string",
       },
     },
-    {
-      "@type": "Person",
-      "@id": `${siteUrl}#owner`,
-      name: site.profile.name,
-      description: site.profile.bio,
-      url: siteUrl,
-      sameAs: [site.youtube.url, site.x.url],
-    },
+    buildOwnerPersonJsonLd(siteUrl),
     // 動画一覧の記述用(遷移先は youtube.com のためホストカルーセル要件の対象外)
     ...(displayedVideos.length > 0
       ? [
@@ -184,6 +178,8 @@ const jsonLd = {
                 uploadDate: video.publishedAt,
                 embedUrl: embedUrl(video.id),
                 url: videoUrl(video),
+                // 同じグラフ内で定義済みの Person(運営者)ノードと同一エンティティとして紐付ける(#451)
+                creator: { "@id": `${siteUrl}#owner` },
                 // Google 推奨プロパティ。取得できない動画は省略する(#173)
                 ...(video.duration !== null && { duration: video.duration }),
               },

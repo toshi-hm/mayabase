@@ -4,6 +4,7 @@ import {
   createEmptyChannelStats,
   formatFetchedAt,
   formatSubscriberCount,
+  formatSubscriberCountFull,
   formatVideoCount,
   nextSubscriberMilestone,
   parseChannelStats,
@@ -122,6 +123,19 @@ describe("formatSubscriberCount", () => {
     expect(formatSubscriberCount(10_000)).toBe("1万人");
     expect(formatSubscriberCount(12_345)).toBe("1.2万人");
     expect(formatSubscriberCount(150_000)).toBe("15万人");
+  });
+});
+
+describe("formatSubscriberCountFull", () => {
+  test("1万未満・1万以上のいずれも省略せず3桁区切りで返す(#481)", () => {
+    expect(formatSubscriberCountFull(900)).toBe("900人");
+    expect(formatSubscriberCountFull(12_345)).toBe("12,345人");
+    expect(formatSubscriberCountFull(150_000)).toBe("150,000人");
+  });
+
+  test("formatSubscriberCount では区別できない値でも異なる文字列になる", () => {
+    // 147,132 と 150,451 は formatSubscriberCount だとどちらも「15万人」に丸まる
+    expect(formatSubscriberCountFull(147_132)).not.toBe(formatSubscriberCountFull(150_451));
   });
 });
 
