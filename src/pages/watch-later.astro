@@ -94,7 +94,18 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     </noscript>
 
     <h2 class="sr-only">保存した動画一覧</h2>
-    <ul id="watch-later-grid" role="list" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <ul
+      id="watch-later-grid"
+      role="list"
+      class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+      data-binge-queue
+    >
+      {
+        /* data-binge-queue はカテゴリ・シリーズページ(#307)と同じ一気見マーカー。
+        VideoLightbox.astro はこの属性の値自体は読まず、祖先に見つかった時点で
+        直下の <li> を都度DOM走査してキューを組み立てるため、値は不要(空でよい)。
+        「あとで見る」は能動的に選んだ動画リストのため一気見と相性が良い。 */
+      }
       {
         categorized.map(({ video, category }) => (
           <ArchiveCard
@@ -153,6 +164,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   const empty = document.getElementById("watch-later-empty");
   const playlistLink = document.getElementById("watch-later-playlist") as HTMLAnchorElement | null;
   const cards = grid ? [...grid.querySelectorAll<HTMLLIElement>(":scope > li[data-video-id]")] : [];
+  const cardById = new Map(cards.map((card) => [card.dataset.videoId ?? "", card]));
 
   function readStoredIds(): string[] {
     let raw: string | null = null;
@@ -179,9 +191,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       if (saved) visibleCount += 1;
       if (id) cardIds.push(id);
     }
+    // 再生順はカードのDOM順(公開日時降順)ではなく、ユーザーが保存した順(storedIds)にする(#364)。
+    const visibleIds = orderSavedIdsByStorage(storedIds, cardIds);
     if (playlistLink) {
-      // 再生順はカードのDOM順(公開日時降順)ではなく、ユーザーが保存した順(storedIds)にする(#364)。
-      const visibleIds = orderSavedIdsByStorage(storedIds, cardIds);
       playlistLink.hidden = visibleIds.length < 2;
       // 上限(50件)超過時に直近保存分を優先するロジックは buildWatchLaterPlaylistUrl 内部に
       // 既にあるため、ここで先頭から事前に切り詰めない(#449: 事前スライスにより内部の
@@ -189,6 +201,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       playlistLink.href = buildWatchLaterPlaylistUrl(visibleIds);
     }
     if (empty) empty.hidden = visibleCount > 0;
+    if (grid) {
+      // data-binge-queue(一気見)はDOM順をそのまま再生キューの順序として使うため、上の
+      // プレイリスト導線(#364)と異なる順序(DOM構築順=公開日時降順)のままだと、同じ
+      // グリッド上の2つの連続再生導線が互いに矛盾した順序で再生されてしまう。保存順に
+      // 並べたカードを先頭へ移動し、非表示カードは末尾に残す(非表示分は表示上もキュー
+      // 構築上も無視されるため順序は問わない)。
+      for (const id of visibleIds) {
+        const card = cardById.get(id);
+        if (card) grid.append(card);
+      }
+    }
   }
 
   render();
