@@ -378,8 +378,14 @@ describe("main", () => {
   const existingChannelId = site.youtube.channelId;
 
   let originalApiKey: string | undefined;
-  beforeEach(() => {
+  beforeEach(async () => {
     originalApiKey = process.env.YOUTUBE_API_KEY;
+    // 通知アウトボックスは「取得データの検証」ワークフローステップ内では、直前の
+    // 「YouTube 動画データの取得」ステップが実際に新着動画を見つけて書き込んだ実データを
+    // 保持している(空とは限らない)。このファイルの現在値に依存するテスト(#323, #404)が
+    // CIでのみ不定期に失敗していたため、main() を呼ぶこのブロックのテストは常にクリーンな
+    // 空配列から開始させる。実データへの復元はファイル冒頭の afterEach が担う。
+    await Bun.write(PENDING_NOTIFICATIONS_PATH, "[]");
   });
   afterEach(() => {
     if (originalApiKey === undefined) delete process.env.YOUTUBE_API_KEY;
