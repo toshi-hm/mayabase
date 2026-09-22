@@ -1,0 +1,34 @@
+---
+/**
+ * チャンネル登録CTA付近に視聴者の声を1〜2件だけ抜粋表示する、Testimonials.astro の簡易版(#462)。
+ * トップページ(Testimonials.astro)を経由せず動画詳細・カテゴリページへ直接着地した訪問者にも
+ * 社会的証明を提示するために使う。0件時は何も描画しない(gear/glossaryセクションと同じ方針)。
+ */
+import type { Testimonial } from "../lib/testimonials";
+
+interface Props {
+  testimonials: Testimonial[];
+  /** 抜粋表示する件数(既定2件) */
+  limit?: number;
+}
+const { testimonials, limit = 2 } = Astro.props;
+const items = testimonials.slice(0, limit);
+---
+
+{
+  items.length > 0 && (
+    <div class="mx-auto mt-5 max-w-xl">
+      <h3 class="sr-only">視聴者の声</h3>
+      <ul role="list" class="grid gap-3 text-left sm:grid-cols-2">
+        {items.map((testimonial) => (
+          <li class="rounded-xl bg-surface p-4 text-sm leading-relaxed">
+            <blockquote>
+              <p>「{testimonial.quote}」</p>
+            </blockquote>
+            <cite class="mt-2 block text-xs text-ink-muted not-italic">— {testimonial.author}</cite>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
