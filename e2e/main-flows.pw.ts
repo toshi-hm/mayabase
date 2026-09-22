@@ -368,8 +368,14 @@ test.describe("主要導線", () => {
     expect(href).not.toContain(storedIds[0]);
   });
 
-  test("「あとで見る」に2件以上保存済みならプレビューが一気見キューになる", async ({ page }) => {
-    const savedIds = videosData.videos.slice(0, 2).map((video) => video.id);
+  test("「あとで見る」の一気見キューはDOM構築順(公開日時順)ではなく保存順で再生される", async ({
+    page,
+  }) => {
+    // videos[0] は videos[1] より公開日時が新しい(=構築時のDOM順で先に来る)。
+    // 保存順をその逆(videos[1] を先に保存)にすることで、「DOM順とたまたま一致しているだけ」
+    // ではなく、保存順が一気見キューの並びに実際に反映されていることを検証する。
+    const [newerVideo, olderVideo] = videosData.videos;
+    const savedIds = [olderVideo.id, newerVideo.id];
     await page.addInitScript(([key, ids]) => localStorage.setItem(key, JSON.stringify(ids)), [
       WATCH_LATER_STORAGE_KEY,
       savedIds,
@@ -378,11 +384,19 @@ test.describe("主要導線", () => {
     await page.goto("/watch-later/");
 
     const grid = page.locator("#watch-later-grid");
-    await expect(grid.locator(":scope > li:not([hidden])")).toHaveCount(2);
+    const visibleCards = grid.locator(":scope > li:not([hidden])");
+    await expect(visibleCards).toHaveCount(2);
+    // グリッドのDOM順も一括再生リンク(#364)と同じ保存順に揃う
+    await expect(visibleCards.nth(0)).toHaveAttribute("data-video-id", olderVideo.id);
+    await expect(visibleCards.nth(1)).toHaveAttribute("data-video-id", newerVideo.id);
 
-    await grid.locator("button[data-lightbox-video-id]").first().click();
+    await visibleCards.nth(0).locator("button[data-lightbox-video-id]").click();
     await expect(page.locator("#video-lightbox")).toBeVisible();
-    await expect(page.locator("#video-lightbox-queue-status")).toHaveText(/^一気見 [12] \/ 2$/);
+    await expect(page.locator("#video-lightbox-queue-status")).toHaveText("一気見 1 / 2");
+    await page.locator("[data-lightbox-close]").click();
+
+    await visibleCards.nth(1).locator("button[data-lightbox-video-id]").click();
+    await expect(page.locator("#video-lightbox-queue-status")).toHaveText("一気見 2 / 2");
   });
 
   test("navigator.share対応環境ではシェアボタンからネイティブ共有シートを呼び出す(#479)", async ({
