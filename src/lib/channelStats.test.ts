@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildChannelStatsView,
   createEmptyChannelStats,
   formatFetchedAt,
   formatSubscriberCount,
   formatSubscriberCountFull,
+  formatVideoCount,
   nextSubscriberMilestone,
   parseChannelStats,
   parseChannelStatsApiResponse,
@@ -187,5 +189,99 @@ describe("formatFetchedAt", () => {
     const nowNewYear = new Date("2026-01-01T00:30:00Z");
     // fetchedAt: UTC上は2025年だが、JST換算では2026-01-01 05:00(nowと同じ2026年)
     expect(formatFetchedAt("2025-12-31T20:00:00Z", nowNewYear)).toBe("1/1 05:00時点");
+  });
+});
+
+describe("formatVideoCount", () => {
+  test("常に3桁区切りの「○本」表記にする(万表記にはしない・#438)", () => {
+    expect(formatVideoCount(0)).toBe("0本");
+    expect(formatVideoCount(94)).toBe("94本");
+    expect(formatVideoCount(1234)).toBe("1,234本");
+    // 動画本数は実運用上ここまで大きくならないが、万表記に切り替わらないことを確認する
+    expect(formatVideoCount(12_345)).toBe("12,345本");
+  });
+});
+
+describe("buildChannelStatsView", () => {
+  const now = new Date("2026-08-15T00:00:00Z");
+
+  test("正常取得: 登録者数・総再生回数・動画本数・最終更新時刻・次の目標がすべて揃う", () => {
+    const view = buildChannelStatsView(
+      { subscriberCount: 284, viewCount: 147_000, fetchedAt: "2026-08-01T09:00:00Z" },
+      94,
+      now,
+    );
+    expect(view).toEqual({
+      subscriberCount: 284,
+      subscriberText: "284人",
+      viewCount: 147_000,
+      totalViewCountText: "14.7万回",
+      videoCount: 94,
+      videoCountText: "94本",
+      nextMilestoneText: "300人",
+      milestoneRemainingText: "16人",
+      fetchedAt: "2026-08-01T09:00:00Z",
+      fetchedAtText: "8/1 18:00時点",
+      updateFailedText: null,
+    });
+  });
+
+  test("次の目標(nextMilestoneText/milestoneRemainingText)は表示用の subscriberText と同じ subscriberCount から算出される(#438: 矛盾防止)", () => {
+    const view = buildChannelStatsView(
+      { subscriberCount: 999, viewCount: null, fetchedAt: "2026-08-01T09:00:00Z" },
+      10,
+      now,
+    );
+    expect(view.subscriberText).toBe("999人");
+    expect(view.nextMilestoneText).toBe("1,000人");
+    expect(view.milestoneRemainingText).toBe("1人");
+  });
+
+  test("登録者数が非公開/未取得(null)でも動画本数・動画本数の表記は常に算出される", () => {
+    const view = buildChannelStatsView(
+      { subscriberCount: null, viewCount: 500, fetchedAt: "2026-08-01T09:00:00Z" },
+      12,
+      now,
+    );
+    expect(view.subscriberText).toBeNull();
+    expect(view.nextMilestoneText).toBeNull();
+    expect(view.milestoneRemainingText).toBeNull();
+    expect(view.videoCountText).toBe("12本");
+    // 非公開設定であってfetchedAtはあるため、更新失敗ではなく最終更新時刻を表示する
+    expect(view.fetchedAtText).toBe("8/1 18:00時点");
+    expect(view.updateFailedText).toBeNull();
+  });
+
+  test("fetchedAt が null(一度も取得に成功していない)場合は updateFailedText が入り、fetchedAtText は null になる", () => {
+    const view = buildChannelStatsView(createEmptyChannelStats(), 5, now);
+    expect(view.fetchedAtText).toBeNull();
+    expect(view.updateFailedText).toBe("更新失敗(登録者数・総再生回数は取得できていません)");
+  });
+
+  test("fetchedAtText と updateFailedText は排他的(どちらか一方だけが入る)", () => {
+    const success = buildChannelStatsView(
+      { subscriberCount: 1, viewCount: 1, fetchedAt: "2026-08-01T09:00:00Z" },
+      1,
+      now,
+    );
+    expect(success.fetchedAtText).not.toBeNull();
+    expect(success.updateFailedText).toBeNull();
+
+    const failure = buildChannelStatsView(createEmptyChannelStats(), 1, now);
+    expect(failure.fetchedAtText).toBeNull();
+    expect(failure.updateFailedText).not.toBeNull();
+  });
+
+  test("fetchedAt が不正な日時文字列(パース不能)の場合も updateFailedText が入る(#438: 排他性の維持)", () => {
+    // formatFetchedAt は不正な日時文字列に対して例外ではなく空文字列を返す(#80)。
+    // fetchedAt 自体は non-null なので、空文字を null に正規化しないと
+    // fetchedAtText / updateFailedText が両方とも実質「空」になってしまう。
+    const view = buildChannelStatsView(
+      { subscriberCount: 1, viewCount: 1, fetchedAt: "not-a-date" },
+      1,
+      now,
+    );
+    expect(view.fetchedAtText).toBeNull();
+    expect(view.updateFailedText).toBe("更新失敗(登録者数・総再生回数は取得できていません)");
   });
 });
