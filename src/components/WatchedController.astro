@@ -72,4 +72,11 @@
       badge.hidden = false;
     }
   });
+
+  // 他タブでの視聴記録(clear() を含む)を反映する(#478)。InterestButton.astro と同じ方針。
+  window.addEventListener("storage", (event) => {
+    // clear() は key=null で通知されるため、タブ間の状態も正しく解除する。
+    if (event.key !== WATCHED_STORAGE_KEY && event.key !== null) return;
+    syncBadgesIn(document);
+  });
 </script>

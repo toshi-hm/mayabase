@@ -368,6 +368,64 @@ test.describe("主要導線", () => {
     expect(href).not.toContain(storedIds[0]);
   });
 
+  test("「あとで見る」の追加/解除が別タブへ自動で反映される(#478)", async ({ context }) => {
+    const pageA = await context.newPage();
+    const pageB = await context.newPage();
+    await pageA.goto("/videos/");
+    await pageB.goto("/videos/");
+
+    const buttonOnA = pageA.locator("[data-watch-later-id]").first();
+    const videoId = await buttonOnA.getAttribute("data-watch-later-id");
+    const buttonOnB = pageB.locator(`[data-watch-later-id="${videoId}"]`);
+
+    await expect(buttonOnA).toHaveAttribute("aria-pressed", "false");
+    await expect(buttonOnB).toHaveAttribute("aria-pressed", "false");
+
+    await buttonOnA.click();
+    await expect(buttonOnA).toHaveAttribute("aria-pressed", "true");
+    // タブB は storage イベント経由で自動的に反映される(操作していない)
+    await expect(buttonOnB).toHaveAttribute("aria-pressed", "true");
+
+    await buttonOnA.click();
+    await expect(buttonOnB).toHaveAttribute("aria-pressed", "false");
+
+    // localStorage.clear()(event.key === null)による全解除もタブBへ反映される
+    await buttonOnA.click();
+    await expect(buttonOnB).toHaveAttribute("aria-pressed", "true");
+    await pageA.evaluate(() => localStorage.clear());
+    await expect(buttonOnB).toHaveAttribute("aria-pressed", "false");
+
+    await pageA.close();
+    await pageB.close();
+  });
+
+  test("視聴済みバッジが別タブへ自動で反映される(#478)", async ({ context }) => {
+    const pageA = await context.newPage();
+    const pageB = await context.newPage();
+    await pageA.goto("/videos/");
+    await pageB.goto("/videos/");
+
+    const linkOnA = pageA.locator("a[data-watch-track-id]").first();
+    const videoId = await linkOnA.getAttribute("data-watch-track-id");
+    const badgeOnB = pageB.locator(`[data-watched-badge="${videoId}"]`);
+    await expect(badgeOnB).toBeHidden();
+
+    context.on("page", (popup) => {
+      popup.close().catch(() => {});
+    });
+    await linkOnA.locator("h3").click();
+
+    // タブB は storage イベント経由で自動的に反映される(操作していない)
+    await expect(badgeOnB).toBeVisible();
+
+    // localStorage.clear()(event.key === null)による全解除もタブBへ反映される
+    await pageA.evaluate(() => localStorage.clear());
+    await expect(badgeOnB).toBeHidden();
+
+    await pageA.close();
+    await pageB.close();
+  });
+
   test("navigator.share対応環境ではシェアボタンからネイティブ共有シートを呼び出す(#479)", async ({
     page,
   }) => {
