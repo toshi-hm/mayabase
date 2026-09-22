@@ -3,6 +3,7 @@ import {
   extractSearchableText,
   formatDateJa,
   formatViewCount,
+  formatViewCountFull,
   isRecentlyPublished,
   linkifyText,
   parseViewCountAttr,
@@ -77,6 +78,19 @@ describe("formatViewCount", () => {
     expect(formatViewCount(10_000)).toBe("1万回");
     expect(formatViewCount(12_345)).toBe("1.2万回");
     expect(formatViewCount(150_000)).toBe("15万回");
+  });
+});
+
+describe("formatViewCountFull", () => {
+  test("1万未満・1万以上のいずれも省略せず3桁区切りで返す(#481)", () => {
+    expect(formatViewCountFull(900)).toBe("900回");
+    expect(formatViewCountFull(12_345)).toBe("12,345回");
+    expect(formatViewCountFull(150_000)).toBe("150,000回");
+  });
+
+  test("formatViewCount では区別できない値でも異なる文字列になる", () => {
+    // 147,132 と 150,451 は formatViewCount だとどちらも「15万回」に丸まる
+    expect(formatViewCountFull(147_132)).not.toBe(formatViewCountFull(150_451));
   });
 });
 

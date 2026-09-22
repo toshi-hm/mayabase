@@ -19,7 +19,7 @@ const { label } = Astro.props;
 >
   {/* JS 無効時は横スクロールで全カードを閲覧できる(初期化時に overflow-hidden へ切替) */}
   <div class="overflow-x-auto pb-2" data-carousel-viewport>
-    <ul class="flex gap-4" role="list" data-carousel-container>
+    <ul class="flex" role="list" data-carousel-container>
       <slot />
     </ul>
   </div>
@@ -94,6 +94,22 @@ const { label } = Astro.props;
 
   <p class="sr-only" role="status" data-carousel-status></p>
 </div>
+
+<style>
+  /* Embla はスライド間の gap を考慮してスクロール位置を計算するが、loop:true 時の
+     折り返し地点(最後のスライド→最初のスライド)には gap が反映されないため、
+     最後のスライドに同じ幅の margin を足して埋める
+     (https://www.embla-carousel.com/docs/guides/slide-gaps/)
+     gap と margin が別々の値にドリフトしないよう、変数で値を一元管理する */
+  [data-carousel-container] {
+    --carousel-slide-gap: 1rem;
+    gap: var(--carousel-slide-gap);
+  }
+
+  [data-carousel-container] > :global(:last-child) {
+    margin-inline-end: var(--carousel-slide-gap);
+  }
+</style>
 
 <script>
   import EmblaCarousel from "embla-carousel";

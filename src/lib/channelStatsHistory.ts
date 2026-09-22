@@ -168,3 +168,48 @@ export function findViewCountHistoryStartDate(
 export function sparklinePointsToPolyline(points: readonly SparklinePoint[]): string {
   return points.map((p) => `${p.x},${p.y}`).join(" ");
 }
+
+/**
+ * 数値列から開始値・終了値・増減をテキストで要約する共通ロジック(#481)。
+ * スパークラインは折れ線の傾きで増減を視覚的に伝えるが、同じ情報が
+ * スクリーンリーダー利用者には渡らないため、`aria-label`/`figcaption` 用に使う。
+ * 値が2件未満(折れ線を描けない)場合は null を返す(buildSparklinePointsFromValues と同じ方針)。
+ */
+function buildTrendSummary(
+  values: readonly number[],
+  formatValue: (value: number) => string,
+): string | null {
+  if (values.length < 2) return null;
+
+  const start = values[0] as number;
+  const end = values[values.length - 1] as number;
+  const diff = end - start;
+  const trendText =
+    diff === 0 ? "横ばい" : diff > 0 ? `${formatValue(diff)}増加` : `${formatValue(-diff)}減少`;
+
+  return `${formatValue(start)}から${formatValue(end)}へ、${trendText}`;
+}
+
+/** 登録者数の推移を要約するテキストを算出する(#481)。 */
+export function buildSubscriberTrendSummary(
+  history: readonly ChannelStatsHistoryEntry[],
+  formatCount: (count: number) => string,
+): string | null {
+  return buildTrendSummary(
+    history.map((h) => h.subscriberCount),
+    formatCount,
+  );
+}
+
+/**
+ * チャンネル総再生回数の推移を要約するテキストを算出する(#481)。
+ * `viewCount` はフィールド追加前の既存エントリには存在しないため、
+ * buildViewCountSparklinePoints と同様に値を持つエントリのみを対象にする。
+ */
+export function buildViewCountTrendSummary(
+  history: readonly ChannelStatsHistoryEntry[],
+  formatCount: (count: number) => string,
+): string | null {
+  const values = history.map((h) => h.viewCount).filter((v): v is number => typeof v === "number");
+  return buildTrendSummary(values, formatCount);
+}

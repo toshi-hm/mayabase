@@ -118,6 +118,21 @@ test.describe("主要導線", () => {
       .not.toBe(selectedBefore);
   });
 
+  test("カルーセルのループ折り返し地点(最後→最初)でもスライド間と同じ gap が効いている(#489)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    const container = page.locator("section:has(#shorts-heading) [data-carousel-container]");
+    const gap = await container.evaluate((el) => getComputedStyle(el).columnGap);
+    const lastChildMarginEnd = await container.evaluate((el) => {
+      const last = el.lastElementChild as HTMLElement;
+      return getComputedStyle(last).marginInlineEnd;
+    });
+
+    expect(lastChildMarginEnd).toBe(gap);
+  });
+
   test("動画カードのライトボックスを開閉できる", async ({ page }) => {
     await page.goto("/videos/");
 
@@ -410,6 +425,104 @@ test.describe("主要導線", () => {
     await pageA.close();
     await pageB.close();
   });
+
+  test("navigator.share対応環境ではシェアボタンからネイティブ共有シートを呼び出す(#479)", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.__shareCalls = [];
+      Object.defineProperty(window.navigator, "share", {
+        configurable: true,
+        value: (data: ShareData) => {
+          window.__shareCalls.push(data);
+          return Promise.resolve();
+        },
+      });
+    });
+    await page.goto("/videos/");
+
+    const shareButton = page.locator("a[data-share-url]").first();
+    const expectedUrl = await shareButton.getAttribute("data-share-url");
+    const expectedTitle = await shareButton.getAttribute("data-share-title");
+    await shareButton.click();
+
+    await expect.poll(() => page.evaluate(() => window.__shareCalls.length)).toBe(1);
+    const call = await page.evaluate(() => window.__shareCalls[0]);
+    expect(call.url).toBe(expectedUrl);
+    expect(call.title).toBe(expectedTitle);
+  });
+
+  test("navigator.shareがキャンセルされても(AbortError)エラー扱いにならない(#479)", async ({
+    page,
+  }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, "share", {
+        configurable: true,
+        value: () => {
+          const rejection = Promise.reject(new DOMException("cancelled", "AbortError"));
+          rejection
+            .catch(() => {})
+            .finally(() => {
+              window.__shareSettled = true;
+            });
+          return rejection;
+        },
+      });
+    });
+    await page.goto("/videos/");
+
+    await page.locator("a[data-share-url]").first().click();
+    await page.waitForFunction(() => window.__shareSettled === true);
+
+    expect(pageErrors).toHaveLength(0);
+  });
+
+  test("Ctrl/Cmdクリック等の修飾キー付きクリックではnavigator.shareを呼び出さず標準のリンク挙動を維持する(#479)", async ({
+    page,
+    context,
+  }) => {
+    await page.addInitScript(() => {
+      window.__shareCalls = [];
+      Object.defineProperty(window.navigator, "share", {
+        configurable: true,
+        value: (data: ShareData) => {
+          window.__shareCalls.push(data);
+          return Promise.resolve();
+        },
+      });
+    });
+    await page.goto("/videos/");
+
+    const shareButton = page.locator("a[data-share-url]").first();
+    const [newPage] = await Promise.all([
+      context.waitForEvent("page"),
+      shareButton.click({ modifiers: ["ControlOrMeta"] }),
+    ]);
+    await newPage.waitForLoadState();
+
+    // 修飾キー付きクリックは target="_blank" の標準挙動(新しいタブで開く)のままであり、
+    // preventDefault によるネイティブ共有シートへの横取りは発生しない(#479 レビュー指摘)。
+    expect(await page.evaluate(() => window.__shareCalls.length)).toBe(0);
+    await newPage.close();
+  });
+
+  test("navigator.share非対応環境ではXの共有リンクへのフォールバックを維持する(#479)", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      // Web Share API 非対応環境(デスクトップ等)を模す(#479)。
+      const proto = Object.getPrototypeOf(navigator) as { share?: unknown };
+      if (proto && "share" in proto) delete proto.share;
+    });
+    await page.goto("/videos/");
+
+    const shareLink = page.locator("a[data-share-url]").first();
+    await expect(shareLink).toHaveAttribute("href", /^https:\/\/x\.com\/intent\/tweet\?/);
+    await expect(shareLink).toHaveAttribute("target", "_blank");
+  });
 });
 
 declare global {
@@ -417,5 +530,7 @@ declare global {
     __ytEvents: { onStateChange: (event: { data: number }) => void };
     YT: { PlayerState: { ENDED: number; PLAYING: number } };
     onYouTubeIframeAPIReady?: () => void;
+    __shareCalls: ShareData[];
+    __shareSettled?: boolean;
   }
 }
