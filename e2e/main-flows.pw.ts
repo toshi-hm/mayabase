@@ -368,6 +368,23 @@ test.describe("主要導線", () => {
     expect(href).not.toContain(storedIds[0]);
   });
 
+  test("「あとで見る」に2件以上保存済みならプレビューが一気見キューになる", async ({ page }) => {
+    const savedIds = videosData.videos.slice(0, 2).map((video) => video.id);
+    await page.addInitScript(([key, ids]) => localStorage.setItem(key, JSON.stringify(ids)), [
+      WATCH_LATER_STORAGE_KEY,
+      savedIds,
+    ] as const);
+
+    await page.goto("/watch-later/");
+
+    const grid = page.locator("#watch-later-grid");
+    await expect(grid.locator(":scope > li:not([hidden])")).toHaveCount(2);
+
+    await grid.locator("button[data-lightbox-video-id]").first().click();
+    await expect(page.locator("#video-lightbox")).toBeVisible();
+    await expect(page.locator("#video-lightbox-queue-status")).toHaveText(/^一気見 [12] \/ 2$/);
+  });
+
   test("navigator.share対応環境ではシェアボタンからネイティブ共有シートを呼び出す(#479)", async ({
     page,
   }) => {

@@ -94,7 +94,18 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     </noscript>
 
     <h2 class="sr-only">保存した動画一覧</h2>
-    <ul id="watch-later-grid" role="list" class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <ul
+      id="watch-later-grid"
+      role="list"
+      class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+      data-binge-queue
+    >
+      {
+        /* data-binge-queue はカテゴリ・シリーズページ(#307)と同じ一気見マーカー。
+        VideoLightbox.astro はこの属性の値自体は読まず、祖先に見つかった時点で
+        直下の <li> を都度DOM走査してキューを組み立てるため、値は不要(空でよい)。
+        「あとで見る」は能動的に選んだ動画リストのため一気見と相性が良い。 */
+      }
       {
         categorized.map(({ video, category }) => (
           <ArchiveCard
