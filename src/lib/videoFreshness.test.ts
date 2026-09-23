@@ -57,6 +57,23 @@ describe("isStaleAiVideo", () => {
       expect(isStaleAiVideo(target, NOW)).toBe(true);
     });
   });
+
+  describe("うるう年の2/29を起点とする場合(#506)", () => {
+    // 2028年はうるう年(2/29が存在)、12ヶ月前の2027年はうるう年ではない(2/28が末日)。
+    // getDate()/getMonth() はテスト実行環境のローカルタイムゾーン(CIはUTC)に依存するため、
+    // 日付がずれないよう(+09:00 との差分で前日に繰り下がらないよう)UTC表記で固定する。
+    const NOW_LEAP_DAY = new Date("2028-02-29T00:00:00Z");
+
+    test("閾値である2027-02-28ちょうどは true(3/1へ繰り上がらない)", () => {
+      const target = video("target", "ChatGPT の新機能を試す", "2027-02-28T00:00:00Z");
+      expect(isStaleAiVideo(target, NOW_LEAP_DAY)).toBe(true);
+    });
+
+    test("2027-03-01(閾値の1日後・12ヶ月未満)は false", () => {
+      const target = video("target", "ChatGPT の新機能を試す", "2027-03-01T00:00:00Z");
+      expect(isStaleAiVideo(target, NOW_LEAP_DAY)).toBe(false);
+    });
+  });
 });
 
 describe("findNewerVideoInSameCategory", () => {
