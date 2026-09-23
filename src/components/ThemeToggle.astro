@@ -127,4 +127,12 @@
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if (readStoredTheme() === "system") applyTheme("system");
   });
+
+  // 他タブでテーマが切り替えられた場合もこのタブへ反映する
+  // (WatchLaterController/WatchedController/InterestButton と同じ方針・#504)。
+  // clear() は key=null で通知されるため、その場合も system 扱いで再適用する。
+  window.addEventListener("storage", (event) => {
+    if (event.key !== THEME_STORAGE_KEY && event.key !== null) return;
+    applyTheme(readStoredTheme());
+  });
 </script>

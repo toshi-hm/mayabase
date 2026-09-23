@@ -430,6 +430,27 @@ test.describe("主要導線", () => {
     await pageB.close();
   });
 
+  test("テーマ切替が別タブへ自動で反映される(#504)", async ({ context }) => {
+    const pageA = await context.newPage();
+    const pageB = await context.newPage();
+    await pageA.goto("/");
+    await pageB.goto("/");
+
+    const toggleA = pageA.locator("#theme-toggle");
+    const htmlB = pageB.locator("html");
+
+    // system → light。タブB は storage イベント経由で自動的に反映される(操作していない)
+    await toggleA.click();
+    await expect(htmlB).toHaveClass(/theme-light/);
+
+    // light → dark
+    await toggleA.click();
+    await expect(htmlB).toHaveClass(/theme-dark/);
+
+    await pageA.close();
+    await pageB.close();
+  });
+
   test("視聴済みバッジが別タブへ自動で反映される(#478)", async ({ context }) => {
     const pageA = await context.newPage();
     const pageB = await context.newPage();
