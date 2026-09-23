@@ -19,8 +19,19 @@ export function isStaleAiVideo(video: Pick<Video, "title" | "publishedAt">, now:
   if (Number.isNaN(publishedTime)) return false;
   // 「12ヶ月」は月によって日数が異なるため、日数固定(365日等)ではなく
   // Date の月演算(setMonth)で暦月単位の閾値日時を求める。
+  // ただし now が31日や閏年の2/29等、遡った月に存在しない日付の場合、setMonth は
+  // 翌月へ繰り上げてしまう(例: 2028-02-29 の12ヶ月前を素朴に求めると2027-03-01になる)。
+  // 先に日を1日に固定してから月を進め、遡った月の末日でクランプすることで防ぐ(#506)。
+  const originalDate = now.getDate();
   const threshold = new Date(now);
+  threshold.setDate(1);
   threshold.setMonth(threshold.getMonth() - STALE_THRESHOLD_MONTHS);
+  const lastDateInThresholdMonth = new Date(
+    threshold.getFullYear(),
+    threshold.getMonth() + 1,
+    0,
+  ).getDate();
+  threshold.setDate(Math.min(originalDate, lastDateInThresholdMonth));
   return publishedTime <= threshold.getTime();
 }
 
