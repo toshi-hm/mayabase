@@ -13,6 +13,7 @@ import seriesJson from "../../data/series.json";
 import testimonialsJson from "../../data/testimonials.json";
 import videosJson from "../../data/videos.json";
 import transcriptsJson from "../../data/transcripts.json";
+import videoSummariesJson from "../../data/video-summaries.json";
 import Base from "../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../lib/breadcrumb";
 import { CATEGORY_LABELS, categorizeVideo } from "../../lib/categories";
@@ -35,6 +36,7 @@ import { getLightboxContainerClass } from "../../lib/lightbox";
 import { buildOwnerPersonJsonLd } from "../../lib/personJsonLd";
 import { getTranscript, parseTranscriptsData } from "../../lib/transcripts";
 import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "../../lib/relatedVideos";
+import { getVideoSummary, parseVideoSummariesData } from "../../lib/videoSummaries";
 import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../lib/series";
 import { parseTestimonialsData } from "../../lib/testimonials";
 import { findAiFreshnessNoticeVideo } from "../../lib/videoFreshness";
@@ -104,6 +106,9 @@ interface Props {
 
 const { video, videos, gearItems, glossaryTerms, matchedSeries } = Astro.props;
 const transcript = getTranscript(parseTranscriptsData(transcriptsJson), video);
+// 動画の「3行まとめ」(#405)。データが無い動画は null で、セクション・meta description
+// への反映のいずれも既存の概要欄要約にフォールバックする。
+const videoSummary = getVideoSummary(parseVideoSummariesData(videoSummariesJson), video);
 // チャンネル登録CTA付近に視聴者の声を抜粋表示する(#462)。トップページ経由せず本ページへ
 // 直接着地した訪問者にも社会的証明を提示する狙いのため、動画に紐づく絞り込みは行わない。
 const { testimonials } = parseTestimonialsData(testimonialsJson);
@@ -129,8 +134,11 @@ const ogThumbnail = resolveOgThumbnail(video);
 
 const pageTitle = `${video.title} | ${site.name}`;
 // meta description はハッシュタグ等を含む概要欄をそのまま出すと読みづらいため、
-// 冒頭の署名欄ハッシュタグ・末尾の定型文を除いた本文相当部分を要約する(#125)
-const pageDescription = truncate(extractSearchableText(video.description), 140) || video.title;
+// 冒頭の署名欄ハッシュタグ・末尾の定型文を除いた本文相当部分を要約する(#125)。
+// 「3行まとめ」(#405)がある動画は、手動キュレーション済みで内容の差別化に優れるため優先する。
+const pageDescription = videoSummary
+  ? truncate(videoSummary.join("。"), 140)
+  : truncate(extractSearchableText(video.description), 140) || video.title;
 // 「この動画を作っている人」ブロック用の一言プロフィール(#451)。
 // 検索経由で動画詳細ページへ直接着地する訪問者にも運営者の専門性が伝わるよう、
 // フルプロフィール(Profile.astro・トップページのみ)とは別に、コンパクトな要約を1行で示す。
@@ -164,8 +172,11 @@ const jsonLd = {
       "@id": `${siteUrl}videos/${video.id}/#video`,
       name: video.title,
       // 概要欄全文はハッシュタグや定型文が長く JSON-LD を肥大化させるため要約する(videos.astro と同じ方針)。
-      // 冒頭の署名欄ハッシュタグはノイズでしかないため、要約前に除外する(#125)
-      description: truncate(extractSearchableText(video.description), 160) || video.title,
+      // 冒頭の署名欄ハッシュタグはノイズでしかないため、要約前に除外する(#125)。
+      // 「3行まとめ」(#405)があれば pageDescription と同じ方針でそちらを優先する。
+      description: videoSummary
+        ? truncate(videoSummary.join("。"), 160)
+        : truncate(extractSearchableText(video.description), 160) || video.title,
       thumbnailUrl: [thumbnailUrl(video.id), thumbnailFallbackUrl(video.id)],
       uploadDate: video.publishedAt,
       embedUrl: embedUrl(video.id),
@@ -431,6 +442,28 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               </p>
             </div>
           </details>
+        </section>
+      )
+    }
+
+    {
+      /* 動画の「3行まとめ」(#405)。初見訪問者が数秒で内容を把握できるよう、概要欄より先に表示する。
+      データが無い動画ではセクション自体を表示しない(gear/glossary セクション等と同じ方針)。 */
+      videoSummary && (
+        <section aria-labelledby="summary-heading" class="mt-12">
+          <h2 id="summary-heading" class="text-xl font-bold">
+            この動画のポイント
+          </h2>
+          <ul role="list" class="mt-3 flex flex-col gap-2">
+            {videoSummary.map((point) => (
+              <li class="flex gap-2 leading-relaxed">
+                <span aria-hidden="true" class="text-brand-accent">
+                  ・
+                </span>
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )
     }
