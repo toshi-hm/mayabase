@@ -107,6 +107,9 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
       });
 
     button.addEventListener("click", async () => {
+      // disabled化するとフォーカスが外れブラウザに復元されないため(#505)、
+      // キーボード操作でフォーカスしていた場合は処理完了後にこのボタンへ戻す。
+      const hadFocus = document.activeElement === button;
       button.disabled = true;
       try {
         const registration = await navigator.serviceWorker.ready;
@@ -178,6 +181,7 @@ const vapidPublicKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY as string | undef
         console.warn("[push] 通知設定の切り替えに失敗しました:", error);
       } finally {
         button.disabled = false;
+        if (hadFocus) button.focus();
       }
     });
   }

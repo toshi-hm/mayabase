@@ -235,6 +235,9 @@ const { videoId, aspect = "video" } = Astro.props;
       return;
     const version = (requestVersions.get(videoId) ?? 0) + 1;
     requestVersions.set(videoId, version);
+    // disabled化するとフォーカスが外れブラウザに復元されないため(#505)、
+    // キーボード操作でフォーカスしていた場合は処理完了後にこのボタンへ戻す。
+    const hadFocus = document.activeElement === button;
     inFlightVideoIds.add(videoId);
     applyReactionStateToVideo(videoId);
     try {
@@ -258,6 +261,9 @@ const { videoId, aspect = "video" } = Astro.props;
     } finally {
       inFlightVideoIds.delete(videoId);
       applyReactionStateToVideo(videoId);
+      // 送信成功時はisReacted=trueのまま(意図的に)disabledが維持されるため、
+      // その場合はfocus()を呼んでも復元できない(無害・no-op)。
+      if (hadFocus && !button.disabled) button.focus();
     }
   };
 
