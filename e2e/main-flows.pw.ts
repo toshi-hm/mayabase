@@ -399,6 +399,59 @@ test.describe("主要導線", () => {
     await expect(page.locator("#video-lightbox-queue-status")).toHaveText("一気見 2 / 2");
   });
 
+  test("一気見キューの自動遷移でも「続きから」「視聴済み」に記録される(#503)", async ({ page }) => {
+    const [firstVideo, secondVideo] = videosData.videos;
+    const savedIds = [firstVideo.id, secondVideo.id];
+    await page.addInitScript(([key, ids]) => localStorage.setItem(key, JSON.stringify(ids)), [
+      WATCH_LATER_STORAGE_KEY,
+      savedIds,
+    ] as const);
+
+    // 実際のYouTube IFrame APIの代わりに、テストから onStateChange を直接呼び出せる
+    // 最小限のモックを注入する(ENDED状態は本物のYouTube再生なしでは発生させられないため)。
+    await page.route("https://www.youtube.com/iframe_api", (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body: `
+          window.YT = {
+            PlayerState: { ENDED: 0 },
+            Player: function (element, options) {
+              window.__mockYTPlayers = window.__mockYTPlayers || [];
+              window.__mockYTPlayers.push(options);
+              this.destroy = function () {};
+            },
+          };
+          if (window.onYouTubeIframeAPIReady) window.onYouTubeIframeAPIReady();
+        `,
+      }),
+    );
+
+    await page.goto("/watch-later/");
+    const grid = page.locator("#watch-later-grid");
+    await grid
+      .locator(":scope > li:not([hidden])")
+      .first()
+      .locator("button[data-lightbox-video-id]")
+      .click();
+    await expect(page.locator("#video-lightbox-queue-status")).toHaveText("一気見 1 / 2");
+
+    await expect.poll(() => page.evaluate(() => window.__mockYTPlayers?.length ?? 0)).toBe(1);
+
+    // 1本目の再生終了(ENDED)を発火させ、2本目への自動遷移を引き起こす
+    await page.evaluate(() => {
+      const options = window.__mockYTPlayers.at(-1);
+      options.events.onStateChange({ data: window.YT.PlayerState.ENDED });
+    });
+    await expect(page.locator("#video-lightbox-queue-status")).toHaveText("一気見 2 / 2");
+
+    const [continueWatchingIds, watchedIds] = await page.evaluate(() => [
+      JSON.parse(localStorage.getItem("mayabase-continue-watching") ?? "[]"),
+      JSON.parse(localStorage.getItem("mayabase-watched") ?? "[]"),
+    ]);
+    expect(continueWatchingIds).toContain(secondVideo.id);
+    expect(watchedIds).toContain(secondVideo.id);
+  });
+
   test("「あとで見る」の追加/解除が別タブへ自動で反映される(#478)", async ({ context }) => {
     const pageA = await context.newPage();
     const pageB = await context.newPage();
