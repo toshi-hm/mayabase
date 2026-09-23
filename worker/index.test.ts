@@ -468,4 +468,62 @@ describe("fetch", () => {
       ).status,
     ).toBe(429);
   });
+
+  test("購読レコードに90日のexpirationTtlを設定する(#502)", async () => {
+    const kv = createKv();
+    const request = postJson("/api/push/subscribe", validSubscription);
+    request.headers.set("CF-Connecting-IP", "203.0.113.10");
+    const response = await worker.fetch(request, { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv });
+    expect(response.status).toBe(201);
+    const key = [...kv.store.keys()][0] as string;
+    expect(kv.options.get(key)).toEqual({ expirationTtl: 90 * 24 * 60 * 60 });
+  });
+
+  test("購読APIはIP単位で短時間の過剰連打を429にする(#502)", async () => {
+    const kv = createKv();
+    const request = () => {
+      const subscribeRequest = postJson("/api/push/subscribe", {
+        endpoint: `https://fcm.googleapis.com/fcm/send/rate-test`,
+        keys: validSubscription.keys,
+      });
+      subscribeRequest.headers.set("CF-Connecting-IP", "203.0.113.20");
+      return subscribeRequest;
+    };
+    for (let index = 0; index < 10; index += 1) {
+      expect(
+        (
+          await worker.fetch(request(), {
+            ASSETS: assets,
+            PUSH_SUBSCRIPTIONS: kv,
+          })
+        ).status,
+      ).toBe(201);
+    }
+    const limited = await worker.fetch(request(), { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv });
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("60");
+  });
+
+  test("解除APIもIP単位で短時間の過剰連打を429にする(#502)", async () => {
+    const kv = createKv();
+    const request = () => {
+      const unsubscribeRequest = postJson("/api/push/unsubscribe", {
+        endpoint: validSubscription.endpoint,
+      });
+      unsubscribeRequest.headers.set("CF-Connecting-IP", "203.0.113.30");
+      return unsubscribeRequest;
+    };
+    for (let index = 0; index < 10; index += 1) {
+      expect(
+        (
+          await worker.fetch(request(), {
+            ASSETS: assets,
+            PUSH_SUBSCRIPTIONS: kv,
+          })
+        ).status,
+      ).toBe(200);
+    }
+    const limited = await worker.fetch(request(), { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv });
+    expect(limited.status).toBe(429);
+  });
 });
