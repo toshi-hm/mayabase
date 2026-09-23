@@ -133,6 +133,36 @@ test.describe("主要導線", () => {
     expect(lastChildMarginEnd).toBe(gap);
   });
 
+  test("「気になる」ボタンをキーボード操作すると送信失敗後もフォーカスが維持される(#505)", async ({
+    page,
+  }) => {
+    await page.goto("/videos/");
+
+    await page.route("**/api/video-reaction*", (route) => {
+      if (route.request().method() === "GET") {
+        return route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ count: 0 }),
+        });
+      }
+      // わざと失敗させ、ボタンが再度有効化される経路(disabled→focus復元)を検証する
+      return route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "fail" }),
+      });
+    });
+
+    const button = page.locator("[data-interest-video-id]").first();
+    await button.focus();
+    await expect(button).toBeFocused();
+
+    await page.keyboard.press("Enter");
+
+    await expect(button).toBeEnabled();
+    await expect(button).toBeFocused();
+  });
+
   test("動画カードのライトボックスを開閉できる", async ({ page }) => {
     await page.goto("/videos/");
 
