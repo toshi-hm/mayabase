@@ -210,8 +210,16 @@ function storageOperationFailedResponse(): Response {
   return jsonResponse({ error: "push subscription storage operation failed" }, 502);
 }
 
+/**
+ * 設計(docs/design-push-api-protection.md)通り、CF-Connecting-IPを優先し、
+ * ローカル/プロキシ環境等で無い場合はX-Forwarded-For(先頭のクライアントIP)へ
+ * フォールバックする(#502)。
+ */
 function clientIpKey(request: Request): string {
-  return request.headers.get("CF-Connecting-IP")?.trim() || "unknown";
+  const cfIp = request.headers.get("CF-Connecting-IP")?.trim();
+  if (cfIp) return cfIp;
+  const forwardedFor = request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim();
+  return forwardedFor || "unknown";
 }
 
 function isFallbackReactionRateLimited(request: Request): boolean {

@@ -526,4 +526,38 @@ describe("fetch", () => {
     const limited = await worker.fetch(request(), { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv });
     expect(limited.status).toBe(429);
   });
+
+  test("CF-Connecting-IPが無い場合はX-Forwarded-Forの先頭IP単位でレート制限する(#502)", async () => {
+    const kv = createKv();
+    const request = () => {
+      const subscribeRequest = postJson("/api/push/subscribe", {
+        endpoint: `https://fcm.googleapis.com/fcm/send/xff-test`,
+        keys: validSubscription.keys,
+      });
+      subscribeRequest.headers.set("X-Forwarded-For", "203.0.113.40, 10.0.0.1");
+      return subscribeRequest;
+    };
+    for (let index = 0; index < 10; index += 1) {
+      expect(
+        (
+          await worker.fetch(request(), {
+            ASSETS: assets,
+            PUSH_SUBSCRIPTIONS: kv,
+          })
+        ).status,
+      ).toBe(201);
+    }
+    const limited = await worker.fetch(request(), { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv });
+    expect(limited.status).toBe(429);
+
+    // 別のX-Forwarded-Forは別クライアント扱いになる(取り違えて同一キーにならないことの確認)
+    const otherClientRequest = postJson("/api/push/subscribe", {
+      endpoint: `https://fcm.googleapis.com/fcm/send/xff-test-other`,
+      keys: validSubscription.keys,
+    });
+    otherClientRequest.headers.set("X-Forwarded-For", "203.0.113.41");
+    expect(
+      (await worker.fetch(otherClientRequest, { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv })).status,
+    ).toBe(201);
+  });
 });
