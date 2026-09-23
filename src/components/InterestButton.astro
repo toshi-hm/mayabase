@@ -263,7 +263,11 @@ const { videoId, aspect = "video" } = Astro.props;
       applyReactionStateToVideo(videoId);
       // 送信成功時はisReacted=trueのまま(意図的に)disabledが維持されるため、
       // その場合はfocus()を呼んでも復元できない(無害・no-op)。
-      if (hadFocus && !button.disabled) button.focus();
+      // disabled化で飛ばされたフォーカスが誰にも回収されず<body>のまま残っている場合のみ
+      // 復元する(処理待ちの間にユーザーが意図的に別要素へ移動していた場合は上書きしない)。
+      if (hadFocus && !button.disabled && document.activeElement === document.body) {
+        button.focus();
+      }
     }
   };
 
