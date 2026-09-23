@@ -35,6 +35,19 @@ const REACTION_READ_RATE_LIMIT_MAX = 120;
 const REACTION_RATE_LIMIT_MAX_ENTRIES = 1_000;
 const reactionRateLimitEntries = new Map<string, { startedAt: number; count: number }>();
 
+/**
+ * プッシュ購読API(/api/push/subscribe・unsubscribe)のレート制限(#360)。
+ * リアクションAPIと同じ「Workersインスタンス内メモリでの簡易防御」方式だが、
+ * ログイン不要のAPIを乱用から守るため上限は控えめ(1分10回)にする。
+ */
+const PUSH_RATE_LIMIT_WINDOW_MS = 60_000;
+const PUSH_RATE_LIMIT_MAX = 10;
+const PUSH_RATE_LIMIT_MAX_ENTRIES = 1_000;
+const pushRateLimitEntries = new Map<string, { startedAt: number; count: number }>();
+
+/** 購読レコードのTTL(#360)。90日ごとの再購読でTTLが延長される想定。 */
+const PUSH_SUBSCRIPTION_TTL_SECONDS = 90 * 24 * 60 * 60;
+
 interface ReactionRateLimiter {
   limit(options: { key: string }): Promise<{ success: boolean }>;
 }
@@ -197,8 +210,16 @@ function storageOperationFailedResponse(): Response {
   return jsonResponse({ error: "push subscription storage operation failed" }, 502);
 }
 
-function reactionClientKey(request: Request): string {
-  return request.headers.get("CF-Connecting-IP")?.trim() || "unknown";
+/**
+ * 設計(docs/design-push-api-protection.md)通り、CF-Connecting-IPを優先し、
+ * ローカル/プロキシ環境等で無い場合はX-Forwarded-For(先頭のクライアントIP)へ
+ * フォールバックする(#502)。
+ */
+function clientIpKey(request: Request): string {
+  const cfIp = request.headers.get("CF-Connecting-IP")?.trim();
+  if (cfIp) return cfIp;
+  const forwardedFor = request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim();
+  return forwardedFor || "unknown";
 }
 
 function isFallbackReactionRateLimited(request: Request): boolean {
@@ -213,7 +234,7 @@ function isFallbackReactionRateLimited(request: Request): boolean {
     if (oldestKey) reactionRateLimitEntries.delete(oldestKey);
   }
 
-  const key = `${request.method}:${reactionClientKey(request)}`;
+  const key = `${request.method}:${clientIpKey(request)}`;
   const current = reactionRateLimitEntries.get(key);
   if (!current || now - current.startedAt >= REACTION_RATE_LIMIT_WINDOW_MS) {
     reactionRateLimitEntries.set(key, { startedAt: now, count: 1 });
@@ -231,7 +252,7 @@ async function isReactionRateLimited(request: Request, env: Env): Promise<boolea
     request.method === "GET" ? env.REACTION_READ_RATE_LIMITER : env.REACTION_RATE_LIMITER;
   if (limiter) {
     try {
-      const result = await limiter.limit({ key: reactionClientKey(request) });
+      const result = await limiter.limit({ key: clientIpKey(request) });
       return !result.success;
     } catch {
       return isFallbackReactionRateLimited(request);
@@ -240,9 +261,42 @@ async function isReactionRateLimited(request: Request, env: Env): Promise<boolea
   return isFallbackReactionRateLimited(request);
 }
 
+/**
+ * プッシュ購読API専用のフォールバックレート制限(#360)。リアクションAPIとは
+ * 別カウンタ(pushRateLimitEntries)・別上限(1分10回)で管理する。
+ */
+function isPushRateLimited(request: Request): boolean {
+  const now = Date.now();
+  for (const [key, entry] of pushRateLimitEntries) {
+    if (now - entry.startedAt >= PUSH_RATE_LIMIT_WINDOW_MS) {
+      pushRateLimitEntries.delete(key);
+    }
+  }
+  if (pushRateLimitEntries.size >= PUSH_RATE_LIMIT_MAX_ENTRIES) {
+    const oldestKey = pushRateLimitEntries.keys().next().value;
+    if (oldestKey) pushRateLimitEntries.delete(oldestKey);
+  }
+
+  const key = clientIpKey(request);
+  const current = pushRateLimitEntries.get(key);
+  if (!current || now - current.startedAt >= PUSH_RATE_LIMIT_WINDOW_MS) {
+    pushRateLimitEntries.set(key, { startedAt: now, count: 1 });
+    return false;
+  }
+  if (current.count >= PUSH_RATE_LIMIT_MAX) return true;
+  current.count += 1;
+  return false;
+}
+
+/** レート制限超過時の 429 応答(#360)。設計ドキュメント通り Retry-After: 60 を付与する。 */
+function pushRateLimitedResponse(): Response {
+  return jsonResponse({ error: "rate limit exceeded" }, 429, { "Retry-After": "60" });
+}
+
 async function handleSubscribe(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
+  if (isPushRateLimited(request)) return pushRateLimitedResponse();
 
   const payload = await readJsonBody(request);
   if (!isValidPushSubscriptionPayload(payload)) {
@@ -256,7 +310,8 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
   };
   const key = await subscriptionKey(payload.endpoint);
   try {
-    await kv.put(key, JSON.stringify(record));
+    // 90日TTL(#360)。再購読のたびに kv.put が呼ばれるためTTLも自然に延長される。
+    await kv.put(key, JSON.stringify(record), { expirationTtl: PUSH_SUBSCRIPTION_TTL_SECONDS });
   } catch {
     return storageOperationFailedResponse();
   }
@@ -348,6 +403,7 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
 async function handleUnsubscribe(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
+  if (isPushRateLimited(request)) return pushRateLimitedResponse();
 
   const payload = await readJsonBody(request);
   const endpoint =
