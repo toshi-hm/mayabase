@@ -73,6 +73,20 @@
     }
   });
 
+  // 一気見キューの自動遷移(クリックを介さないためクリック委譲では検知できない)も
+  // 通常のクリックと同様に記録する(VideoLightbox.astro と同じ方針・#503)。
+  document.addEventListener("mayabase:lightbox-auto-advance", (event) => {
+    const id = (event as CustomEvent<{ videoId?: string }>).detail?.videoId;
+    if (!id) return;
+
+    writeStoredIds(recordWatchedId(readStoredIds(), id));
+    for (const badge of document.querySelectorAll<HTMLElement>(
+      `[data-watched-badge="${CSS.escape(id)}"]`,
+    )) {
+      badge.hidden = false;
+    }
+  });
+
   // 他タブでの視聴記録(clear() を含む)を反映する(#478)。InterestButton.astro と同じ方針。
   window.addEventListener("storage", (event) => {
     // clear() は key=null で通知されるため、タブ間の状態も正しく解除する。

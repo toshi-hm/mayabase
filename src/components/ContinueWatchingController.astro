@@ -45,4 +45,12 @@
 
     writeStoredIds(recordContinueWatchingId(readStoredIds(), id));
   });
+
+  // 一気見キューの自動遷移(クリックを介さないためクリック委譲では検知できない)も
+  // 通常のクリックと同様に記録する(VideoLightbox.astro と同じ方針・#503)。
+  document.addEventListener("mayabase:lightbox-auto-advance", (event) => {
+    const id = (event as CustomEvent<{ videoId?: string }>).detail?.videoId;
+    if (!id) return;
+    writeStoredIds(recordContinueWatchingId(readStoredIds(), id));
+  });
 </script>

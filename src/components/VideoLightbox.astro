@@ -192,7 +192,17 @@ import { site, subscribeUrl } from "../config/site";
             onStateChange: (event) => {
               if (event.data !== YT.PlayerState.ENDED) return;
               const next = nextVideoInQueue(activeQueue, activeVideoId);
-              if (next) openLightbox(next.id, next.title, next.aspect, undefined, activeQueue);
+              if (next) {
+                // 一気見キューの自動遷移はクリックを介さないため、ContinueWatchingController /
+                // WatchedController のクリックイベント委譲では検知できない。同じ記録を行えるよう
+                // カスタムイベントで通知する(#503)。
+                document.dispatchEvent(
+                  new CustomEvent("mayabase:lightbox-auto-advance", {
+                    detail: { videoId: next.id },
+                  }),
+                );
+                openLightbox(next.id, next.title, next.aspect, undefined, activeQueue);
+              }
             },
           },
         });
