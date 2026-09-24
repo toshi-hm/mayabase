@@ -1,0 +1,212 @@
+---
+import Breadcrumb from "../components/Breadcrumb.astro";
+import EmailCopyButton from "../components/EmailCopyButton.astro";
+import Profile from "../components/Profile.astro";
+import SectionHeading from "../components/SectionHeading.astro";
+import VideoCard from "../components/VideoCard.astro";
+import { site } from "../config/site";
+import channelStatsJson from "../data/channel-stats.json";
+import videosJson from "../data/videos.json";
+import Base from "../layouts/Base.astro";
+import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
+import { buildChannelStatsView, parseChannelStats } from "../lib/channelStats";
+import { formatViewCount } from "../lib/format";
+import { type Video, parseVideosData } from "../lib/youtube";
+
+/**
+ * PR・お仕事依頼ページ(#437)。
+ * IT企業・ガジェット/家電/IoTメーカーの担当者が初見で問い合わせ先・実績・レビュー方針を
+ * 把握できるよう、既存の運営者プロフィール(Profile.astro)・チャンネル統計の正規化ロジック
+ * (buildChannelStatsView、#438)をそのまま再利用する。特定動画IDのハードコードは
+ * CIを壊した既往(#416)があるため避け、「代表実績」はトップページの人気動画(#35)と同じ
+ * 再生回数降順の算出方法を使う。
+ */
+
+const { videos } = parseVideosData(videosJson);
+const channelStats = parseChannelStats(channelStatsJson);
+const statsView = buildChannelStatsView(channelStats, videos.length, new Date());
+
+const REPRESENTATIVE_VIDEO_COUNT = 4;
+const representativeVideos = videos
+  .filter((v): v is Video & { viewCount: number } => v.viewCount !== null)
+  .sort((a, b) => b.viewCount - a.viewCount)
+  .slice(0, REPRESENTATIVE_VIDEO_COUNT);
+
+const STRENGTH_CATEGORIES = [
+  "AI・IT技術",
+  "ガジェット",
+  "デスク環境",
+  "生活家電",
+  "IoT・スマートホーム",
+  "生活改善",
+] as const;
+
+const PR_FORMATS = [
+  "長尺レビュー動画",
+  "Shorts",
+  "実生活Vlog内での自然な紹介",
+  "Before/After検証",
+  "1週間・1か月・半年後などの継続使用レビュー",
+  "IT企業勤務エンジニア/プランナー目線での技術・活用解説",
+] as const;
+
+const REVIEW_POLICIES = [
+  "実際の生活・業務で使用したうえでレビューする",
+  "良い点だけでなく気になった点・欠点も扱う",
+  "向いている人/向いていない人を明示する",
+  "継続して使うかどうかを正直に評価する",
+] as const;
+
+const CONTACT_EMAIL = "mayabaseofficial☆gmail.com";
+
+const pageTitle = `PR・お仕事依頼 | ${site.name}`;
+const pageDescription = `${site.name}(${site.profile.name})へのPR・タイアップ依頼を検討中の企業ご担当者様向けページです。チャンネル実績・対応可能なPR形式・レビュー方針・お問い合わせ先をまとめています。`;
+
+if (!Astro.site) {
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
+}
+const siteUrl = Astro.site.toString();
+const breadcrumbItems: BreadcrumbItem[] = [
+  { name: "ホーム", href: "/" },
+  { name: "PR・お仕事依頼", href: "/pr/" },
+];
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: buildBreadcrumbJsonLd(breadcrumbItems, siteUrl),
+    },
+  ],
+};
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+---
+
+<Base title={pageTitle} description={pageDescription}>
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <main id="main" class="mx-auto max-w-3xl px-4 pt-12 pb-24">
+    <Breadcrumb items={breadcrumbItems} />
+    <h1 class="text-3xl font-bold sm:text-4xl">PR・お仕事依頼</h1>
+    <p class="mt-3 text-ink-muted">
+      「ITで日常をより便利に」をテーマに、AI・ガジェット・IoT家電のレビューやIT企業で働く社会人のリアルな日常を発信しています。商品のPR・タイアップをご検討の企業ご担当者様は、このページの実績・対応可能な形式・レビュー方針をご確認のうえお問い合わせください。
+    </p>
+
+    <section aria-labelledby="pr-contact-heading" class="mt-10 rounded-xl bg-surface-raised p-6">
+      <SectionHeading id="pr-contact-heading" title="お問い合わせ先" />
+      <p class="text-ink-muted">
+        メール(mayabaseofficial☆gmail.com
+        ※☆を@に読み替えてください)までご連絡ください。下のボタンからメールアドレスをワンクリックでコピーすることもできます。
+      </p>
+      <EmailCopyButton obfuscated={CONTACT_EMAIL} />
+    </section>
+
+    <section aria-labelledby="pr-stats-heading" class="mt-12">
+      <SectionHeading id="pr-stats-heading" title="チャンネル実績" />
+      <dl class="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        {
+          statsView.subscriberText && (
+            <div class="rounded-xl bg-surface-raised p-5">
+              <dt class="text-sm text-ink-muted">チャンネル登録者数</dt>
+              <dd class="mt-1 text-2xl font-black">{statsView.subscriberText}</dd>
+            </div>
+          )
+        }
+        {
+          statsView.totalViewCountText && (
+            <div class="rounded-xl bg-surface-raised p-5">
+              <dt class="text-sm text-ink-muted">累計総再生回数</dt>
+              <dd class="mt-1 text-2xl font-black">{statsView.totalViewCountText}</dd>
+            </div>
+          )
+        }
+        <div class="rounded-xl bg-surface-raised p-5">
+          <dt class="text-sm text-ink-muted">動画本数</dt>
+          <dd class="mt-1 text-2xl font-black">{statsView.videoCountText}</dd>
+        </div>
+      </dl>
+      <p class="mt-3 text-xs text-ink-muted">
+        {
+          statsView.fetchedAtText
+            ? `${statsView.fetchedAtText}の数値です。`
+            : statsView.updateFailedText
+        }
+      </p>
+    </section>
+
+    {
+      representativeVideos.length > 0 && (
+        <section aria-labelledby="pr-representative-heading" class="mt-12">
+          <SectionHeading
+            id="pr-representative-heading"
+            title="代表実績"
+            subtitle="再生回数の多い動画です。ターゲット層が合えば数千〜数万回再生に届く媒体です。"
+          />
+          <ul role="list" class="grid gap-6 sm:grid-cols-2">
+            {representativeVideos.map((video, index) => (
+              <VideoCard
+                video={video}
+                position={index + 1}
+                total={representativeVideos.length}
+                viewCountLabel={formatViewCount(video.viewCount)}
+                layout="grid"
+              />
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    <section aria-labelledby="pr-categories-heading" class="mt-12">
+      <SectionHeading id="pr-categories-heading" title="得意カテゴリー" />
+      <ul role="list" class="flex flex-wrap gap-2">
+        {
+          STRENGTH_CATEGORIES.map((category) => (
+            <li class="rounded-full bg-surface-raised px-4 py-2 text-sm font-semibold">
+              {category}
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section aria-labelledby="pr-formats-heading" class="mt-12">
+      <SectionHeading id="pr-formats-heading" title="対応可能なPR形式" />
+      <ul role="list" class="grid gap-3 sm:grid-cols-2">
+        {
+          PR_FORMATS.map((format) => (
+            <li class="rounded-lg border border-line p-4 text-sm">{format}</li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section aria-labelledby="pr-policy-heading" class="mt-12">
+      <SectionHeading id="pr-policy-heading" title="レビュー方針" />
+      <ul role="list" class="flex flex-col gap-3">
+        {
+          REVIEW_POLICIES.map((policy) => (
+            <li class="flex items-start gap-2 text-ink-muted">
+              <span aria-hidden="true" class="mt-1 text-brand-accent">
+                ✓
+              </span>
+              <span>{policy}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <Profile />
+
+    <section
+      aria-labelledby="pr-contact-again-heading"
+      class="mt-4 rounded-xl bg-surface-raised p-6"
+    >
+      <SectionHeading id="pr-contact-again-heading" title="ご依頼・ご相談はこちらから" />
+      <p class="text-ink-muted">
+        メール(mayabaseofficial☆gmail.com ※☆を@に読み替えてください)までご連絡ください。
+      </p>
+      <EmailCopyButton obfuscated={CONTACT_EMAIL} />
+    </section>
+  </main>
+</Base>
