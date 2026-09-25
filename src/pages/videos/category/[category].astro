@@ -22,7 +22,6 @@ import { extractSearchableText, truncate } from "../../../lib/format";
 import { buildVideoGearMap, parseGearData } from "../../../lib/gear";
 import { buildOwnerPersonJsonLd } from "../../../lib/personJsonLd";
 import { parseTestimonialsData } from "../../../lib/testimonials";
-import { createVideoQueue } from "../../../lib/videoQueue";
 import {
   embedUrl,
   parseVideosData,
@@ -56,7 +55,6 @@ interface Props {
 
 const { category, categoryVideos }: Props = Astro.props;
 const categoryLabel = CATEGORY_LABELS[category];
-const bingeQueueJson = JSON.stringify(createVideoQueue(categoryVideos)).replace(/</g, "\\u003c");
 
 // INITIAL_COUNT 件を超える分は、videos.astro (#177) と同じく通常の <li> ではなく <template>
 // の中身として描画し、必要になった時点で実体化する(#419: カテゴリ別ページだけ動画本数が
@@ -309,7 +307,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       id="archive-grid"
       data-initial-count={INITIAL_COUNT}
       role="list"
-      data-binge-queue={bingeQueueJson}
+      data-binge-queue
       class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
     >
       {
