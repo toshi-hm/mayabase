@@ -3,10 +3,12 @@ import SearchClearButton from "../components/SearchClearButton.astro";
 import ArchiveCard from "../components/ArchiveCard.astro";
 import Breadcrumb from "../components/Breadcrumb.astro";
 import SubscribeMilestoneNote from "../components/SubscribeMilestoneNote.astro";
+import TopicRequestVoting from "../components/TopicRequestVoting.astro";
 import { site, subscribeUrl } from "../config/site";
 import channelStatsJson from "../data/channel-stats.json";
 import gearJson from "../data/gear.json";
 import seriesJson from "../data/series.json";
+import topicRequestsJson from "../data/topic-requests.json";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
@@ -20,6 +22,7 @@ import { buildChannelStatsView, parseChannelStats } from "../lib/channelStats";
 import { extractSearchableText, truncate } from "../lib/format";
 import { buildVideoGearMap, parseGearData } from "../lib/gear";
 import { buildOwnerPersonJsonLd } from "../lib/personJsonLd";
+import { parseTopicRequestsData } from "../lib/topicRequests";
 import { isInSeries, parseSeriesData, seriesUrl } from "../lib/series";
 import {
   embedUrl,
@@ -32,6 +35,7 @@ import {
 } from "../lib/youtube";
 
 const { videos } = parseVideosData(videosJson);
+const { topics: topicRequests } = parseTopicRequestsData(topicRequestsJson);
 // チャンネル統計(登録者数・総再生回数・動画本数・最終更新時刻)はトップ・成長記録ページと
 // 同じ正規化ロジックを通し、ページ間で表示が食い違わないようにする(#438)。
 const channelStats = parseChannelStats(channelStatsJson);
@@ -182,6 +186,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       動画本数 <span class="text-ink">{statsView.videoCountText}</span>
       {` (${statsView.fetchedAtText ?? statsView.updateFailedText})`}
     </p>
+
+    <TopicRequestVoting topics={topicRequests} />
 
     <section aria-label="動画の絞り込み" class="mt-8 flex flex-col gap-4">
       <div role="group" aria-label="カテゴリで絞り込み" class="flex flex-wrap gap-2">

@@ -1,0 +1,29 @@
+{
+  "topics": [
+    {
+      "slug": "ai-workflow",
+      "title": "AIを仕事で使いこなす方法",
+      "description": "毎日の仕事を効率化するAIの使い方や、実務での活用例を知りたい"
+    },
+    {
+      "slug": "smart-home",
+      "title": "AIとスマートホームの実生活",
+      "description": "家電やスマートホームをAIで連携して暮らしを便利にしたい"
+    },
+    {
+      "slug": "desk-setup",
+      "title": "仕事がはかどるデスク環境",
+      "description": "デスクまわりのガジェットや環境づくりを見直したい"
+    },
+    {
+      "slug": "time-saving-appliances",
+      "title": "一人暮らしの時短家電",
+      "description": "家事をラクにして自由な時間を増やす家電を知りたい"
+    },
+    {
+      "slug": "long-term-review",
+      "title": "ガジェットの長期レビュー",
+      "description": "買った直後ではなく、半年後も使い続けているかを知りたい"
+    }
+  ]
+}

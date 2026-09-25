@@ -588,4 +588,72 @@ describe("fetch", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "invalid video ids" });
   });
+
+  test("KV未設定ならテーマ投票も503を返す", async () => {
+    const response = await worker.fetch(
+      new Request("https://portal.mayabase.workers.dev/api/topic-request?topicSlugs=ai-workflow", {
+        headers: { "CF-Connecting-IP": "198.51.100.80" },
+      }),
+      { ASSETS: assets },
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "topic request storage is not configured",
+    });
+  });
+
+  test("テーマ投票を加算し、同じCookieの再投票を重複扱いにする", async () => {
+    const kv = createKv();
+    const request = (cookie?: string) =>
+      new Request("https://portal.mayabase.workers.dev/api/topic-request", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "CF-Connecting-IP": "198.51.100.81",
+          ...(cookie ? { cookie } : {}),
+        },
+        body: JSON.stringify({ slug: "ai-workflow" }),
+      });
+
+    const first = await worker.fetch(request(), { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv });
+    expect(first.status).toBe(200);
+    expect(await first.json()).toEqual({ count: 1 });
+    const visitorCookie = first.headers.get("set-cookie");
+    expect(visitorCookie).toMatch(/^MAYABASE_VISITOR_ID=[0-9a-f-]{36};/);
+
+    const duplicate = await worker.fetch(request(visitorCookie?.split(";")[0]), {
+      ASSETS: assets,
+      PUSH_SUBSCRIPTIONS: kv,
+    });
+    expect(duplicate.status).toBe(200);
+    expect(await duplicate.json()).toEqual({ count: 1, duplicate: true });
+    expect(kv.store.get("topic:ai-workflow")).toMatch(/^1:[0-9a-f-]{36}$/);
+  });
+
+  test("テーマ投票数を一括取得する", async () => {
+    const kv = createKv();
+    kv.store.set("topic:ai-workflow", "4");
+    kv.store.set("topic:smart-home", "2:visitor-id");
+    const response = await worker.fetch(
+      new Request(
+        "https://portal.mayabase.workers.dev/api/topic-request?topicSlugs=ai-workflow,smart-home,missing-topic",
+        { headers: { "CF-Connecting-IP": "198.51.100.82" } },
+      ),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      counts: { "ai-workflow": 4, "smart-home": 2, "missing-topic": 0 },
+    });
+  });
+
+  test("不正なテーマslugは400を返す", async () => {
+    const kv = createKv();
+    const response = await worker.fetch(postJson("/api/topic-request", { slug: "../secrets" }), {
+      ASSETS: assets,
+      PUSH_SUBSCRIPTIONS: kv,
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid topic slug" });
+  });
 });
