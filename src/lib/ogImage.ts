@@ -38,7 +38,10 @@ export function buildOgImageSvg({ title, subtitle }: OgImageOptions): string {
   const escapedSubtitle = subtitle ? escapeXml(subtitle.trim()) : "";
   const titleStartY = titleLines.length === 1 ? 310 : titleLines.length === 2 ? 275 : 240;
   const titleMarkup = titleLines
-    .map((line, index) => `<text x="96" y="${titleStartY + index * 82}" class="title">${line}</text>`)
+    .map(
+      (line, index) =>
+        `<text x="96" y="${titleStartY + index * 82}" class="title">${line}</text>`,
+    )
     .join("");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-labelledby="title description">
