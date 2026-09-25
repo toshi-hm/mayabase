@@ -1,0 +1,173 @@
+---
+import type { TopicRequest } from "../lib/topicRequests";
+
+interface Props {
+  topics: readonly TopicRequest[];
+}
+
+const { topics } = Astro.props;
+---
+
+<section
+  id="topic-request-voting"
+  aria-labelledby="topic-request-heading"
+  class="mt-10 rounded-2xl border border-line bg-surface-raised p-5 sm:p-6"
+>
+  <h2 id="topic-request-heading" class="text-xl font-bold sm:text-2xl">次に見たい動画テーマ</h2>
+  <p class="mt-2 max-w-2xl text-sm text-ink-muted">
+    今後取り上げてほしいテーマに投票してください。投票結果を動画企画の参考にします。
+  </p>
+  <ul class="mt-5 grid gap-3 sm:grid-cols-2">
+    {
+      topics.map((topic) => (
+        <li>
+          <article class="flex h-full flex-col rounded-xl border border-line bg-surface p-4">
+            <h3 class="font-semibold">{topic.title}</h3>
+            <p class="mt-1 flex-1 text-sm text-ink-muted">{topic.description}</p>
+            <button
+              type="button"
+              data-topic-request-slug={topic.slug}
+              aria-label={topic.title + "に投票する"}
+              class="mt-4 inline-flex w-fit cursor-pointer items-center gap-1 rounded-full border border-brand px-3 py-1.5 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-default disabled:opacity-60"
+            >
+              <span data-topic-request-label>投票する</span>
+              <span aria-hidden="true">・</span>
+              <span data-topic-request-count aria-live="polite">0</span>
+              <span>票</span>
+            </button>
+          </article>
+        </li>
+      ))
+    }
+  </ul>
+  <p id="topic-request-status" aria-live="polite" class="mt-3 text-sm text-ink-muted" />
+</section>
+
+<script>
+  const STORAGE_KEY = "MAYABASE_TOPIC_REQUEST_VOTES";
+  const section = document.getElementById("topic-request-voting");
+  const buttons = section
+    ? Array.from(section.querySelectorAll<HTMLButtonElement>("[data-topic-request-slug]"))
+    : [];
+  const isStaticPreview = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+  const votedSlugs = new Set<string>();
+
+  const readVotedSlugs = (): void => {
+    try {
+      const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+      if (Array.isArray(parsed)) {
+        parsed
+          .filter((slug): slug is string => typeof slug === "string")
+          .forEach((slug) => votedSlugs.add(slug));
+      }
+    } catch {
+      // localStorage が利用できない環境でも投票機能自体は継続する。
+    }
+  };
+
+  const saveVotedSlugs = (): void => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...votedSlugs]));
+    } catch {
+      // localStorage が利用できない環境では同一ページ内の状態だけを利用する。
+    }
+  };
+
+  const updateButton = (button: HTMLButtonElement, count?: number): void => {
+    const slug = button.dataset.topicRequestSlug;
+    if (!slug) return;
+    if (count !== undefined) {
+      const countElement = button.querySelector("[data-topic-request-count]");
+      if (countElement) countElement.textContent = String(count);
+    }
+    const voted = votedSlugs.has(slug);
+    button.disabled = isStaticPreview || voted;
+    button.setAttribute("aria-pressed", String(voted));
+    const title = button.closest("article")?.querySelector("h3")?.textContent ?? "テーマ";
+    button.setAttribute("aria-label", title + (voted ? "に投票済み" : "に投票する"));
+    const label = button.querySelector("[data-topic-request-label]");
+    if (label) {
+      label.textContent = isStaticPreview ? "プレビューでは投票不可" : voted ? "投票済み" : "投票する";
+    }
+  };
+
+  const showStatus = (message: string): void => {
+    const status = section?.querySelector("#topic-request-status");
+    if (status) status.textContent = message;
+  };
+
+  const applyCounts = (counts: unknown): void => {
+    if (typeof counts !== "object" || counts === null) return;
+    buttons.forEach((button) => {
+      const slug = button.dataset.topicRequestSlug;
+      const count = slug ? (counts as Record<string, unknown>)[slug] : undefined;
+      if (typeof count === "number" && Number.isSafeInteger(count) && count >= 0) {
+        updateButton(button, count);
+      }
+    });
+  };
+
+  const loadCounts = async (): Promise<void> => {
+    if (isStaticPreview || buttons.length === 0) return;
+    const slugs = buttons
+      .map((button) => button.dataset.topicRequestSlug)
+      .filter((slug): slug is string => Boolean(slug));
+    try {
+      const response = await fetch(
+        "/api/topic-request?topicSlugs=" + encodeURIComponent(slugs.join(",")),
+      );
+      if (!response.ok) return;
+      const data = (await response.json()) as { counts?: unknown };
+      applyCounts(data.counts);
+    } catch {
+      // 件数はベストエフォートで取得し、動画一覧の表示を妨げない。
+    }
+  };
+
+  const submitVote = async (button: HTMLButtonElement): Promise<void> => {
+    const slug = button.dataset.topicRequestSlug;
+    if (!slug || button.disabled || votedSlugs.has(slug) || isStaticPreview) return;
+    const hadFocus = document.activeElement === button;
+    button.disabled = true;
+    showStatus("投票を送信しています…");
+    try {
+      const response = await fetch("/api/topic-request", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ slug }),
+      });
+      const data = (await response.json()) as { count?: unknown; duplicate?: unknown };
+      if (!response.ok || typeof data.count !== "number") {
+        showStatus("投票を送信できませんでした。時間を置いてもう一度お試しください。");
+        return;
+      }
+      votedSlugs.add(slug);
+      saveVotedSlugs();
+      updateButton(button, data.count);
+      showStatus(data.duplicate ? "このテーマには投票済みです。" : "投票を受け付けました。");
+    } catch {
+      showStatus("投票を送信できませんでした。時間を置いてもう一度お試しください。");
+    } finally {
+      if (!votedSlugs.has(slug)) {
+        button.disabled = false;
+      }
+      if (hadFocus && document.activeElement === document.body && !button.disabled) {
+        button.focus();
+      }
+    }
+  };
+
+  readVotedSlugs();
+  buttons.forEach((button) => {
+    updateButton(button);
+    button.addEventListener("click", () => void submitVote(button));
+  });
+  void loadCounts();
+
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORAGE_KEY && event.key !== null) return;
+    votedSlugs.clear();
+    readVotedSlugs();
+    buttons.forEach((button) => updateButton(button));
+  });
+</script>
