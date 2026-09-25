@@ -247,14 +247,14 @@ jobs:
       - name: 変更があればコミット
         id: commit
         run: |
-          if git diff --quiet src/data/videos.json src/data/channel-stats.json src/data/channel-stats-history.json public/fonts .push-notifications-pending.json; then
+          if git diff --quiet src/data/videos.json src/data/channel-stats.json src/data/channel-stats-history.json src/data/video-view-history.json public/fonts .push-notifications-pending.json; then
             echo "変更なし"
             echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/data/videos.json src/data/channel-stats.json src/data/channel-stats-history.json public/fonts .push-notifications-pending.json
+          git add src/data/videos.json src/data/channel-stats.json src/data/channel-stats-history.json src/data/video-view-history.json public/fonts .push-notifications-pending.json
           git commit -m "chore: 動画データを自動更新"
           # 実行中に main へ別コミットが入った場合に備えてリベースしてから push
           git fetch origin main
