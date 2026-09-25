@@ -54,7 +54,7 @@ describe("appendVideoViewHistory", () => {
         viewCounts: { a: index },
       })),
     });
-    const updated = appendVideoViewHistory(history, "2026-01-30", new Map([["a", 999]]));
+    const updated = appendVideoViewHistory(history, "2026-02-01", new Map([["a", 999]]));
     expect(updated.snapshots).toHaveLength(MAX_VIDEO_VIEW_HISTORY_SNAPSHOTS);
     expect(updated.snapshots.at(-1)?.viewCounts.a).toBe(999);
     expect(updated.snapshots[0]?.date).toBe("2026-01-02");
