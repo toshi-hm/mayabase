@@ -7,7 +7,7 @@ interface Props {
 }
 
 const { videos, limit = 6 } = Astro.props;
-const candidates = videos.slice(0, 200).map(({ id, title, publishedAt, isShort }) => ({
+const candidates = videos.map(({ id, title, publishedAt, isShort }) => ({
   id,
   title,
   publishedAt,
@@ -20,6 +20,7 @@ const candidatesJson = JSON.stringify(candidates).replace(/</g, "\\u003c");
   id="reaction-ranking"
   aria-labelledby="reaction-ranking-heading"
   hidden
+  data-limit={limit}
   class="bg-surface-raised py-16"
 >
   <div class="mx-auto max-w-6xl px-4">
@@ -59,6 +60,7 @@ const candidatesJson = JSON.stringify(candidates).replace(/</g, "\\u003c");
   const status = document.getElementById("reaction-ranking-status");
   const dataScript = document.getElementById("reaction-ranking-data");
   const isStaticPreview = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+  const rankingLimit = Number.parseInt(section?.dataset.limit ?? "6", 10);
 
   const parseCandidates = (): RankingCandidate[] => {
     if (!dataScript) return [];
@@ -144,7 +146,7 @@ const candidatesJson = JSON.stringify(candidates).replace(/</g, "\\u003c");
       void loadReactionCounts(candidates)
         .then((counts) => {
           if (!counts || ![...counts.values()].some((count) => count > 0)) return;
-          const ranked = sortReactionRanking(candidates, counts, 6);
+          const ranked = sortReactionRanking(candidates, counts, rankingLimit);
           list.replaceChildren(...ranked.map((candidate) => createCard(candidate, counts.get(candidate.id) ?? 0)));
           status.textContent = "「気になる」の反応が多い順に表示しています。";
           section.hidden = false;
