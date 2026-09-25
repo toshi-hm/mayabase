@@ -342,10 +342,7 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
       : typeof payload === "object" && payload !== null
         ? (payload as { videoId?: unknown }).videoId
         : undefined;
-  if (
-    batchVideoIds === null &&
-    (typeof videoId !== "string" || !VIDEO_ID_PATTERN.test(videoId))
-  ) {
+  if (batchVideoIds === null && (typeof videoId !== "string" || !VIDEO_ID_PATTERN.test(videoId))) {
     return jsonResponse({ error: "invalid video id" }, 400);
   }
   if (await isReactionRateLimited(request, env)) {
