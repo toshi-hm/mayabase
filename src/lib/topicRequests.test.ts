@@ -11,9 +11,9 @@ describe("parseTopicRequestsData", () => {
   test("slugの重複と不正形式を拒否する", () => {
     const topic = { slug: "same-topic", title: "A", description: "B" };
     expect(() => parseTopicRequestsData({ topics: [topic, topic] })).toThrow("重複");
-    expect(() =>
-      parseTopicRequestsData({ topics: [{ ...topic, slug: "日本語" }] }),
-    ).toThrow("slug");
+    expect(() => parseTopicRequestsData({ topics: [{ ...topic, slug: "日本語" }] })).toThrow(
+      "slug",
+    );
   });
 
   test("候補数と表示文言の上限を検証する", () => {
@@ -26,8 +26,6 @@ describe("parseTopicRequestsData", () => {
         })),
       }),
     ).toThrow("件以内");
-    expect(() =>
-      parseTopicRequestsData({ topics: [{ ...topic, title: "" }] }),
-    ).toThrow("title");
+    expect(() => parseTopicRequestsData({ topics: [{ ...topic, title: "" }] })).toThrow("title");
   });
 });
