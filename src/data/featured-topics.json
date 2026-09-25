@@ -1,0 +1,44 @@
+{
+  "topics": [
+    {
+      "slug": "ai-work",
+      "title": "AIで仕事をラクにする",
+      "description": "ChatGPTやAIエージェントを仕事・個人開発に取り入れるヒントをまとめました。",
+      "category": "ai",
+      "videoIds": ["TaJaU6MMUik", "ewXEHL6jKIw", "KcBUCp8cWoc"],
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "slug": "desk-environment",
+      "title": "IT会社員のデスク環境",
+      "description": "仕事と研究を支えるデスクまわりの道具や、作業環境づくりを紹介します。",
+      "category": "gadget",
+      "videoIds": ["jn3tvSA8KBw", "z5O2lQteSQg", "2pYlZAfFOE4"],
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "slug": "time-saving-appliances",
+      "title": "一人暮らしの時短家電",
+      "description": "料理や日々の家事を少しラクにしてくれる家電を、実際の生活目線で見つけます。",
+      "category": "gadget",
+      "videoIds": ["UA2pGkJjM", "xoelkbYfvtI", "2pYlZAfFOE4"],
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "slug": "apple-gadgets",
+      "title": "Apple・最新ガジェット",
+      "description": "iPadなど、仕事や学びに取り入れたい最新ガジェットをチェックできます。",
+      "category": "gadget",
+      "videoIds": ["LN1RYok1HxA", "l1p42-kVjww", "Hs-INc0itT4"],
+      "expiresAt": "2026-12-31"
+    },
+    {
+      "slug": "new-ai-tools",
+      "title": "いま試したいAIツール",
+      "description": "音声AIや自律型AIなど、日常や学びに活かせる新しいAIを紹介します。",
+      "category": "ai",
+      "videoIds": ["yzwe9ftjsoU", "2WX26Bekrfk", "p0Otux-nBLM"],
+      "expiresAt": "2026-12-31"
+    }
+  ]
+}
