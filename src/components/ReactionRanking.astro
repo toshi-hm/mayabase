@@ -143,8 +143,11 @@ const candidatesJson = JSON.stringify(candidates).replace(/</g, "\\u003c");
     if (candidates.length > 0) {
       void loadReactionCounts(candidates)
         .then((counts) => {
-          if (!counts || ![...counts.values()].some((count) => count > 0)) return;
+          if (!counts) return;
+          // sortReactionRanking が反応0件の候補を除外するため、結果が空なら
+          // 「気になる」が1件も付いていない状態(セクション自体を表示しない)。
           const ranked = sortReactionRanking(candidates, counts, rankingLimit);
+          if (ranked.length === 0) return;
           list.replaceChildren(
             ...ranked.map((candidate) => createCard(candidate, counts.get(candidate.id) ?? 0)),
           );
