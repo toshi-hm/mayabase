@@ -1,10 +1,6 @@
 import type { APIRoute, GetStaticPaths } from "astro";
 import videosJson from "../../../data/videos.json";
-import {
-  CATEGORY_LABELS,
-  categorizeVideo,
-  getAvailableCategories,
-} from "../../../lib/categories";
+import { CATEGORY_LABELS, categorizeVideo, getAvailableCategories } from "../../../lib/categories";
 import { buildOgImageSvg } from "../../../lib/ogImage";
 import { parseVideosData } from "../../../lib/youtube";
 
