@@ -2,6 +2,7 @@
 import Carousel from "../components/Carousel.astro";
 import PostCard from "../components/PostCard.astro";
 import Onboarding from "../components/Onboarding.astro";
+import FeaturedTopics from "../components/FeaturedTopics.astro";
 import Profile from "../components/Profile.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import ShortCard from "../components/ShortCard.astro";
@@ -11,6 +12,7 @@ import { site, subscribeUrl } from "../config/site";
 import channelStatsHistoryJson from "../data/channel-stats-history.json";
 import channelStatsJson from "../data/channel-stats.json";
 import featuredVideosJson from "../data/featured-videos.json";
+import featuredTopicsJson from "../data/featured-topics.json";
 import videosJson from "../data/videos.json";
 import xPostsJson from "../data/x-posts.json";
 import testimonialsJson from "../data/testimonials.json";
@@ -28,6 +30,7 @@ import {
   sparklinePointsToPolyline,
 } from "../lib/channelStatsHistory";
 import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredVideos";
+import { parseFeaturedTopicsData, resolveFeaturedTopics } from "../lib/featuredTopics";
 import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
 import { buildOwnerPersonJsonLd } from "../lib/personJsonLd";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
@@ -91,6 +94,9 @@ const onboardingPanels = buildOnboardingPanels(
   })),
   featuredVideos,
 );
+
+const { topics: featuredTopicDefinitions } = parseFeaturedTopicsData(featuredTopicsJson);
+const featuredTopics = resolveFeaturedTopics(featuredTopicDefinitions, videos);
 
 // チャンネル統計(登録者数・総再生回数・動画本数・最終更新時刻・次のマイルストーン)は
 // 単一のビューモデルに正規化し、動画ライブラリ・成長記録ページと表示ロジックを共有する(#438)。
@@ -384,6 +390,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     </section>
 
     {onboardingPanels.length > 0 && <Onboarding panels={onboardingPanels} />}
+    {featuredTopics.length > 0 && <FeaturedTopics topics={featuredTopics} />}
     {
       featuredVideos.length > 0 && (
         <section aria-labelledby="featured-heading" class="bg-surface-sun py-16">
