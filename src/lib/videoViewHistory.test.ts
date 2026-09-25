@@ -65,9 +65,7 @@ describe("appendVideoViewHistory", () => {
       snapshots: [{ date: "2026-09-25", viewCounts: { a: 10, b: 20 } }],
     });
     const updated = appendVideoViewHistory(history, "2026-09-25", new Map([["a", 15]]));
-    expect(updated.snapshots).toEqual([
-      { date: "2026-09-25", viewCounts: { a: 15, b: 20 } },
-    ]);
+    expect(updated.snapshots).toEqual([{ date: "2026-09-25", viewCounts: { a: 15, b: 20 } }]);
   });
 });
 
