@@ -24,16 +24,21 @@ const CHANNEL_STATS_JSON_PATH = fileURLToPath(
 const CHANNEL_STATS_HISTORY_JSON_PATH = fileURLToPath(
   new URL("../src/data/channel-stats-history.json", import.meta.url),
 );
+const VIDEO_VIEW_HISTORY_JSON_PATH = fileURLToPath(
+  new URL("../src/data/video-view-history.json", import.meta.url),
+);
 
 let originalVideosJson: string;
 let originalChannelStatsJson: string;
 let originalChannelStatsHistoryJson: string;
+let originalVideoViewHistoryJson: string;
 let originalPendingNotifications: string | null;
 
 beforeEach(async () => {
   originalVideosJson = await Bun.file(VIDEOS_JSON_PATH).text();
   originalChannelStatsJson = await Bun.file(CHANNEL_STATS_JSON_PATH).text();
   originalChannelStatsHistoryJson = await Bun.file(CHANNEL_STATS_HISTORY_JSON_PATH).text();
+  originalVideoViewHistoryJson = await Bun.file(VIDEO_VIEW_HISTORY_JSON_PATH).text();
   originalPendingNotifications = (await Bun.file(PENDING_NOTIFICATIONS_PATH).exists())
     ? await Bun.file(PENDING_NOTIFICATIONS_PATH).text()
     : null;
@@ -43,6 +48,7 @@ afterEach(async () => {
   await Bun.write(VIDEOS_JSON_PATH, originalVideosJson);
   await Bun.write(CHANNEL_STATS_JSON_PATH, originalChannelStatsJson);
   await Bun.write(CHANNEL_STATS_HISTORY_JSON_PATH, originalChannelStatsHistoryJson);
+  await Bun.write(VIDEO_VIEW_HISTORY_JSON_PATH, originalVideoViewHistoryJson);
   // #402: 通知アウトボックスは永続データのため、テスト前の内容を復元する。
   if (originalPendingNotifications === null) {
     await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
