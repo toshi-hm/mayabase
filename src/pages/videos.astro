@@ -684,7 +684,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         const counts = (data as { counts?: unknown }).counts;
         if (typeof counts !== "object" || counts === null || Array.isArray(counts)) return false;
         for (const [videoId, count] of Object.entries(counts)) {
-          if (Number.isSafeInteger(count) && count >= 0) reactionCounts.set(videoId, count);
+          if (typeof count === "number" && Number.isSafeInteger(count) && count >= 0) {
+            reactionCounts.set(videoId, count);
+          }
         }
         return true;
       })
