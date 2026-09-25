@@ -12,17 +12,12 @@ import { site, subscribeUrl } from "../config/site";
 import channelStatsHistoryJson from "../data/channel-stats-history.json";
 import channelStatsJson from "../data/channel-stats.json";
 import featuredVideosJson from "../data/featured-videos.json";
+import recommendationsJson from "../data/recommendations.json";
 import featuredTopicsJson from "../data/featured-topics.json";
 import videosJson from "../data/videos.json";
 import xPostsJson from "../data/x-posts.json";
 import testimonialsJson from "../data/testimonials.json";
 import Base from "../layouts/Base.astro";
-import {
-  CATEGORY_LABELS,
-  CATEGORY_ORDER,
-  categorizeVideo,
-  topVideosByCategory,
-} from "../lib/categories";
 import { buildChannelStatsView, parseChannelStats } from "../lib/channelStats";
 import {
   buildSparklinePoints,
@@ -35,7 +30,7 @@ import { extractSearchableText, formatViewCount, truncate } from "../lib/format"
 import { buildOwnerPersonJsonLd } from "../lib/personJsonLd";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseXPostsData } from "../lib/x";
-import { buildOnboardingPanels } from "../lib/onboarding";
+import { parseRecommendationsData, resolveRecommendations } from "../lib/recommendations";
 import { parseTestimonialsData } from "../lib/testimonials";
 import {
   embedUrl,
@@ -69,31 +64,10 @@ const { account, posts } = parseXPostsData(xPostsJson);
 const xPosts = posts.slice(0, maxItems);
 const { testimonials } = parseTestimonialsData(testimonialsJson);
 
-// 初回訪問者向け「気になるテーマは?」導線(#156)。カテゴリ別静的アーカイブページ(#121)と
-// 役割が重複しないよう、ここでは各カテゴリの上位動画のみを紹介し、全件は
-// /videos/category/{category}/ へ誘導する(入口の分岐に留める)。
-// "other" は「気になるテーマ」として提示する分類ではないため対象外とする。
-// 各テーマのカードは <template> に格納し、クリック時にのみ実体化する(#217)ため
-// ページの初期DOMサイズは増えないが、実体化後の一覧が間延びしないよう
-// 他セクションの maxItems(6)より少ない件数に絞る。
-const TOPIC_PANEL_LIMIT = 4;
-const categorized = videos.map((video) => ({
-  video,
-  category: categorizeVideo(video),
-}));
-const topicPanels = CATEGORY_ORDER.filter((category) => category !== "other")
-  .map((category) => ({
-    category,
-    videos: topVideosByCategory(categorized, category, TOPIC_PANEL_LIMIT),
-  }))
-  .filter((panel) => panel.videos.length > 0);
-const onboardingPanels = buildOnboardingPanels(
-  topicPanels.map((panel) => ({
-    ...panel,
-    label: CATEGORY_LABELS[panel.category],
-  })),
-  featuredVideos,
-);
+// 初回訪問者向け「あなたにおすすめ診断」(#500)。視聴目的ごとの手動編集データを解決し、
+// 代表動画・関連動画と「なぜおすすめか」をまとめて表示する。
+const { recommendations } = parseRecommendationsData(recommendationsJson);
+const onboardingPanels = resolveRecommendations(recommendations, videos);
 
 const { topics: featuredTopicDefinitions } = parseFeaturedTopicsData(featuredTopicsJson);
 const featuredTopics = resolveFeaturedTopics(featuredTopicDefinitions, videos);
