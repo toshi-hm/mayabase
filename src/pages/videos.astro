@@ -282,7 +282,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         )
       }
       {
-        hasViewCounts && (
+        videos.length > 0 && (
           <div role="group" aria-label="並び替え" class="flex flex-wrap gap-2">
             <button
               type="button"
@@ -300,6 +300,15 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             >
               人気順
             </button>
+            <button
+              type="button"
+              data-sort-order="reactions"
+              aria-pressed="false"
+              class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+            >
+              気になる順
+            </button>
+            <p id="videos-sort-status" aria-live="polite" class="sr-only"></p>
           </div>
         )
       }
@@ -549,13 +558,16 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   const resetButton = document.getElementById("videos-reset") as HTMLButtonElement | null;
   const fallback = document.getElementById("videos-empty-fallback");
   const moreButton = document.getElementById("videos-more") as HTMLButtonElement | null;
+  const sortStatus = document.getElementById("videos-sort-status");
   let category = "all";
   // 動画の長さ絞り込み状態(#257: category/q と同じくURLに同期する)
   let length: "all" | "video" | "short" = "all";
   // 動画の尺(再生時間)バケット絞り込み状態(#330: category/q と同じくURLに同期する)
   let durationBucket: "all" | "under5" | "5to15" | "over15" = "all";
-  // 並び替え状態(#152: category/q と同じくURLに同期する)
-  let sortOrder: "newest" | "popular" = "newest";
+  // 並び替え状態(#152, #495: category/q と同じくURLに同期する)
+  let sortOrder: "newest" | "popular" | "reactions" = "newest";
+  const reactionCounts = new Map<string, number>();
+  let reactionCountsPromise: Promise<boolean> | null = null;
   // 一度展開したら以降は全件表示のまま(ボタンは二度と出さない)
   let expanded = false;
 
@@ -632,11 +644,48 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     }
   }
 
-  function setPressedSortOrder(nextOrder: "newest" | "popular"): void {
+  function setPressedSortOrder(nextOrder: "newest" | "popular" | "reactions"): void {
     for (const button of sortButtons) {
-      const buttonOrder = button.dataset.sortOrder === "popular" ? "popular" : "newest";
+      const buttonOrder =
+        button.dataset.sortOrder === "popular"
+          ? "popular"
+          : button.dataset.sortOrder === "reactions"
+            ? "reactions"
+            : "newest";
       button.setAttribute("aria-pressed", String(buttonOrder === nextOrder));
     }
+  }
+
+  function setSortStatus(message: string): void {
+    if (sortStatus) sortStatus.textContent = message;
+  }
+
+  function setSortLoading(loading: boolean): void {
+    for (const button of sortButtons) button.disabled = loading;
+    if (loading) setSortStatus("リアクション数を読み込んでいます");
+  }
+
+  async function loadReactionCounts(): Promise<boolean> {
+    if (reactionCountsPromise) return reactionCountsPromise;
+    const videoIds = originalOrder
+      .map((card) => card.dataset.videoId)
+      .filter((videoId): videoId is string => Boolean(videoId));
+    if (videoIds.length === 0) return false;
+    reactionCountsPromise = fetch(
+      `/api/video-reaction?videoIds=${encodeURIComponent(videoIds.join(","))}`,
+    )
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: unknown) => {
+        if (typeof data !== "object" || data === null || Array.isArray(data)) return false;
+        const counts = (data as { counts?: unknown }).counts;
+        if (typeof counts !== "object" || counts === null || Array.isArray(counts)) return false;
+        for (const [videoId, count] of Object.entries(counts)) {
+          if (Number.isSafeInteger(count) && count >= 0) reactionCounts.set(videoId, count);
+        }
+        return true;
+      })
+      .catch(() => false);
+    return reactionCountsPromise;
   }
 
   // クエリパラメータ(category / q / order)から絞り込み・並び替え状態を復元する。
@@ -664,9 +713,27 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
     // 並び替えトグル自体が無い環境(viewCount 未取得)では order パラメータを無視する
     if (sortButtons.length > 0) {
-      sortOrder = params.get("order") === "popular" ? "popular" : "newest";
-      setPressedSortOrder(sortOrder);
-      reorderGrid(sortOrder);
+      const requestedOrder = params.get("order");
+      if (requestedOrder === "reactions") {
+        sortOrder = "newest";
+        setPressedSortOrder(sortOrder);
+        setSortLoading(true);
+        void loadReactionCounts().then((loaded) => {
+          setSortLoading(false);
+          if (!loaded) {
+            setSortStatus("リアクション数を取得できませんでした");
+            return;
+          }
+          sortOrder = "reactions";
+          setPressedSortOrder(sortOrder);
+          reorderGrid(sortOrder);
+          applyFilter();
+        });
+      } else {
+        sortOrder = requestedOrder === "popular" ? "popular" : "newest";
+        setPressedSortOrder(sortOrder);
+        reorderGrid(sortOrder);
+      }
     }
   }
 
@@ -812,20 +879,25 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     syncUrl("replace");
   });
 
-  // 再生回数ベースの並び替え(#48)。viewCount が 1 件も無い環境ではトグル自体が
-  // レンダリングされない(videos.astro のフロントマター参照)ため sortButtons は空になる。
-  // data-view-count は <template> にも付与済みのため、未実体化のままでも並び替えキーとして使える。
+  // 再生回数・リアクション数ベースの並び替え(#48, #495)。data-* は <template> にも付与済みのため、
+  // 未実体化のままでも並び替えキーとして使える。
   function getViewCount(card: CardSlot): number {
     return parseViewCountAttr(card.dataset.viewCount);
   }
 
+  function getReactionCount(card: CardSlot): number {
+    return reactionCounts.get(card.dataset.videoId ?? "") ?? 0;
+  }
+
   // カードを DOM 上で並び替える(appendChild は既存ノードの移動であり、複製ではないため、
   // 状態やイベントリスナーはそのまま保たれる。<template> 要素もそのまま移動できる)
-  function reorderGrid(order: "newest" | "popular"): void {
+  function reorderGrid(order: "newest" | "popular" | "reactions"): void {
     const sorted =
       order === "popular"
         ? [...originalOrder].sort((a, b) => getViewCount(b) - getViewCount(a))
-        : originalOrder;
+        : order === "reactions"
+          ? [...originalOrder].sort((a, b) => getReactionCount(b) - getReactionCount(a))
+          : originalOrder;
     for (const card of sorted) {
       grid?.appendChild(card);
     }
@@ -834,7 +906,31 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
   for (const button of sortButtons) {
     button.addEventListener("click", () => {
-      sortOrder = button.dataset.sortOrder === "popular" ? "popular" : "newest";
+      const requestedOrder =
+        button.dataset.sortOrder === "popular"
+          ? "popular"
+          : button.dataset.sortOrder === "reactions"
+            ? "reactions"
+            : "newest";
+      if (requestedOrder === "reactions") {
+        setSortLoading(true);
+        void loadReactionCounts().then((loaded) => {
+          setSortLoading(false);
+          if (!loaded) {
+            setSortStatus("リアクション数を取得できませんでした");
+            return;
+          }
+          sortOrder = "reactions";
+          setPressedSortOrder(sortOrder);
+          reorderGrid(sortOrder);
+          expanded = false;
+          applyFilter();
+          syncUrl("push");
+        });
+        return;
+      }
+      sortOrder = requestedOrder;
+      setSortStatus("");
       setPressedSortOrder(sortOrder);
       reorderGrid(sortOrder);
       // カテゴリ・長さと同様、独立した状態変化への切り替えとみなし展開状態をリセットする(#273)
