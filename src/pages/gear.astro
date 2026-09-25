@@ -62,7 +62,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 <Base
   title={pageTitle}
   description={pageDescription}
-  ogImagePath="/ogp-gear.png"
+  ogImagePath="/ogp/gear.svg"
   ogImageAlt={`${site.name} 愛用ガジェット`}
 >
   <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
