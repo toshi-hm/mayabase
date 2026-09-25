@@ -12,6 +12,7 @@ import glossaryJson from "../../data/glossary.json";
 import seriesJson from "../../data/series.json";
 import testimonialsJson from "../../data/testimonials.json";
 import videosJson from "../../data/videos.json";
+import videoRelationsJson from "../../data/video-relations.json";
 import transcriptsJson from "../../data/transcripts.json";
 import videoSummariesJson from "../../data/video-summaries.json";
 import Base from "../../layouts/Base.astro";
@@ -36,6 +37,7 @@ import { getLightboxContainerClass } from "../../lib/lightbox";
 import { buildOwnerPersonJsonLd } from "../../lib/personJsonLd";
 import { getTranscript, parseTranscriptsData } from "../../lib/transcripts";
 import { getAdjacentVideos, getRelatedVideos, pickNextVideo } from "../../lib/relatedVideos";
+import { getCuratedRelatedVideos, parseVideoRelationsData } from "../../lib/videoRelations";
 import { getVideoSummary, parseVideoSummariesData } from "../../lib/videoSummaries";
 import { isInSeries, parseSeriesData, type SeriesItem, seriesUrl } from "../../lib/series";
 import { parseTestimonialsData } from "../../lib/testimonials";
@@ -114,7 +116,20 @@ const videoSummary = getVideoSummary(parseVideoSummariesData(videoSummariesJson)
 const { testimonials } = parseTestimonialsData(testimonialsJson);
 const category = categorizeVideo(video);
 const RELATED_LIMIT = 6;
-const relatedVideos = getRelatedVideos(video, videos, category, RELATED_LIMIT);
+const { relations: videoRelations } = parseVideoRelationsData(videoRelationsJson);
+const curatedRelatedVideos = getCuratedRelatedVideos(
+  video.id,
+  videos,
+  videoRelations,
+  RELATED_LIMIT,
+);
+const relatedVideos = [
+  ...curatedRelatedVideos,
+  ...getRelatedVideos(video, videos, category, RELATED_LIMIT).filter(
+    (relatedVideo) =>
+      !curatedRelatedVideos.some((curatedVideo) => curatedVideo.id === relatedVideo.id),
+  ),
+].slice(0, RELATED_LIMIT);
 // 公開日時順の前後ナビゲーション(#106)。関連動画(同カテゴリ)とは別軸の発見導線。
 const adjacentVideos = getAdjacentVideos(video, videos);
 // 再生終了後に提示する「次の動画」(#175)。無ければ提示UI自体を出さない。
@@ -588,10 +603,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       relatedVideos.length > 0 && (
         <section aria-labelledby="related-heading" class="mt-16">
           <h2 id="related-heading" class="text-xl font-bold">
-            関連動画
+            {curatedRelatedVideos.length > 0 ? "次に見る関連動画" : "関連動画"}
           </h2>
           <p id="related-sort-status" aria-live="polite" class="mt-2 text-sm text-ink-muted">
-            {`「${CATEGORY_LABELS[category]}」カテゴリの関連動画を公開日の新しい順に表示しています。`}
+            {curatedRelatedVideos.length > 0
+              ? "Shorts・長尺・続編など、編集部が選んだ次の視聴先を優先表示しています。"
+              : `「${CATEGORY_LABELS[category]}」カテゴリの関連動画を公開日の新しい順に表示しています。`}
           </p>
           <ul
             id="related-videos-list"
@@ -600,7 +617,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
             {relatedVideos.map((relatedVideo) => (
-              <RelatedVideoCard video={relatedVideo} category={category} />
+              <RelatedVideoCard
+                video={relatedVideo}
+                category={categorizeVideo(relatedVideo)}
+                curated={curatedRelatedVideos.some(
+                  (curatedVideo) => curatedVideo.id === relatedVideo.id,
+                )}
+              />
             ))}
           </ul>
         </section>
@@ -697,6 +720,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       element,
       id: element.dataset.relatedVideoId ?? "",
       publishedAt: element.dataset.relatedVideoPublishedAt ?? "",
+      curated: element.dataset.relatedVideoCurated === "true",
     }));
 
     const loadReactionCount = async (
@@ -723,15 +747,19 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       const reactionCounts = new Map(
         loadedItems.map(({ item, result }) => [item.id, result.count] as const),
       );
-      const sortedItems = sortRelatedVideosByReaction(
-        loadedItems.map(({ item }) => item),
-        reactionCounts,
-      );
+      const curatedItems = loadedItems.filter(({ item }) => item.curated).map(({ item }) => item);
+      const automaticItems = loadedItems
+        .filter(({ item }) => !item.curated)
+        .map(({ item }) => item);
+      const sortedItems = [
+        ...sortRelatedVideosByReaction(curatedItems, reactionCounts),
+        ...sortRelatedVideosByReaction(automaticItems, reactionCounts),
+      ];
       sortedItems.forEach(({ element }) => relatedList.append(element));
 
       if (relatedSortStatus && loadedItems.some(({ result }) => result.loaded)) {
         relatedSortStatus.textContent =
-          "「気になる」の反応が多い順です。同数の場合は公開日の新しい順です。";
+          "編集部が選んだ関連動画を先に表示し、各グループ内では「気になる」の反応が多い順です。";
       }
     });
   }

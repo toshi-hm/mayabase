@@ -16,9 +16,10 @@ import WatchLaterButton from "./WatchLaterButton.astro";
 interface Props {
   video: Video;
   category: VideoCategory;
+  curated?: boolean;
 }
 
-const { video, category } = Astro.props;
+const { video, category, curated = false } = Astro.props;
 const durationLabel = formatDurationLabel(video.duration);
 ---
 
@@ -37,6 +38,7 @@ const durationLabel = formatDurationLabel(video.duration);
   class="relative"
   data-related-video-id={video.id}
   data-related-video-published-at={video.publishedAt}
+  data-related-video-curated={curated ? "true" : undefined}
 >
   <a
     href={`/videos/${video.id}/`}
