@@ -449,9 +449,7 @@ async function handleTopicRequest(request: Request, env: Env): Promise<Response>
     batchTopicSlugs !== null &&
     (batchTopicSlugs.length === 0 ||
       batchTopicSlugs.length > 12 ||
-      batchTopicSlugs.some(
-        (slug) => slug.length > 64 || !TOPIC_SLUG_PATTERN.test(slug),
-      ) ||
+      batchTopicSlugs.some((slug) => slug.length > 64 || !TOPIC_SLUG_PATTERN.test(slug)) ||
       new Set(batchTopicSlugs).size !== batchTopicSlugs.length)
   ) {
     return jsonResponse({ error: "invalid topic slugs" }, 400);
