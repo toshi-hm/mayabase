@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { findFaqItemsForVideo, resolveFaqVideos } from "./faqVideos";
 import type { FaqItem } from "./faq";
+import { findFaqItemsForVideo, resolveFaqVideos } from "./faqVideos";
 import type { Video } from "./youtube";
 
 function video(id: string, title: string, description = ""): Video {
@@ -22,10 +22,12 @@ describe("faqVideos", () => {
       answer: "キャリアの質問",
       link: { label: "探す", url: "/videos/category/career/" },
     };
-    expect(resolveFaqVideos(item, [
-      video("career", "大学院を卒業しました"),
-      video("gadget", "新しいキーボードを購入"),
-    ]).map((entry) => entry.id)).toEqual(["career"]);
+    expect(
+      resolveFaqVideos(item, [
+        video("career", "大学院を卒業しました"),
+        video("gadget", "新しいキーボードを購入"),
+      ]).map((entry) => entry.id),
+    ).toEqual(["career"]);
   });
 
   test("キーワードでタイトル・概要欄・カテゴリを横断してマッチする", () => {
@@ -50,9 +52,9 @@ describe("faqVideos", () => {
       videoIds: ["one"],
       keywords: ["ガジェット"],
     };
-    expect(resolveFaqVideos(item, [video("one", "ガジェット紹介")]).map((entry) => entry.id)).toEqual([
-      "one",
-    ]);
+    expect(
+      resolveFaqVideos(item, [video("one", "ガジェット紹介")]).map((entry) => entry.id),
+    ).toEqual(["one"]);
   });
 
   test("動画側から同じ判定でFAQを逆引きする", () => {
