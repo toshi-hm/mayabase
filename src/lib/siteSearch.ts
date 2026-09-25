@@ -36,6 +36,8 @@ export interface SiteSearchItem {
    * 必ずこの候補自身にマッチする値(タイトル・質問文・ガジェット名そのもの)を使う。
    */
   query: string;
+  /** 動画候補の場合に、遅延取得する文字起こしと結び付ける動画ID。 */
+  videoId?: string;
   /** インクリメンタルサーチの照合対象テキスト(`title` より広い範囲を含んでよい) */
   searchText: string;
 }
@@ -59,6 +61,7 @@ export function buildSiteSearchIndex(
     subtitle: "動画ライブラリ",
     href: "/videos/",
     query: video.title,
+    videoId: video.id,
     searchText: video.title,
   }));
 
