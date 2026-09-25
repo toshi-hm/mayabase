@@ -509,7 +509,7 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
       freshViewCounts,
     );
     const historyTmpPath = `${VIDEO_VIEW_HISTORY_JSON_PATH}.tmp`;
-    await Bun.write(historyTmpPath, `${JSON.stringify(updatedHistory, null, 2)}\\n`);
+    await Bun.write(historyTmpPath, `${JSON.stringify(updatedHistory, null, 2)}\n`);
     await rename(historyTmpPath, VIDEO_VIEW_HISTORY_JSON_PATH);
   }
 
