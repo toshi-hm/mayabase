@@ -20,7 +20,9 @@ export function parseTopicRequestsData(data: unknown): TopicRequestsData {
     throw new Error("topic-requests.json: topics は配列である必要があります");
   }
   if (rawTopics.length > MAX_TOPIC_REQUESTS) {
-    throw new Error(`topic-requests.json: topics は${MAX_TOPIC_REQUESTS}件以内である必要があります`);
+    throw new Error(
+      `topic-requests.json: topics は${MAX_TOPIC_REQUESTS}件以内である必要があります`,
+    );
   }
 
   const slugs = new Set<string>();
