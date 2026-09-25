@@ -146,7 +146,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 <Base
   title={pageTitle}
   description={pageDescription}
-  ogImagePath="/ogp-videos.png"
+  ogImagePath={`/ogp/category/${category}.svg`}
   ogImageAlt={`${site.name} ${categoryLabel}の動画一覧`}
 >
   {
