@@ -32,7 +32,9 @@ const { topics } = Astro.props;
             >
               <span data-topic-request-label>投票する</span>
               <span aria-hidden="true">・</span>
-              <span data-topic-request-count aria-live="polite">0</span>
+              <span data-topic-request-count aria-live="polite">
+                0
+              </span>
               <span>票</span>
             </button>
           </article>
@@ -40,7 +42,7 @@ const { topics } = Astro.props;
       ))
     }
   </ul>
-  <p id="topic-request-status" aria-live="polite" class="mt-3 text-sm text-ink-muted" />
+  <p id="topic-request-status" aria-live="polite" class="mt-3 text-sm text-ink-muted"></p>
 </section>
 
 <script>
@@ -87,7 +89,11 @@ const { topics } = Astro.props;
     button.setAttribute("aria-label", title + (voted ? "に投票済み" : "に投票する"));
     const label = button.querySelector("[data-topic-request-label]");
     if (label) {
-      label.textContent = isStaticPreview ? "プレビューでは投票不可" : voted ? "投票済み" : "投票する";
+      label.textContent = isStaticPreview
+        ? "プレビューでは投票不可"
+        : voted
+          ? "投票済み"
+          : "投票する";
     }
   };
 
