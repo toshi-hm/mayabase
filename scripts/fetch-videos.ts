@@ -23,9 +23,13 @@ import {
   toJstDateString,
 } from "../src/lib/channelStatsHistory";
 import { newlyPublishedVideos } from "../src/lib/push";
+import {
+  appendVideoViewHistory,
+  createEmptyVideoViewHistory,
+  parseVideoViewHistory,
+} from "../src/lib/videoViewHistory";
 import { formatVideoPostDraftSummary } from "../src/lib/x";
 import {
-  createEmptyVideosData,
   extractChannelId,
   type FeedEntry,
   type FetchLike,
@@ -42,7 +46,6 @@ import {
   type Video,
   type VideosData,
 } from "../src/lib/youtube";
-import { appendVideoViewHistory, createEmptyVideoViewHistory, parseVideoViewHistory } from "../src/lib/videoViewHistory";
 import { PENDING_NOTIFICATIONS_PATH, readPendingNotifications } from "./send-push-notifications";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
@@ -117,7 +120,6 @@ async function loadExistingChannelStatsHistory(): Promise<ChannelStatsHistoryEnt
     return createEmptyChannelStatsHistory();
   }
 }
-
 
 async function loadExistingVideoViewHistory() {
   try {
