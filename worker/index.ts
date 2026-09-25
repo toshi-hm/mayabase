@@ -342,16 +342,16 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
       : typeof payload === "object" && payload !== null
         ? (payload as { videoId?: unknown }).videoId
         : undefined;
-  if (typeof videoId !== "string" || !VIDEO_ID_PATTERN.test(videoId)) {
+  if (
+    batchVideoIds === null &&
+    (typeof videoId !== "string" || !VIDEO_ID_PATTERN.test(videoId))
+  ) {
     return jsonResponse({ error: "invalid video id" }, 400);
   }
   if (await isReactionRateLimited(request, env)) {
     return jsonResponse({ error: "rate limit exceeded" }, 429);
   }
   if (batchVideoIds !== null) {
-    if (await isReactionRateLimited(request, env)) {
-      return jsonResponse({ error: "rate limit exceeded" }, 429);
-    }
     try {
       const counts: Record<string, number> = {};
       for (const requestedVideoId of batchVideoIds) {
