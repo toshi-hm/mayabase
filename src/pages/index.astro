@@ -12,6 +12,7 @@ import VideoCard from "../components/VideoCard.astro";
 import { site, subscribeUrl } from "../config/site";
 import channelStatsHistoryJson from "../data/channel-stats-history.json";
 import channelStatsJson from "../data/channel-stats.json";
+import videoViewHistoryJson from "../data/video-view-history.json";
 import featuredVideosJson from "../data/featured-videos.json";
 import recommendationsJson from "../data/recommendations.json";
 import featuredTopicsJson from "../data/featured-topics.json";
@@ -24,6 +25,7 @@ import {
   buildSparklinePoints,
   parseChannelStatsHistory,
   sparklinePointsToPolyline,
+  toJstDateString,
 } from "../lib/channelStatsHistory";
 import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredVideos";
 import { parseFeaturedTopicsData, resolveFeaturedTopics } from "../lib/featuredTopics";
@@ -33,6 +35,10 @@ import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseXPostsData } from "../lib/x";
 import { parseRecommendationsData, resolveRecommendations } from "../lib/recommendations";
 import { parseTestimonialsData } from "../lib/testimonials";
+import {
+  calculateRecentViewGrowth,
+  parseVideoViewHistory,
+} from "../lib/videoViewHistory";
 import {
   embedUrl,
   parseVideosData,
@@ -60,6 +66,14 @@ const popularVideos = videos
   .filter((v): v is Video & { viewCount: number } => v.viewCount !== null)
   .sort((a, b) => b.viewCount - a.viewCount)
   .slice(0, maxItems);
+
+const recentViewGrowth = calculateRecentViewGrowth(
+  videos,
+  parseVideoViewHistory(videoViewHistoryJson),
+  toJstDateString(new Date().toISOString()),
+  7,
+  maxItems,
+);
 
 const { account, posts } = parseXPostsData(xPostsJson);
 const xPosts = posts.slice(0, maxItems);
@@ -401,6 +415,31 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                   position={index + 1}
                   total={popularVideos.length}
                   viewCountLabel={formatViewCount(video.viewCount)}
+                />
+              ))}
+            </Carousel>
+          </div>
+        </section>
+      )
+    }
+
+
+    {
+      recentViewGrowth.length > 0 && (
+        <section aria-labelledby="recent-growth-heading" class="bg-surface-mint py-16">
+          <div class="mx-auto max-w-6xl px-4">
+            <SectionHeading
+              id="recent-growth-heading"
+              title="最近伸びている動画"
+              subtitle="直近7日間の再生増加数から、いま注目されている動画を紹介します。"
+            />
+            <Carousel label="最近伸びている動画の一覧">
+              {recentViewGrowth.map((item, index) => (
+                <VideoCard
+                  video={item.video}
+                  position={index + 1}
+                  total={recentViewGrowth.length}
+                  metaLabel={"過去7日 +" + item.increase.toLocaleString("ja-JP") + "回"}
                 />
               ))}
             </Carousel>
