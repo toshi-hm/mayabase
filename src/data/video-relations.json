@@ -1,0 +1,36 @@
+{
+  "relations": [
+    {
+      "videoId": "l1p42-kVjww",
+      "relatedVideoIds": ["LN1RYok1HxA"]
+    },
+    {
+      "videoId": "LN1RYok1HxA",
+      "relatedVideoIds": ["l1p42-kVjww"]
+    },
+    {
+      "videoId": "DcVnVQqfpRs",
+      "relatedVideoIds": ["z5O2lQteSQg"]
+    },
+    {
+      "videoId": "z5O2lQteSQg",
+      "relatedVideoIds": ["DcVnVQqfpRs"]
+    },
+    {
+      "videoId": "xoelkbYfvtI",
+      "relatedVideoIds": ["UA2pGkPjJjM"]
+    },
+    {
+      "videoId": "UA2pGkPjJjM",
+      "relatedVideoIds": ["xoelkbYfvtI"]
+    },
+    {
+      "videoId": "2WX26Bekrfk",
+      "relatedVideoIds": ["qF3YSuHxSpc"]
+    },
+    {
+      "videoId": "qF3YSuHxSpc",
+      "relatedVideoIds": ["2WX26Bekrfk"]
+    }
+  ]
+}
