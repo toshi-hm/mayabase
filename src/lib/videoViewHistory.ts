@@ -40,7 +40,7 @@ export function parseVideoViewHistory(data: unknown): VideoViewHistoryData {
   const dates = new Set<string>();
   const parsed = snapshots.map((snapshot, index) => {
     if (typeof snapshot !== "object" || snapshot === null) {
-      throw new Error("video-view-history.json[" + index + "]: オブジェクトではありません");
+      throw new Error(`video-view-history.json[${index}]: オブジェクトではありません`);
     }
     const { date, viewCounts } = snapshot as {
       date?: unknown;
@@ -54,12 +54,12 @@ export function parseVideoViewHistory(data: unknown): VideoViewHistoryData {
       );
     }
     if (dates.has(date)) {
-      throw new Error("video-view-history.json: date が重複しています(" + date + ")");
+      throw new Error(`video-view-history.json: date が重複しています(${date})`);
     }
     dates.add(date);
     if (typeof viewCounts !== "object" || viewCounts === null || Array.isArray(viewCounts)) {
       throw new Error(
-        "video-view-history.json[" + index + "]: viewCounts はオブジェクトである必要があります",
+        `video-view-history.json[${index}]: viewCounts はオブジェクトである必要があります`,
       );
     }
 
@@ -87,7 +87,7 @@ export function appendVideoViewHistory(
   maxSnapshots: number = MAX_VIDEO_VIEW_HISTORY_SNAPSHOTS,
 ): VideoViewHistoryData {
   if (!DATE_PATTERN.test(date)) {
-    throw new Error("appendVideoViewHistory: date が不正です(" + date + ")");
+    throw new Error(`appendVideoViewHistory: date が不正です(${date})`);
   }
   if (maxSnapshots < 1 || !Number.isInteger(maxSnapshots)) {
     throw new Error("appendVideoViewHistory: maxSnapshots は1以上の整数である必要があります");
@@ -123,7 +123,7 @@ export function calculateRecentViewGrowth(
   if (!DATE_PATTERN.test(asOfDate) || days < 1 || !Number.isInteger(days)) {
     return [];
   }
-  const targetDate = new Date(asOfDate + "T00:00:00Z");
+  const targetDate = new Date(`${asOfDate}T00:00:00Z`);
   targetDate.setUTCDate(targetDate.getUTCDate() - days);
   const targetDateString = targetDate.toISOString().slice(0, 10);
 
@@ -136,7 +136,9 @@ export function calculateRecentViewGrowth(
   const items: RecentViewGrowthItem[] = [];
   for (const [videoId, video] of current) {
     if (video.viewCount === null) continue;
-    const baseline = baselineSnapshots.find((snapshot) => snapshot.viewCounts[videoId] !== undefined);
+    const baseline = baselineSnapshots.find(
+      (snapshot) => snapshot.viewCounts[videoId] !== undefined,
+    );
     if (!baseline) continue;
     const increase = Math.max(0, video.viewCount - baseline.viewCounts[videoId]);
     if (increase === 0) continue;
