@@ -1,31 +1,32 @@
 ---
-import type { OnboardingPanel } from "../lib/onboarding";
+import { CATEGORY_LABELS, categoryUrl } from "../lib/categories";
+import type { Recommendation } from "../lib/recommendations";
 import VideoCard from "./VideoCard.astro";
 
 interface Props {
-  panels: OnboardingPanel[];
+  panels: Recommendation[];
 }
 const { panels } = Astro.props;
-const panelId = (category: string): string => "onboarding-panel-" + category;
-const buttonId = (category: string): string => "onboarding-button-" + category;
+const panelId = (slug: string): string => "onboarding-panel-" + slug;
+const buttonId = (slug: string): string => "onboarding-button-" + slug;
 ---
 
 <section aria-labelledby="onboarding-heading" class="bg-surface-mint py-16">
   <div class="mx-auto max-w-6xl px-4">
     <h2 id="onboarding-heading" class="text-2xl font-black sm:text-3xl">あなたにおすすめ診断</h2>
-    <p class="mt-2 text-ink-muted">気になるテーマを選ぶと、最初に見る動画を提案します。</p>
-    <div role="group" aria-label="興味のあるテーマ" class="mt-5 flex flex-wrap gap-2">
+    <p class="mt-2 text-ink-muted">視聴したい目的を選ぶと、まず見る動画を提案します。</p>
+    <div role="group" aria-label="視聴目的" class="mt-5 flex flex-wrap gap-2">
       {
         panels.map((panel, index) => (
           <button
             type="button"
-            id={buttonId(panel.category)}
-            data-onboarding-category={panel.category}
-            aria-controls={panelId(panel.category)}
+            id={buttonId(panel.slug)}
+            data-onboarding-purpose={panel.slug}
+            aria-controls={panelId(panel.slug)}
             aria-pressed={index === 0 ? "true" : "false"}
             class="rounded-full border border-ink-muted px-4 py-2 text-sm transition hover:border-ink aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white focus-visible:outline-2 focus-visible:outline-brand"
           >
-            {panel.label}
+            {panel.title}
           </button>
         ))
       }
@@ -34,12 +35,21 @@ const buttonId = (category: string): string => "onboarding-button-" + category;
       {
         panels.map((panel, index) => (
           <div
-            id={panelId(panel.category)}
-            data-onboarding-panel={panel.category}
+            id={panelId(panel.slug)}
+            data-onboarding-panel={panel.slug}
             role="region"
-            aria-labelledby={buttonId(panel.category)}
+            aria-labelledby={buttonId(panel.slug)}
             hidden={index !== 0}
           >
+            <div class="mb-5 rounded-lg border border-line bg-surface-raised p-4">
+              <p class="font-semibold">{panel.reason}</p>
+              <a
+                href={categoryUrl(panel.category)}
+                class="mt-2 inline-flex text-sm font-semibold text-brand-accent underline underline-offset-4"
+              >
+                {CATEGORY_LABELS[panel.category]}の動画をすべて見る
+              </a>
+            </div>
             <ul role="list" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {panel.videos.map((video, videoIndex) => (
                 <VideoCard
@@ -65,23 +75,21 @@ const buttonId = (category: string): string => "onboarding-button-" + category;
 </section>
 
 <script>
-  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-onboarding-category]");
+  const buttons = document.querySelectorAll<HTMLButtonElement>("[data-onboarding-purpose]");
   const panels = document.querySelectorAll<HTMLElement>("[data-onboarding-panel]");
   for (const button of buttons) {
     button.addEventListener("click", () => {
-      const category = button.dataset.onboardingCategory;
-      if (!category) return;
+      const slug = button.dataset.onboardingPurpose;
+      if (!slug) return;
       for (const item of buttons) {
         item.setAttribute("aria-pressed", String(item === button));
       }
       let selectedPanel: HTMLElement | null = null;
       for (const panel of panels) {
-        const isSelected = panel.dataset.onboardingPanel === category;
+        const isSelected = panel.dataset.onboardingPanel === slug;
         panel.hidden = !isSelected;
         if (isSelected) selectedPanel = panel;
       }
-      // 切り替わったことをスクリーンリーダー利用者にも伝えるため、index.astro の
-      // トピックピッカー(selectTopic)と同じ方針で先頭カードへフォーカスを移す(#398)
       selectedPanel?.querySelector("a")?.focus();
     });
   }
