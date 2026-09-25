@@ -42,6 +42,7 @@ import {
   type Video,
   type VideosData,
 } from "../src/lib/youtube";
+import { appendVideoViewHistory, createEmptyVideoViewHistory, parseVideoViewHistory } from "../src/lib/videoViewHistory";
 import { PENDING_NOTIFICATIONS_PATH, readPendingNotifications } from "./send-push-notifications";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
@@ -50,6 +51,9 @@ const CHANNEL_STATS_JSON_PATH = fileURLToPath(
 );
 const CHANNEL_STATS_HISTORY_JSON_PATH = fileURLToPath(
   new URL("../src/data/channel-stats-history.json", import.meta.url),
+);
+const VIDEO_VIEW_HISTORY_JSON_PATH = fileURLToPath(
+  new URL("../src/data/video-view-history.json", import.meta.url),
 );
 const PROBE_CONCURRENCY = 4;
 const FETCH_TIMEOUT_MS = 15_000;
@@ -111,6 +115,21 @@ async function loadExistingChannelStatsHistory(): Promise<ChannelStatsHistoryEnt
       error,
     );
     return createEmptyChannelStatsHistory();
+  }
+}
+
+
+async function loadExistingVideoViewHistory() {
+  try {
+    const file = Bun.file(VIDEO_VIEW_HISTORY_JSON_PATH);
+    if (!(await file.exists())) return createEmptyVideoViewHistory();
+    return parseVideoViewHistory(await file.json());
+  } catch (error) {
+    console.warn(
+      "[fetch-videos] 既存 video-view-history.json の読み込みに失敗したため空データから再構築します:",
+      error,
+    );
+    return createEmptyVideoViewHistory();
   }
 }
 
@@ -442,6 +461,7 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
 
   let merged = await probeShorts(mergeVideos(existing.videos, entries));
   merged = await probeHqThumbnails(merged, fetchFn);
+  let freshViewCounts = new Map<string, number>();
 
   if (apiKey) {
     const { viewCounts, durations } = await fetchVideoDetails(
@@ -449,6 +469,7 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
       apiKey,
       fetchFn,
     );
+    freshViewCounts = viewCounts;
     if (viewCounts.size > 0 || durations.size > 0) {
       merged = merged.map((video) => ({
         id: video.id,
@@ -476,6 +497,19 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
   const tmpPath = `${VIDEOS_JSON_PATH}.tmp`;
   await Bun.write(tmpPath, `${JSON.stringify(data, null, 2)}\n`);
   await rename(tmpPath, VIDEOS_JSON_PATH);
+
+  if (freshViewCounts.size > 0) {
+    const history = await loadExistingVideoViewHistory();
+    const updatedHistory = appendVideoViewHistory(
+      history,
+      toJstDateString(new Date().toISOString()),
+      freshViewCounts,
+    );
+    const historyTmpPath = `${VIDEO_VIEW_HISTORY_JSON_PATH}.tmp`;
+    await Bun.write(historyTmpPath, `${JSON.stringify(updatedHistory, null, 2)}\\n`);
+    await rename(historyTmpPath, VIDEO_VIEW_HISTORY_JSON_PATH);
+  }
+
   const shorts = merged.filter((v) => v.isShort === true).length;
   console.log(
     `[fetch-videos] ${merged.length} 件を保存しました(Shorts: ${shorts} 件、未判定: ${merged.filter((v) => v.isShort === null).length} 件)`,
