@@ -9,7 +9,7 @@ import type { Video } from "./youtube";
 
 const video = (id: string, viewCount: number | null): Video => ({
   id,
-  title: "title-" + id,
+  title: `title-${id}`,
   description: "",
   publishedAt: "2026-01-01T00:00:00Z",
   isShort: false,
@@ -25,10 +25,7 @@ describe("parseVideoViewHistory", () => {
         { date: "2026-09-01", viewCounts: { a: 1 } },
       ],
     });
-    expect(parsed.snapshots.map((snapshot) => snapshot.date)).toEqual([
-      "2026-09-01",
-      "2026-09-10",
-    ]);
+    expect(parsed.snapshots.map((snapshot) => snapshot.date)).toEqual(["2026-09-01", "2026-09-10"]);
   });
 
   test("重複日付・負数・小数を拒否する", () => {
@@ -53,15 +50,11 @@ describe("appendVideoViewHistory", () => {
   test("同日を置き換え、90件を超える履歴を古い順に削る", () => {
     const history = parseVideoViewHistory({
       snapshots: Array.from({ length: MAX_VIDEO_VIEW_HISTORY_SNAPSHOTS }, (_, index) => ({
-        date: "2026-01-" + String(index + 1).padStart(2, "0"),
+        date: `2026-01-${String(index + 1).padStart(2, "0")}`,
         viewCounts: { a: index },
       })),
     });
-    const updated = appendVideoViewHistory(
-      history,
-      "2026-01-30",
-      new Map([["a", 999]]),
-    );
+    const updated = appendVideoViewHistory(history, "2026-01-30", new Map([["a", 999]]));
     expect(updated.snapshots).toHaveLength(MAX_VIDEO_VIEW_HISTORY_SNAPSHOTS);
     expect(updated.snapshots.at(-1)?.viewCounts.a).toBe(999);
     expect(updated.snapshots[0]?.date).toBe("2026-01-02");
