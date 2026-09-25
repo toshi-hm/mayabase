@@ -292,18 +292,16 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             >
               新しい順
             </button>
-            {
-              hasViewCounts && (
-                <button
-                  type="button"
-                  data-sort-order="popular"
-                  aria-pressed="false"
-                  class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
-                >
-                  人気順
-                </button>
-              )
-            }
+            {hasViewCounts && (
+              <button
+                type="button"
+                data-sort-order="popular"
+                aria-pressed="false"
+                class="cursor-pointer rounded-full border border-ink-muted px-4 py-1.5 text-sm transition hover:border-ink focus-visible:outline-2 focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:font-semibold aria-pressed:text-white"
+              >
+                人気順
+              </button>
+            )}
             <button
               type="button"
               data-sort-order="reactions"
@@ -312,7 +310,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             >
               気になる順
             </button>
-            <p id="videos-sort-status" aria-live="polite" class="sr-only"></p>
+            <p id="videos-sort-status" aria-live="polite" class="sr-only" />
           </div>
         )
       }
