@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import featuredTopicsJson from "../data/featured-topics.json";
-import type { Video } from "./youtube";
 import { parseFeaturedTopicsData, resolveFeaturedTopics } from "./featuredTopics";
+import type { Video } from "./youtube";
 
 const video = (id: string): Video => ({
   id,
@@ -59,9 +59,9 @@ describe("parseFeaturedTopicsData", () => {
 
   test("カテゴリと期限を検証する", () => {
     const base = { slug: "topic", title: "A", description: "A", videoIds: ["a"] };
-    expect(() =>
-      parseFeaturedTopicsData({ topics: [{ ...base, category: "unknown" }] }),
-    ).toThrow("category");
+    expect(() => parseFeaturedTopicsData({ topics: [{ ...base, category: "unknown" }] })).toThrow(
+      "category",
+    );
     expect(() =>
       parseFeaturedTopicsData({ topics: [{ ...base, category: "ai", expiresAt: "invalid" }] }),
     ).toThrow("expiresAt");
