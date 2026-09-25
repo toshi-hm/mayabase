@@ -126,11 +126,13 @@ const recentlyPublished = isRecentlyPublished(video.publishedAt, new Date());
         <span class="sr-only">(YouTube・新しいタブで開きます)</span>
       </h3>
       <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
-        {metaLabel && (
-          <span class="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand-strong">
-            {metaLabel}
-          </span>
-        )}
+        {
+          metaLabel && (
+            <span class="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand-strong">
+              {metaLabel}
+            </span>
+          )
+        }
         {viewCountLabel && <span>{viewCountLabel}視聴 ・ </span>}
         <time datetime={video.publishedAt}>{formatDateJa(video.publishedAt)}</time>
         {
