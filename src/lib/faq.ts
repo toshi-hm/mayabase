@@ -13,6 +13,10 @@ export interface FaqItem {
   /** プレーンテキストの回答(FAQPage JSON-LD の Answer.text にも使う) */
   answer: string;
   link?: FaqLink;
+  /** 明示的に関連付ける動画ID(任意)。 */
+  videoIds?: string[];
+  /** タイトル・概要欄・カテゴリへの自動マッチに使うキーワード(任意)。 */
+  keywords?: string[];
   /**
    * 問い合わせ用メールアドレス(スクレイピング対策として "@" を "☆" に置き換えた形式)。
    * 静的 HTML には生アドレスを埋め込まず、クライアントサイドでコピーボタン用に復元する。
@@ -106,10 +110,28 @@ export function parseFaqData(data: unknown): FaqData {
           `faq.json: ${path}.email は "☆" で "@" をマスクした形式(例: xxx☆example.com)である必要があります`,
         );
       }
+      if (
+        item.videoIds !== undefined &&
+        (!Array.isArray(item.videoIds) ||
+          item.videoIds.some((id) => typeof id !== "string" || !/^[A-Za-z0-9_-]{1,32}$/.test(id)))
+      ) {
+        throw new Error(`faq.json: ${path}.videoIds は動画IDの配列である必要があります`);
+      }
+      if (
+        item.keywords !== undefined &&
+        (!Array.isArray(item.keywords) ||
+          item.keywords.some(
+            (keyword) => typeof keyword !== "string" || keyword.trim().length === 0,
+          ))
+      ) {
+        throw new Error(`faq.json: ${path}.keywords は空でない文字列の配列である必要があります`);
+      }
       return {
         question: item.question,
         answer: item.answer,
         ...(item.link !== undefined ? { link: parseLink(item.link, `${path}.link`) } : {}),
+        ...(item.videoIds !== undefined ? { videoIds: item.videoIds as string[] } : {}),
+        ...(item.keywords !== undefined ? { keywords: item.keywords as string[] } : {}),
         ...(item.email !== undefined ? { email: item.email as string } : {}),
       };
     });

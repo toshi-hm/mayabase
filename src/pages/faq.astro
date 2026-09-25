@@ -5,12 +5,18 @@ import Breadcrumb from "../components/Breadcrumb.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import { site } from "../config/site";
 import faqJson from "../data/faq.json";
+import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
-import { isInternalPath, parseFaqData } from "../lib/faq";
+import { CATEGORY_LABELS, categorizeVideo } from "../lib/categories";
+import { type FaqItem, isInternalPath, parseFaqData } from "../lib/faq";
+import { parseVideosData } from "../lib/youtube";
+import { resolveFaqVideos } from "../lib/faqVideos";
 
 const { categories } = parseFaqData(faqJson);
 const allItems = categories.flatMap((category) => category.items);
+const { videos } = parseVideosData(videosJson);
+const relatedVideosForFaq = (item: FaqItem) => resolveFaqVideos(item, videos);
 
 const pageTitle = `よくある質問 | ${site.name}`;
 const pageDescription = `${site.name} へのよくある質問。チャンネルの内容、運営者プロフィール、使用機材、お仕事のご依頼方法についてまとめています。`;
@@ -124,6 +130,32 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                       </a>
                     ))}
                 </div>
+                {resolveFaqVideos(item, videos).length > 0 && (
+                  <section
+                    aria-label={`「${item.question}」に関連する動画`}
+                    class="mt-4 border-t border-line px-5 pt-4 pb-5"
+                  >
+                    <h3 class="text-sm font-semibold">この質問に関連する動画</h3>
+                    <ul class="mt-2 flex flex-col gap-2">
+                      {relatedVideosForFaq(item).map((video) => (
+                        <li>
+                          <a
+                            href={`/videos/${video.id}/`}
+                            data-watch-track-id={video.id}
+                            class="group flex items-baseline justify-between gap-3 rounded-lg p-2 text-sm hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+                          >
+                            <span class="font-semibold group-hover:text-brand-accent">
+                              {video.title}
+                            </span>
+                            <span class="shrink-0 text-xs text-ink-muted">
+                              {CATEGORY_LABELS[categorizeVideo(video)]}
+                            </span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
               </details>
             ))}
           </div>
@@ -226,7 +258,6 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     applyFilter();
   });
 
-  // 初期表示:URL のクエリパラメータから検索状態を復元してから表示する
   restoreStateFromUrl();
   applyFilter();
 </script>
