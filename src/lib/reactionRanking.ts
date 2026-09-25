@@ -16,12 +16,10 @@ export function sortReactionRanking(
 
   return [...candidates]
     .sort((a, b) => {
-      const countDifference =
-        (reactionCounts.get(b.id) ?? 0) - (reactionCounts.get(a.id) ?? 0);
+      const countDifference = (reactionCounts.get(b.id) ?? 0) - (reactionCounts.get(a.id) ?? 0);
       if (countDifference !== 0) return countDifference;
 
-      const publishedAtDifference =
-        Date.parse(b.publishedAt) - Date.parse(a.publishedAt);
+      const publishedAtDifference = Date.parse(b.publishedAt) - Date.parse(a.publishedAt);
       return Number.isNaN(publishedAtDifference) ? 0 : publishedAtDifference;
     })
     .slice(0, limit);
