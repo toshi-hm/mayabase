@@ -1,0 +1,46 @@
+{
+  "recommendations": [
+    {
+      "slug": "work-efficiency",
+      "title": "仕事をもっと効率化したい",
+      "reason": "毎日の仕事や個人開発でAIをどう使っているか、実例からすぐに試せるヒントを紹介します。",
+      "category": "ai",
+      "videoIds": ["TaJaU6MMUik", "ewXEHL6jKIw", "KcBUCp8cWoc"]
+    },
+    {
+      "slug": "easier-living",
+      "title": "家事・一人暮らしをラクにしたい",
+      "reason": "料理や日常の負担を減らす家電を、実際の生活に取り入れた様子から選べます。",
+      "category": "gadget",
+      "videoIds": ["UA2pGkPjJjM", "xoelkbYfvtI", "2pYlZAfFOE4"]
+    },
+    {
+      "slug": "buy-better",
+      "title": "買って後悔しないガジェットを探したい",
+      "reason": "デスク環境や長く使う道具を、購入理由と使い方が分かる動画から比較できます。",
+      "category": "gadget",
+      "videoIds": ["jn3tvSA8KBw", "z5O2lQteSQg", "LN1RYok1HxA"]
+    },
+    {
+      "slug": "ai-life",
+      "title": "AIを生活や仕事で使いたい",
+      "reason": "音声AIや自律型AIなど、今日から試せるAIの使い道を見つけられます。",
+      "category": "ai",
+      "videoIds": ["TaJaU6MMUik", "qF3YSuHxSpc", "yzwe9ftjsoU"]
+    },
+    {
+      "slug": "daily-life",
+      "title": "IT会社員のリアルな日常を見たい",
+      "reason": "仕事・研究・動画編集を両立する日々を、飾らないVlogでのぞけます。",
+      "category": "vlog",
+      "videoIds": ["gg5VJ5Inyos", "wA0prtXm4t0", "len0SwZVFxA"]
+    },
+    {
+      "slug": "career-learning",
+      "title": "キャリア・学びについて知りたい",
+      "reason": "働きながら学ぶ進路やAI研究の経験を、本人の言葉でまとめています。",
+      "category": "career",
+      "videoIds": ["pqBQhUK1r3Q", "olBGpRSoDgg", "rxtmymY6NXw"]
+    }
+  ]
+}
