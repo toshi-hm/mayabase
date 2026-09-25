@@ -59,6 +59,16 @@ describe("appendVideoViewHistory", () => {
     expect(updated.snapshots.at(-1)?.viewCounts.a).toBe(999);
     expect(updated.snapshots[0]?.date).toBe("2026-01-02");
   });
+
+  test("同日の部分取得でも既存動画の再生数を保持する", () => {
+    const history = parseVideoViewHistory({
+      snapshots: [{ date: "2026-09-25", viewCounts: { a: 10, b: 20 } }],
+    });
+    const updated = appendVideoViewHistory(history, "2026-09-25", new Map([["a", 15]]));
+    expect(updated.snapshots).toEqual([
+      { date: "2026-09-25", viewCounts: { a: 15, b: 20 } },
+    ]);
+  });
 });
 
 describe("calculateRecentViewGrowth", () => {
