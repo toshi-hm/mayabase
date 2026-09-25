@@ -38,6 +38,8 @@
   const sortButtons = document.querySelectorAll<HTMLButtonElement>("[data-sort-order]");
   const count = document.getElementById("archive-count");
   const empty = document.getElementById("archive-empty");
+  const resetButton = document.getElementById("archive-reset") as HTMLButtonElement | null;
+  const fallback = document.getElementById("archive-empty-fallback");
   const moreButton = document.getElementById("archive-more") as HTMLButtonElement | null;
 
   // INITIAL_COUNT 超過分は <li> ではなく <template data-video-slot> として描画されている(#419)。
@@ -175,6 +177,7 @@
       }
       if (count) count.textContent = `${matched} 件`;
       if (empty) empty.hidden = matched > 0;
+      if (fallback) fallback.hidden = matched > 0;
 
       const remaining = matched - shown;
       if (moreButton) {
@@ -318,6 +321,22 @@
       applyFilter();
       const revealed = firstRevealedIndex !== -1 ? cards[firstRevealedIndex] : undefined;
       if (revealed instanceof HTMLLIElement) revealed.querySelector("a")?.focus();
+    });
+
+    resetButton?.addEventListener("click", () => {
+      length = "all";
+      durationBucket = "all";
+      sortOrder = "newest";
+      setPressedLength(length);
+      setPressedDuration(durationBucket);
+      applyDurationAvailability();
+      setPressedSortOrder(sortOrder);
+      reorderGrid(sortOrder);
+      expanded = false;
+      if (search) search.value = "";
+      applyFilter();
+      syncUrl("push");
+      search?.focus();
     });
 
     // #461: 検索語を含む状態に復元される場合は概要欄データも取得し直す

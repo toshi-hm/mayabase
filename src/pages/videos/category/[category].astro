@@ -55,6 +55,9 @@ interface Props {
 
 const { category, categoryVideos }: Props = Astro.props;
 const categoryLabel = CATEGORY_LABELS[category];
+const fallbackVideos = [...categoryVideos]
+  .sort((a, b) => (b.viewCount ?? -1) - (a.viewCount ?? -1))
+  .slice(0, 4);
 
 // INITIAL_COUNT 件を超える分は、videos.astro (#177) と同じく通常の <li> ではなく <template>
 // の中身として描画し、必要になった時点で実体化する(#419: カテゴリ別ページだけ動画本数が
@@ -372,13 +375,40 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         </noscript>
       )
     }
-    <p
+    <div
       id="archive-empty"
       hidden
       class="mt-6 rounded-xl bg-surface-raised p-8 text-center text-ink-muted"
     >
-      条件に一致する動画が見つかりませんでした。キーワードを変えてお試しください。
-    </p>
+      <p>条件に一致する動画が見つかりませんでした。条件をリセットしてお試しください。</p>
+      <button
+        id="archive-reset"
+        type="button"
+        class="mt-4 cursor-pointer rounded-full border border-ink-muted px-5 py-2 font-semibold transition hover:border-ink hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        絞り込みをリセット
+      </button>
+      {
+        fallbackVideos.length > 0 && (
+          <section id="archive-empty-fallback" hidden class="mt-8 text-left">
+            <h3 class="text-lg font-bold">おすすめの動画から見る</h3>
+            <ul role="list" class="mt-3 grid gap-2 sm:grid-cols-2">
+              {fallbackVideos.map((video) => (
+                <li>
+                  <a
+                    href={`/videos/${video.id}/`}
+                    data-watch-track-id={video.id}
+                    class="block rounded-lg border border-line p-3 font-semibold transition hover:border-brand hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+                  >
+                    {video.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+    </div>
     {/* 「もっと見る」ボタン。videos.astro と同じく、一度押すと以降は全件表示のまま(#419) */}
     <div class="mt-10 text-center">
       <button
