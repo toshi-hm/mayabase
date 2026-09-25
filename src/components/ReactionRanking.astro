@@ -1,0 +1,159 @@
+---
+import type { Video } from "../lib/youtube";
+
+interface Props {
+  videos: readonly Video[];
+  limit?: number;
+}
+
+const { videos, limit = 6 } = Astro.props;
+const candidates = videos.map(({ id, title, publishedAt, isShort }) => ({
+  id,
+  title,
+  publishedAt,
+  isShort,
+}));
+const candidatesJson = JSON.stringify(candidates).replace(/</g, "\\u003c");
+---
+
+<section
+  id="reaction-ranking"
+  aria-labelledby="reaction-ranking-heading"
+  hidden
+  data-limit={limit}
+  class="bg-surface-raised py-16"
+>
+  <div class="mx-auto max-w-6xl px-4">
+    <div class="mb-8">
+      <h2 id="reaction-ranking-heading" class="text-2xl font-black">みんなが気になっている動画</h2>
+      <p id="reaction-ranking-status" class="mt-2 text-sm text-ink-muted" aria-live="polite">
+        リアクションを集計しています。
+      </p>
+    </div>
+    <ul id="reaction-ranking-list" role="list" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    </ul>
+    <script
+      is:inline
+      type="application/json"
+      id="reaction-ranking-data"
+      set:html={candidatesJson}
+    />
+  </div>
+</section>
+
+<script>
+  import { sortReactionRanking } from "../lib/reactionRanking";
+  import { thumbnailFallbackUrl } from "../lib/youtube";
+
+  interface RankingCandidate {
+    id: string;
+    title: string;
+    publishedAt: string;
+    isShort: boolean | null;
+  }
+
+  const section = document.getElementById("reaction-ranking");
+  const list = document.getElementById("reaction-ranking-list");
+  const status = document.getElementById("reaction-ranking-status");
+  const dataScript = document.getElementById("reaction-ranking-data");
+  const isStaticPreview = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+  const rankingLimit = Number.parseInt(section?.dataset.limit ?? "6", 10);
+
+  const parseCandidates = (): RankingCandidate[] => {
+    if (!dataScript) return [];
+    try {
+      const parsed: unknown = JSON.parse(dataScript.textContent ?? "null");
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((item): item is RankingCandidate => {
+        if (typeof item !== "object" || item === null) return false;
+        const candidate = item as Partial<RankingCandidate>;
+        return (
+          typeof candidate.id === "string" &&
+          typeof candidate.title === "string" &&
+          typeof candidate.publishedAt === "string" &&
+          (typeof candidate.isShort === "boolean" || candidate.isShort === null)
+        );
+      });
+    } catch {
+      return [];
+    }
+  };
+
+  const loadReactionCounts = async (
+    candidates: readonly RankingCandidate[],
+  ): Promise<Map<string, number> | null> => {
+    const counts = new Map<string, number>();
+    for (let start = 0; start < candidates.length; start += 200) {
+      const chunk = candidates.slice(start, start + 200);
+      const response = await fetch(
+        "/api/video-reaction?videoIds=" +
+          encodeURIComponent(chunk.map((item) => item.id).join(",")),
+      );
+      if (!response.ok) return null;
+      const data = (await response.json()) as { counts?: unknown };
+      if (typeof data.counts !== "object" || data.counts === null) return null;
+      for (const [videoId, count] of Object.entries(data.counts)) {
+        if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0) return null;
+        counts.set(videoId, count);
+      }
+    }
+    return counts;
+  };
+
+  const createCard = (candidate: RankingCandidate, count: number): HTMLLIElement => {
+    const item = document.createElement("li");
+    item.className = "overflow-hidden rounded-xl border border-line bg-surface";
+    const link = document.createElement("a");
+    link.href = `/videos/${encodeURIComponent(candidate.id)}/`;
+    link.className =
+      "group block h-full transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand";
+    const image = document.createElement("img");
+    image.src = thumbnailFallbackUrl(candidate.id);
+    image.alt = "";
+    image.width = 480;
+    image.height = 360;
+    image.loading = "lazy";
+    image.decoding = "async";
+    image.className = "aspect-video w-full object-cover";
+    const body = document.createElement("div");
+    body.className = "p-4";
+    const title = document.createElement("h3");
+    title.className = "line-clamp-2 font-semibold leading-snug group-hover:text-brand-accent";
+    title.textContent = candidate.title;
+    const meta = document.createElement("p");
+    meta.className = "mt-2 flex items-center gap-2 text-sm text-ink-muted";
+    const reaction = document.createElement("span");
+    reaction.className = "rounded-full bg-brand/10 px-2 py-0.5 font-semibold text-brand-accent";
+    reaction.textContent = `気になる ${count}件`;
+    meta.append(reaction);
+    if (candidate.isShort) {
+      const shortLabel = document.createElement("span");
+      shortLabel.className = "rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white";
+      shortLabel.textContent = "Shorts";
+      meta.append(shortLabel);
+    }
+    body.append(title, meta);
+    link.append(image, body);
+    item.append(link);
+    return item;
+  };
+
+  if (!isStaticPreview && section && list && status) {
+    const candidates = parseCandidates();
+    if (candidates.length > 0) {
+      void loadReactionCounts(candidates)
+        .then((counts) => {
+          if (!counts || ![...counts.values()].some((count) => count > 0)) return;
+          const ranked = sortReactionRanking(candidates, counts, rankingLimit);
+          list.replaceChildren(
+            ...ranked.map((candidate) => createCard(candidate, counts.get(candidate.id) ?? 0)),
+          );
+          status.textContent = "「気になる」の反応が多い順に表示しています。";
+          section.hidden = false;
+        })
+        .catch(() => {
+          // リアクションAPI障害時は集計中のセクションを表示しない。
+        });
+    }
+  }
+</script>

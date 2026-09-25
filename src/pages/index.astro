@@ -4,6 +4,7 @@ import PostCard from "../components/PostCard.astro";
 import Onboarding from "../components/Onboarding.astro";
 import FeaturedTopics from "../components/FeaturedTopics.astro";
 import Profile from "../components/Profile.astro";
+import ReactionRanking from "../components/ReactionRanking.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import ShortCard from "../components/ShortCard.astro";
 import Testimonials from "../components/Testimonials.astro";
@@ -407,6 +408,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         </section>
       )
     }
+
+    <ReactionRanking videos={videos} />
 
     <section aria-labelledby="shorts-heading" class="bg-surface-mint py-16">
       <div class="mx-auto max-w-6xl px-4">
