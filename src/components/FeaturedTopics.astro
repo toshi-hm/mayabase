@@ -10,12 +10,18 @@ interface Props {
 const { topics } = Astro.props;
 ---
 
-<section aria-labelledby="featured-topics-heading" class="bg-surface-mint py-16">
+<section
+  aria-labelledby="featured-topics-heading"
+  class="bg-surface-mint py-16"
+>
   <div class="mx-auto max-w-6xl px-4">
     <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="mb-2 text-sm font-bold text-brand-accent">NOW TRENDING</p>
-        <h2 id="featured-topics-heading" class="text-2xl font-black sm:text-3xl">
+        <h2
+          id="featured-topics-heading"
+          class="text-2xl font-black sm:text-3xl"
+        >
           いま注目のテーマ
         </h2>
         <p class="mt-2 max-w-2xl text-ink-muted">
@@ -31,7 +37,9 @@ const { topics } = Astro.props;
             <article class="rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6">
               <header>
                 <h3 class="text-xl font-black">{topic.title}</h3>
-                <p class="mt-2 leading-relaxed text-ink-muted">{topic.description}</p>
+                <p class="mt-2 leading-relaxed text-ink-muted">
+                  {topic.description}
+                </p>
                 <a
                   href={categoryUrl(topic.category)}
                   class="mt-3 inline-flex text-sm font-semibold text-brand-accent underline underline-offset-4"
@@ -50,23 +58,23 @@ const { topics } = Astro.props;
                   />
                 )}
               </ul>
-              {
-                relatedVideos.length > 0 && (
-                  <div class="mt-6 border-t border-line pt-5">
-                    <h4 class="mb-4 text-sm font-bold text-ink-muted">関連動画</h4>
-                    <ul role="list" class="grid gap-4 sm:grid-cols-2">
-                      {relatedVideos.map((video, index) => (
-                        <VideoCard
-                          video={video}
-                          position={index + 2}
-                          total={topic.videos.length}
-                          layout="grid"
-                        />
-                      ))}
-                    </ul>
-                  </div>
-                )
-              }
+              {relatedVideos.length > 0 && (
+                <div class="mt-6 border-t border-line pt-5">
+                  <h4 class="mb-4 text-sm font-bold text-ink-muted">
+                    関連動画
+                  </h4>
+                  <ul role="list" class="grid gap-4 sm:grid-cols-2">
+                    {relatedVideos.map((video, index) => (
+                      <VideoCard
+                        video={video}
+                        position={index + 2}
+                        total={topic.videos.length}
+                        layout="grid"
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
             </article>
           );
         })
