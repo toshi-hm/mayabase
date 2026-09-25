@@ -690,7 +690,14 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         }
         return true;
       })
-      .catch(() => false);
+      .then((loaded) => {
+        if (!loaded) reactionCountsPromise = null;
+        return loaded;
+      })
+      .catch(() => {
+        reactionCountsPromise = null;
+        return false;
+      });
     return reactionCountsPromise;
   }
 
