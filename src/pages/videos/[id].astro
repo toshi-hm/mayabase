@@ -117,11 +117,17 @@ const { testimonials } = parseTestimonialsData(testimonialsJson);
 const category = categorizeVideo(video);
 const RELATED_LIMIT = 6;
 const { relations: videoRelations } = parseVideoRelationsData(videoRelationsJson);
-const curatedRelatedVideos = getCuratedRelatedVideos(video.id, videos, videoRelations, RELATED_LIMIT);
+const curatedRelatedVideos = getCuratedRelatedVideos(
+  video.id,
+  videos,
+  videoRelations,
+  RELATED_LIMIT,
+);
 const relatedVideos = [
   ...curatedRelatedVideos,
   ...getRelatedVideos(video, videos, category, RELATED_LIMIT).filter(
-    (relatedVideo) => !curatedRelatedVideos.some((curatedVideo) => curatedVideo.id === relatedVideo.id),
+    (relatedVideo) =>
+      !curatedRelatedVideos.some((curatedVideo) => curatedVideo.id === relatedVideo.id),
   ),
 ].slice(0, RELATED_LIMIT);
 // 公開日時順の前後ナビゲーション(#106)。関連動画(同カテゴリ)とは別軸の発見導線。
@@ -602,7 +608,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <p id="related-sort-status" aria-live="polite" class="mt-2 text-sm text-ink-muted">
             {curatedRelatedVideos.length > 0
               ? "Shorts・長尺・続編など、編集部が選んだ次の視聴先を優先表示しています。"
-              : `「${CATEGORY_LABELS[category]}」カテゴリの関連動画を公開日の新しい順に表示しています.`}
+              : `「${CATEGORY_LABELS[category]}」カテゴリの関連動画を公開日の新しい順に表示しています。`}
           </p>
           <ul
             id="related-videos-list"
@@ -611,7 +617,11 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
             class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
             {relatedVideos.map((relatedVideo) => (
-              <RelatedVideoCard video={relatedVideo} category={categorizeVideo(relatedVideo)} />
+              <RelatedVideoCard
+                video={relatedVideo}
+                category={categorizeVideo(relatedVideo)}
+                curated={curatedRelatedVideos.some((curatedVideo) => curatedVideo.id === relatedVideo.id)}
+              />
             ))}
           </ul>
         </section>
@@ -708,6 +718,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       element,
       id: element.dataset.relatedVideoId ?? "",
       publishedAt: element.dataset.relatedVideoPublishedAt ?? "",
+      curated: element.dataset.relatedVideoCurated === "true",
     }));
 
     const loadReactionCount = async (
@@ -734,15 +745,21 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       const reactionCounts = new Map(
         loadedItems.map(({ item, result }) => [item.id, result.count] as const),
       );
-      const sortedItems = sortRelatedVideosByReaction(
-        loadedItems.map(({ item }) => item),
-        reactionCounts,
-      );
+      const curatedItems = loadedItems
+        .filter(({ item }) => item.curated)
+        .map(({ item }) => item);
+      const automaticItems = loadedItems
+        .filter(({ item }) => !item.curated)
+        .map(({ item }) => item);
+      const sortedItems = [
+        ...sortRelatedVideosByReaction(curatedItems, reactionCounts),
+        ...sortRelatedVideosByReaction(automaticItems, reactionCounts),
+      ];
       sortedItems.forEach(({ element }) => relatedList.append(element));
 
       if (relatedSortStatus && loadedItems.some(({ result }) => result.loaded)) {
         relatedSortStatus.textContent =
-          "「気になる」の反応が多い順です。同数の場合は公開日の新しい順です。";
+          "編集部が選んだ関連動画を先に表示し、各グループ内では「気になる」の反応が多い順です。";
       }
     });
   }
