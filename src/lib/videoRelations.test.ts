@@ -46,17 +46,22 @@ describe("parseVideoRelationsData", () => {
     const { relations } = parseVideoRelationsData({
       relations: [{ videoId: "source", relatedVideoIds: ["missing", "target"] }],
     });
-    expect(getCuratedRelatedVideos("source", [video("target")], relations, 6).map((item) => item.id)).toEqual(
-      ["target"],
-    );
+    expect(
+      getCuratedRelatedVideos("source", [video("target")], relations, 6).map((item) => item.id),
+    ).toEqual(["target"]);
   });
 
   test("入力配列の順序と上限を保つ", () => {
     const { relations } = parseVideoRelationsData({
       relations: [{ videoId: "source", relatedVideoIds: ["first", "second"] }],
     });
-    expect(getCuratedRelatedVideos("source", [video("second"), video("first")], relations, 1).map((item) => item.id)).toEqual(
-      ["first"],
-    );
+    expect(
+      getCuratedRelatedVideos(
+        "source",
+        [video("second"), video("first")],
+        relations,
+        1,
+      ).map((item) => item.id),
+    ).toEqual(["first"]);
   });
 });
