@@ -7,6 +7,7 @@ import SubscribeMilestoneNote from "../../components/SubscribeMilestoneNote.astr
 import TestimonialsExcerpt from "../../components/TestimonialsExcerpt.astro";
 import WatchLaterButton from "../../components/WatchLaterButton.astro";
 import { site, subscribeUrl } from "../../config/site";
+import faqJson from "../../data/faq.json";
 import gearJson from "../../data/gear.json";
 import glossaryJson from "../../data/glossary.json";
 import seriesJson from "../../data/series.json";
@@ -17,6 +18,8 @@ import transcriptsJson from "../../data/transcripts.json";
 import videoSummariesJson from "../../data/video-summaries.json";
 import Base from "../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../lib/breadcrumb";
+import { type FaqItem, parseFaqData } from "../../lib/faq";
+import { findFaqItemsForVideo } from "../../lib/faqVideos";
 import { CATEGORY_LABELS, categorizeVideo } from "../../lib/categories";
 import { formatChapterTime, parseChapters } from "../../lib/chapters";
 import {
@@ -65,6 +68,8 @@ interface VideoGlossaryLink {
 
 export function getStaticPaths() {
   const { videos } = parseVideosData(videosJson);
+  const { categories: faqCategories } = parseFaqData(faqJson);
+  const faqItems = faqCategories.flatMap((category) => category.items);
   // 動画 ID → 紹介ガジェット一覧の逆引きマップ(videos.astro と同じ方針・#134)。
   // 動画数だけページが生成されるため、マップの構築は getStaticPaths 側で 1 度だけ行う。
   const { items: gearItems } = parseGearData(gearJson);
@@ -91,6 +96,7 @@ export function getStaticPaths() {
         anchorId: glossaryAnchorByTerm.get(item.term) as string,
       })),
       matchedSeries: series.filter((item) => isInSeries(video, item.keyword)),
+      faqItems: findFaqItemsForVideo(faqItems, video),
     },
   }));
 }
@@ -104,9 +110,11 @@ interface Props {
   glossaryTerms: VideoGlossaryLink[];
   /** この動画が属するシリーズ(#295)。該当なしなら空配列 */
   matchedSeries: SeriesItem[];
+  /** この動画に関連するFAQ(#494) */
+  faqItems: FaqItem[];
 }
 
-const { video, videos, gearItems, glossaryTerms, matchedSeries } = Astro.props;
+const { video, videos, gearItems, glossaryTerms, matchedSeries, faqItems } = Astro.props;
 const transcript = getTranscript(parseTranscriptsData(transcriptsJson), video);
 // 動画の「3行まとめ」(#405)。データが無い動画は null で、セクション・meta description
 // への反映のいずれも既存の概要欄要約にフォールバックする。
@@ -547,6 +555,34 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               </div>
             ))}
           </dl>
+        </section>
+      )
+    }
+
+    {
+      faqItems.length > 0 && (
+        <section aria-labelledby="faq-heading" class="mt-12">
+          <h2 id="faq-heading" class="text-xl font-bold">この動画に関するFAQ</h2>
+          <p class="mt-2 text-sm text-ink-muted">
+            この動画に関連するよくある質問です。回答や関連情報を
+            <a href="/faq/" class="font-semibold text-brand-accent hover:underline">
+              FAQ
+            </a>
+            で確認できます。
+          </p>
+          <ul class="mt-5 flex flex-col gap-2">
+            {faqItems.map((item) => (
+              <li>
+                <a
+                  href={`/faq/?q=${encodeURIComponent(item.question)}`}
+                  class="group flex items-center justify-between gap-4 rounded-xl bg-surface-raised p-4 transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+                >
+                  <span class="font-semibold group-hover:text-brand-accent">{item.question}</span>
+                  <span class="shrink-0 text-sm text-ink-muted">FAQで回答を見る →</span>
+                </a>
+              </li>
+            ))}
+          </ul>
         </section>
       )
     }
