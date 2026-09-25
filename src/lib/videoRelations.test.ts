@@ -56,12 +56,9 @@ describe("parseVideoRelationsData", () => {
       relations: [{ videoId: "source", relatedVideoIds: ["first", "second"] }],
     });
     expect(
-      getCuratedRelatedVideos(
-        "source",
-        [video("second"), video("first")],
-        relations,
-        1,
-      ).map((item) => item.id),
+      getCuratedRelatedVideos("source", [video("second"), video("first")], relations, 1).map(
+        (item) => item.id,
+      ),
     ).toEqual(["first"]);
   });
 });
