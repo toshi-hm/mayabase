@@ -9,9 +9,7 @@ function categoryFromLink(url: string): VideoCategory | null {
   const match = url.match(/^\/videos\/category\/([^/]+)\/?$/);
   if (!match) return null;
   const category = match[1];
-  return (Object.keys(CATEGORY_LABELS) as VideoCategory[]).includes(
-    category as VideoCategory,
-  )
+  return (Object.keys(CATEGORY_LABELS) as VideoCategory[]).includes(category as VideoCategory)
     ? (category as VideoCategory)
     : null;
 }
@@ -44,7 +42,8 @@ export function resolveFaqVideos(
   limit = FAQ_RELATED_VIDEO_LIMIT,
 ): Video[] {
   const directVideoIds = new Set(item.videoIds ?? []);
-  const linkedVideoId = item.link && isInternalPath(item.link.url) ? videoIdFromLink(item.link.url) : null;
+  const linkedVideoId =
+    item.link && isInternalPath(item.link.url) ? videoIdFromLink(item.link.url) : null;
   if (linkedVideoId) directVideoIds.add(linkedVideoId);
   const linkedCategory =
     item.link && isInternalPath(item.link.url) ? categoryFromLink(item.link.url) : null;
@@ -60,9 +59,6 @@ export function resolveFaqVideos(
 }
 
 /** 動画詳細ページに表示するFAQを解決する。FAQ側と同じ判定結果を逆方向に利用する。 */
-export function findFaqItemsForVideo(
-  items: readonly FaqItem[],
-  video: Video,
-): FaqItem[] {
+export function findFaqItemsForVideo(items: readonly FaqItem[], video: Video): FaqItem[] {
   return items.filter((item) => resolveFaqVideos(item, [video], 1).length > 0);
 }
