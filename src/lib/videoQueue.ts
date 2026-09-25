@@ -33,27 +33,3 @@ export function createVisibleVideoQueue(
 ): VideoQueueItem[] {
   return items.filter((item) => !item.hidden).map(({ hidden: _hidden, ...item }) => item);
 }
-
-/** data-binge-queue の値を検証し、不正値は空キューとして扱う。 */
-export function parseVideoQueue(value: string | undefined): VideoQueueItem[] {
-  if (!value) return [];
-  try {
-    const parsed: unknown = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isVideoQueueItem);
-  } catch {
-    return [];
-  }
-}
-
-function isVideoQueueItem(value: unknown): value is VideoQueueItem {
-  if (typeof value !== "object" || value === null) return false;
-  const item = value as Partial<Record<keyof VideoQueueItem, unknown>>;
-  return (
-    typeof item.id === "string" &&
-    /^[A-Za-z0-9_-]+$/.test(item.id) &&
-    typeof item.title === "string" &&
-    item.title.length > 0 &&
-    (item.aspect === "video" || item.aspect === "short")
-  );
-}
