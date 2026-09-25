@@ -103,9 +103,13 @@ export function appendVideoViewHistory(
     return history;
   }
 
+  const existingSnapshot = history.snapshots.find((snapshot) => snapshot.date === date);
   const snapshots = [
     ...history.snapshots.filter((snapshot) => snapshot.date !== date),
-    { date, viewCounts: normalized },
+    {
+      date,
+      viewCounts: { ...existingSnapshot?.viewCounts, ...normalized },
+    },
   ]
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-maxSnapshots);
