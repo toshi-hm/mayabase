@@ -546,6 +546,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   }
   const count = document.getElementById("videos-count");
   const empty = document.getElementById("videos-empty");
+  const resetButton = document.getElementById("videos-reset") as HTMLButtonElement | null;
+  const fallback = document.getElementById("videos-empty-fallback");
   const moreButton = document.getElementById("videos-more") as HTMLButtonElement | null;
   let category = "all";
   // 動画の長さ絞り込み状態(#257: category/q と同じくURLに同期する)
@@ -726,6 +728,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     }
     if (count) count.textContent = `${matched} 件`;
     if (empty) empty.hidden = matched > 0;
+    if (fallback) fallback.hidden = matched > 0;
 
     const remaining = matched - shown;
     if (moreButton) {
@@ -855,6 +858,24 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     applyFilter();
     const revealed = firstRevealedIndex !== -1 ? cards[firstRevealedIndex] : undefined;
     if (revealed instanceof HTMLLIElement) revealed.querySelector("a")?.focus();
+  });
+
+  resetButton?.addEventListener("click", () => {
+    category = "all";
+    length = "all";
+    durationBucket = "all";
+    sortOrder = "newest";
+    setPressedCategory(category);
+    setPressedLength(length);
+    setPressedDuration(durationBucket);
+    applyDurationAvailability();
+    setPressedSortOrder(sortOrder);
+    reorderGrid(sortOrder);
+    expanded = false;
+    if (search) search.value = "";
+    applyFilter();
+    syncUrl("push");
+    search?.focus();
   });
 
   // 戻る/進むボタン操作時は URL から絞り込み状態を再構築する
