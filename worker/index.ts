@@ -436,7 +436,6 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
   }
 }
 
-
 async function handleTopicRequest(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return topicStorageUnavailableResponse();
@@ -479,7 +478,7 @@ async function handleTopicRequest(request: Request, env: Env): Promise<Response>
     try {
       const counts: Record<string, number> = {};
       for (const requestedSlug of batchTopicSlugs) {
-        const { count } = parseReactionCount(await kv.get("topic:" + requestedSlug));
+        const { count } = parseReactionCount(await kv.get(`topic:${requestedSlug}`));
         counts[requestedSlug] = count;
       }
       return jsonResponse({ counts });
@@ -488,9 +487,9 @@ async function handleTopicRequest(request: Request, env: Env): Promise<Response>
     }
   }
 
-  const key = "topic:" + slug;
+  const key = `topic:${slug}`;
   const visitor = request.method === "POST" ? reactionVisitorFromRequest(request) : null;
-  const visitorKey = visitor ? key + ":visitor:" + visitor.id : null;
+  const visitorKey = visitor ? `${key}:visitor:${visitor.id}` : null;
   try {
     if (request.method === "POST" && visitor && visitorKey) {
       const marker = parseReactionMarker(await kv.get(visitorKey));
