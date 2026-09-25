@@ -650,7 +650,7 @@ describe("fetch", () => {
   test("不正なテーマslugは400を返す", async () => {
     const kv = createKv();
     const response = await worker.fetch(
-      postJson("/api/topic-request", { slug: "../secrets }),
+      postJson("/api/topic-request", { slug: "../secrets" }),
       { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
     );
     expect(response.status).toBe(400);
