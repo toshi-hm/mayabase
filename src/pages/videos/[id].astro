@@ -620,7 +620,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               <RelatedVideoCard
                 video={relatedVideo}
                 category={categorizeVideo(relatedVideo)}
-                curated={curatedRelatedVideos.some((curatedVideo) => curatedVideo.id === relatedVideo.id)}
+                curated={curatedRelatedVideos.some(
+                  (curatedVideo) => curatedVideo.id === relatedVideo.id,
+                )}
               />
             ))}
           </ul>
