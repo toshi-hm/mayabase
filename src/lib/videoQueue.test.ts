@@ -1,19 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import {
-  createVideoQueue,
-  createVisibleVideoQueue,
-  nextVideoInQueue,
-  parseVideoQueue,
-} from "./videoQueue";
+import { createVisibleVideoQueue, nextVideoInQueue } from "./videoQueue";
 
-const videos = [
-  { id: "first", title: "最初", isShort: false },
-  { id: "second", title: "次", isShort: true },
+const queue = [
+  { id: "first", title: "最初", aspect: "video" },
+  { id: "second", title: "次", aspect: "short" },
 ] as const;
 
-
 describe("nextVideoInQueue", () => {
-  const queue = createVideoQueue(videos);
 
   test("現在の動画の次を返す", () => {
     expect(nextVideoInQueue(queue, "first")?.id).toBe("second");
