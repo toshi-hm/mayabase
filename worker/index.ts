@@ -25,6 +25,7 @@ interface PushSubscriptionsKv {
 }
 
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
+const TOPIC_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const REACTION_VISITOR_COOKIE = "MAYABASE_VISITOR_ID";
 const REACTION_VISITOR_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -208,6 +209,14 @@ function storageUnavailableResponse(): Response {
  */
 function storageOperationFailedResponse(): Response {
   return jsonResponse({ error: "push subscription storage operation failed" }, 502);
+}
+
+function topicStorageUnavailableResponse(): Response {
+  return jsonResponse({ error: "topic request storage is not configured" }, 503);
+}
+
+function topicStorageOperationFailedResponse(): Response {
+  return jsonResponse({ error: "topic request storage operation failed" }, 502);
 }
 
 /**
@@ -427,6 +436,110 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
   }
 }
 
+
+async function handleTopicRequest(request: Request, env: Env): Promise<Response> {
+  const kv = env.PUSH_SUBSCRIPTIONS;
+  if (!kv) return topicStorageUnavailableResponse();
+
+  const url = new URL(request.url);
+  const batchTopicSlugs =
+    request.method === "GET" && url.searchParams.has("topicSlugs")
+      ? (url.searchParams.get("topicSlugs")?.split(",") ?? null)
+      : null;
+  if (
+    batchTopicSlugs !== null &&
+    (batchTopicSlugs.length === 0 ||
+      batchTopicSlugs.length > 12 ||
+      batchTopicSlugs.some(
+        (slug) => slug.length > 64 || !TOPIC_SLUG_PATTERN.test(slug),
+      ) ||
+      new Set(batchTopicSlugs).size !== batchTopicSlugs.length)
+  ) {
+    return jsonResponse({ error: "invalid topic slugs" }, 400);
+  }
+
+  const payload = request.method === "GET" ? undefined : await readJsonBody(request);
+  const slug =
+    request.method === "GET"
+      ? url.searchParams.get("slug")
+      : typeof payload === "object" && payload !== null
+        ? (payload as { slug?: unknown }).slug
+        : undefined;
+  if (
+    batchTopicSlugs === null &&
+    (typeof slug !== "string" || slug.length > 64 || !TOPIC_SLUG_PATTERN.test(slug))
+  ) {
+    return jsonResponse({ error: "invalid topic slug" }, 400);
+  }
+  if (await isReactionRateLimited(request, env)) {
+    return jsonResponse({ error: "rate limit exceeded" }, 429);
+  }
+
+  if (batchTopicSlugs !== null) {
+    try {
+      const counts: Record<string, number> = {};
+      for (const requestedSlug of batchTopicSlugs) {
+        const { count } = parseReactionCount(await kv.get("topic:" + requestedSlug));
+        counts[requestedSlug] = count;
+      }
+      return jsonResponse({ counts });
+    } catch {
+      return topicStorageOperationFailedResponse();
+    }
+  }
+
+  const key = "topic:" + slug;
+  const visitor = request.method === "POST" ? reactionVisitorFromRequest(request) : null;
+  const visitorKey = visitor ? key + ":visitor:" + visitor.id : null;
+  try {
+    if (request.method === "POST" && visitor && visitorKey) {
+      const marker = parseReactionMarker(await kv.get(visitorKey));
+      if (marker?.status === "committed") {
+        const { count } = parseReactionCount(await kv.get(key));
+        return withReactionVisitorCookie(
+          jsonResponse({ count, duplicate: true }),
+          visitor.id,
+          visitor.shouldSetCookie,
+        );
+      }
+
+      const { count: currentCount, writerVisitorId } = parseReactionCount(await kv.get(key));
+      const alreadyApplied =
+        writerVisitorId === visitor.id ||
+        (marker?.status === "pending" &&
+          marker.targetCount !== undefined &&
+          currentCount > marker.targetCount);
+      const targetCount = alreadyApplied ? currentCount : currentCount + 1;
+
+      await kv.put(visitorKey, JSON.stringify({ status: "pending", targetCount }), {
+        expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
+      });
+      if (!alreadyApplied) {
+        await kv.put(key, serializeReactionCount(targetCount, visitor.id), {
+          expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
+        });
+      }
+      await kv.put(visitorKey, JSON.stringify({ status: "committed" }), {
+        expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
+      });
+      return withReactionVisitorCookie(
+        jsonResponse({ count: targetCount }),
+        visitor.id,
+        visitor.shouldSetCookie,
+      );
+    }
+
+    const { count } = parseReactionCount(await kv.get(key));
+    return jsonResponse({ count });
+  } catch {
+    return withReactionVisitorCookie(
+      topicStorageOperationFailedResponse(),
+      visitor?.id ?? "",
+      visitor?.shouldSetCookie ?? false,
+    );
+  }
+}
+
 async function handleUnsubscribe(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
@@ -465,6 +578,12 @@ export default {
       url.pathname === "/api/video-reaction"
     ) {
       return handleVideoReaction(request, env);
+    }
+    if (
+      (request.method === "GET" || request.method === "POST") &&
+      url.pathname === "/api/topic-request"
+    ) {
+      return handleTopicRequest(request, env);
     }
 
     // /api/push/* 以外は従来通り静的アセット配信に委譲する(挙動は変えない)
