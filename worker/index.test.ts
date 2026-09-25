@@ -560,4 +560,32 @@ describe("fetch", () => {
       (await worker.fetch(otherClientRequest, { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv })).status,
     ).toBe(201);
   });
+
+  test("動画リアクション数を一括取得する", async () => {
+    const kv = createKv();
+    kv.store.set("reaction:abc123", "5");
+    kv.store.set("reaction:def456", "2:visitor-id");
+    const response = await worker.fetch(
+      new Request(
+        "https://portal.mayabase.workers.dev/api/video-reaction?videoIds=abc123,def456,missing",
+      ),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      counts: { abc123: 5, def456: 2, missing: 0 },
+    });
+  });
+
+  test("一括取得の動画IDが不正なら400を返す", async () => {
+    const kv = createKv();
+    const response = await worker.fetch(
+      new Request(
+        "https://portal.mayabase.workers.dev/api/video-reaction?videoIds=abc123,invalid%20id",
+      ),
+      { ASSETS: assets, PUSH_SUBSCRIPTIONS: kv },
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid video ids" });
+  });
 });

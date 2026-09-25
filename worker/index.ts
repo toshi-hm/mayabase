@@ -321,19 +321,46 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
 async function handleVideoReaction(request: Request, env: Env): Promise<Response> {
   const kv = env.PUSH_SUBSCRIPTIONS;
   if (!kv) return storageUnavailableResponse();
+  const url = new URL(request.url);
+  const batchVideoIds =
+    request.method === "GET" && url.searchParams.has("videoIds")
+      ? (url.searchParams.get("videoIds")?.split(",") ?? null)
+      : null;
+  if (
+    batchVideoIds !== null &&
+    (batchVideoIds.length === 0 ||
+      batchVideoIds.length > 200 ||
+      batchVideoIds.some((videoId) => !VIDEO_ID_PATTERN.test(videoId)) ||
+      new Set(batchVideoIds).size !== batchVideoIds.length)
+  ) {
+    return jsonResponse({ error: "invalid video ids" }, 400);
+  }
   const payload = request.method === "GET" ? undefined : await readJsonBody(request);
   const videoId =
     request.method === "GET"
-      ? new URL(request.url).searchParams.get("videoId")
+      ? url.searchParams.get("videoId")
       : typeof payload === "object" && payload !== null
         ? (payload as { videoId?: unknown }).videoId
         : undefined;
-  if (typeof videoId !== "string" || !VIDEO_ID_PATTERN.test(videoId)) {
+  if (batchVideoIds === null && (typeof videoId !== "string" || !VIDEO_ID_PATTERN.test(videoId))) {
     return jsonResponse({ error: "invalid video id" }, 400);
   }
   if (await isReactionRateLimited(request, env)) {
     return jsonResponse({ error: "rate limit exceeded" }, 429);
   }
+  if (batchVideoIds !== null) {
+    try {
+      const counts: Record<string, number> = {};
+      for (const requestedVideoId of batchVideoIds) {
+        const { count } = parseReactionCount(await kv.get(`reaction:${requestedVideoId}`));
+        counts[requestedVideoId] = count;
+      }
+      return jsonResponse({ counts });
+    } catch {
+      return storageOperationFailedResponse();
+    }
+  }
+
   const key = `reaction:${videoId}`;
   const visitor = request.method === "POST" ? reactionVisitorFromRequest(request) : null;
   const visitorKey = visitor ? `${key}:visitor:${visitor.id}` : null;
