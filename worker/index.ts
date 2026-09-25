@@ -324,7 +324,7 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
   const url = new URL(request.url);
   const batchVideoIds =
     request.method === "GET" && url.searchParams.has("videoIds")
-      ? url.searchParams.get("videoIds")?.split(",")
+      ? (url.searchParams.get("videoIds")?.split(",") ?? null)
       : null;
   if (
     batchVideoIds !== null &&
