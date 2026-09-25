@@ -747,9 +747,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       const reactionCounts = new Map(
         loadedItems.map(({ item, result }) => [item.id, result.count] as const),
       );
-      const curatedItems = loadedItems
-        .filter(({ item }) => item.curated)
-        .map(({ item }) => item);
+      const curatedItems = loadedItems.filter(({ item }) => item.curated).map(({ item }) => item);
       const automaticItems = loadedItems
         .filter(({ item }) => !item.curated)
         .map(({ item }) => item);
