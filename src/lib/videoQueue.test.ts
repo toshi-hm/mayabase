@@ -7,7 +7,6 @@ const queue = [
 ] as const;
 
 describe("nextVideoInQueue", () => {
-
   test("現在の動画の次を返す", () => {
     expect(nextVideoInQueue(queue, "first")?.id).toBe("second");
   });
@@ -32,4 +31,3 @@ describe("createVisibleVideoQueue", () => {
     ]);
   });
 });
-
