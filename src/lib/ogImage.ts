@@ -39,8 +39,7 @@ export function buildOgImageSvg({ title, subtitle }: OgImageOptions): string {
   const titleStartY = titleLines.length === 1 ? 310 : titleLines.length === 2 ? 275 : 240;
   const titleMarkup = titleLines
     .map(
-      (line, index) =>
-        `<text x="96" y="${titleStartY + index * 82}" class="title">${line}</text>`,
+      (line, index) => `<text x="96" y="${titleStartY + index * 82}" class="title">${line}</text>`,
     )
     .join("");
 
