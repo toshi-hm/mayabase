@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { sortReactionRanking, type ReactionRankingCandidate } from "./reactionRanking";
+import { type ReactionRankingCandidate, sortReactionRanking } from "./reactionRanking";
 
 const candidate = (id: string, publishedAt: string): ReactionRankingCandidate => ({
   id,
@@ -32,10 +32,7 @@ describe("sortReactionRanking", () => {
 
   test("未取得件数を0件として上限を守る", () => {
     const result = sortReactionRanking(
-      [
-        candidate("first", "2026-09-01T00:00:00Z"),
-        candidate("second", "2026-09-02T00:00:00Z"),
-      ],
+      [candidate("first", "2026-09-01T00:00:00Z"), candidate("second", "2026-09-02T00:00:00Z")],
       new Map([["first", 1]]),
       1,
     );
