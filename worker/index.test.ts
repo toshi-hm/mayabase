@@ -656,5 +656,4 @@ describe("fetch", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "invalid topic slug" });
   });
-
 });
