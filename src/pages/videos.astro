@@ -666,7 +666,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
   function setSortLoading(loading: boolean): void {
     for (const button of sortButtons) button.disabled = loading;
-    if (loading) setSortStatus("リアクション数を読み込んでいます");
+    setSortStatus(loading ? "リアクション数を読み込んでいます" : "");
   }
 
   async function loadReactionCounts(): Promise<boolean> {
