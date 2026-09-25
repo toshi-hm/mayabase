@@ -75,6 +75,7 @@ describe("calculateRecentViewGrowth", () => {
     );
     expect(result.map((item) => [item.video.id, item.increase, item.baselineDate])).toEqual([
       ["a", 50, "2026-09-17"],
+      ["c", 10, "2026-09-17"],
     ]);
   });
 
