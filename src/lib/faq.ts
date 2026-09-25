@@ -120,7 +120,9 @@ export function parseFaqData(data: unknown): FaqData {
       if (
         item.keywords !== undefined &&
         (!Array.isArray(item.keywords) ||
-          item.keywords.some((keyword) => typeof keyword !== "string" || keyword.trim().length === 0))
+          item.keywords.some(
+            (keyword) => typeof keyword !== "string" || keyword.trim().length === 0,
+          ))
       ) {
         throw new Error(`faq.json: ${path}.keywords は空でない文字列の配列である必要があります`);
       }
