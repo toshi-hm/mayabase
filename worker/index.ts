@@ -398,6 +398,15 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
       //   currentCountを基準に取り直して加算する。これにより、集計put自体が
       //   失敗した直後に別訪問者が同じ目標値まで進めてしまうケースでも、
       //   自分の加算を取りこぼさない。
+      //
+      // 注意(#533): 上記はあくまで「自分自身の再送」を取りこぼさないための判定であり、
+      // 異なる訪問者同士がほぼ同時にリクエストした場合(両者が同じcurrentCountを読んで
+      // 同じtargetCountを書き込む、いわゆるlost update)への対策ではない。Cloudflare KVは
+      // トランザクションやアトミックインクリメントを提供しないため、この種の取りこぼしは
+      // 構造上あり得る。動画リアクション・テーマ投票いずれも「厳密な集計」ではなく
+      // 「軽量な人気シグナル」として扱う設計(docs/design-interest-reaction.md参照)であり、
+      // 短時間に大量の同時アクセスが集中する場合を除き実用上の影響は小さいと判断し、
+      // 許容している。
       const alreadyApplied =
         writerVisitorId === visitor.id ||
         (marker?.status === "pending" &&
@@ -501,6 +510,8 @@ async function handleTopicRequest(request: Request, env: Env): Promise<Response>
       }
 
       const { count: currentCount, writerVisitorId } = parseReactionCount(await kv.get(key));
+      // 判定ロジック・異なる訪問者間の同時書き込みに関する注意点はhandleVideoReactionと
+      // 同じ(#433, #533)。
       const alreadyApplied =
         writerVisitorId === visitor.id ||
         (marker?.status === "pending" &&
