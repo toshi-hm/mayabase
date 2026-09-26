@@ -84,13 +84,9 @@ const buttonId = (slug: string): string => "onboarding-button-" + slug;
       for (const item of buttons) {
         item.setAttribute("aria-pressed", String(item === button));
       }
-      let selectedPanel: HTMLElement | null = null;
       for (const panel of panels) {
-        const isSelected = panel.dataset.onboardingPanel === slug;
-        panel.hidden = !isSelected;
-        if (isSelected) selectedPanel = panel;
+        panel.hidden = panel.dataset.onboardingPanel !== slug;
       }
-      selectedPanel?.querySelector("a")?.focus();
     });
   }
 </script>
