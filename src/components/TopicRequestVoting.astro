@@ -46,7 +46,9 @@ const { topics } = Astro.props;
 </section>
 
 <script>
-  const STORAGE_KEY = "MAYABASE_TOPIC_REQUEST_VOTES";
+  import { TOPIC_REQUEST_VOTES_STORAGE_KEY } from "../lib/topicRequests";
+
+  const STORAGE_KEY = TOPIC_REQUEST_VOTES_STORAGE_KEY;
   const section = document.getElementById("topic-request-voting");
   const buttons = section
     ? Array.from(section.querySelectorAll<HTMLButtonElement>("[data-topic-request-slug]"))

@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import topicRequestsJson from "../data/topic-requests.json";
-import { MAX_TOPIC_REQUESTS, parseTopicRequestsData } from "./topicRequests";
+import {
+  MAX_TOPIC_REQUESTS,
+  parseTopicRequestsData,
+  TOPIC_REQUEST_VOTES_STORAGE_KEY,
+} from "./topicRequests";
+
+describe("TOPIC_REQUEST_VOTES_STORAGE_KEY", () => {
+  test("他機能と同じ命名規約(コロン区切り+バージョンサフィックス)に従う(#537)", () => {
+    expect(TOPIC_REQUEST_VOTES_STORAGE_KEY).toMatch(/^mayabase:[a-z-]+:v\d+$/);
+  });
+});
 
 describe("parseTopicRequestsData", () => {
   test("コミット済み候補を読み込める", () => {
