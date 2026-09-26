@@ -685,6 +685,21 @@ test.describe("主要導線", () => {
     expect(newPage.url()).toBe(expectedHref);
     await newPage.close();
   });
+
+  test("おすすめ診断のタブ切替後もフォーカスがボタンに残る(#535)", async ({ page }) => {
+    await page.goto("/");
+
+    const purposeButtons = page.locator("[data-onboarding-purpose]");
+    const count = await purposeButtons.count();
+    test.skip(count < 2, "おすすめ診断の選択肢が2件未満のため対象外");
+
+    const secondButton = purposeButtons.nth(1);
+    await secondButton.focus();
+    await secondButton.press("Enter");
+
+    await expect(secondButton).toHaveAttribute("aria-pressed", "true");
+    await expect(secondButton).toBeFocused();
+  });
 });
 
 declare global {
