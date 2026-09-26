@@ -1,6 +1,9 @@
 const TOPIC_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const MAX_TOPIC_REQUESTS = 12;
 
+/** 投票済みslugを保持するlocalStorageキー(他機能と同じくコロン区切り+バージョンサフィックス、#537) */
+export const TOPIC_REQUEST_VOTES_STORAGE_KEY = "mayabase:topic-request-votes:v1";
+
 export interface TopicRequest {
   slug: string;
   title: string;
