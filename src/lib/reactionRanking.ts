@@ -5,6 +5,24 @@ export interface ReactionRankingCandidate {
   isShort: boolean | null;
 }
 
+/**
+ * /reaction-ranking-candidates.json(ビルド時生成の静的JSON、#534)から取得した候補データを検証する。
+ * 不正な形式の要素は黙って除外し、ランキング表示自体を壊さない。
+ */
+export function parseReactionRankingCandidates(data: unknown): ReactionRankingCandidate[] {
+  if (!Array.isArray(data)) return [];
+  return data.filter((item): item is ReactionRankingCandidate => {
+    if (typeof item !== "object" || item === null) return false;
+    const candidate = item as Partial<ReactionRankingCandidate>;
+    return (
+      typeof candidate.id === "string" &&
+      typeof candidate.title === "string" &&
+      typeof candidate.publishedAt === "string" &&
+      (typeof candidate.isShort === "boolean" || candidate.isShort === null)
+    );
+  });
+}
+
 export function sortReactionRanking(
   candidates: readonly ReactionRankingCandidate[],
   reactionCounts: ReadonlyMap<string, number>,

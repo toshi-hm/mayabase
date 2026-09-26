@@ -1,11 +1,35 @@
 import { describe, expect, test } from "bun:test";
-import { type ReactionRankingCandidate, sortReactionRanking } from "./reactionRanking";
+import {
+  parseReactionRankingCandidates,
+  type ReactionRankingCandidate,
+  sortReactionRanking,
+} from "./reactionRanking";
 
 const candidate = (id: string, publishedAt: string): ReactionRankingCandidate => ({
   id,
   title: id,
   publishedAt,
   isShort: false,
+});
+
+describe("parseReactionRankingCandidates", () => {
+  test("配列でない場合は空配列を返す", () => {
+    expect(parseReactionRankingCandidates(null)).toEqual([]);
+    expect(parseReactionRankingCandidates({ id: "a" })).toEqual([]);
+  });
+
+  test("形式が正しい要素のみを残す(#534)", () => {
+    const valid = { id: "a", title: "A", publishedAt: "2026-01-01T00:00:00Z", isShort: true };
+    const result = parseReactionRankingCandidates([
+      valid,
+      { ...valid, id: "b", isShort: null },
+      { ...valid, id: 123 },
+      { ...valid, title: undefined },
+      "not-an-object",
+      null,
+    ]);
+    expect(result).toEqual([valid, { ...valid, id: "b", isShort: null }]);
+  });
 });
 
 describe("sortReactionRanking", () => {
