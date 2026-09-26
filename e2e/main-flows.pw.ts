@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+import { CONTINUE_WATCHING_STORAGE_KEY } from "../src/lib/continueWatching";
+import { INTEREST_REACTED_STORAGE_KEY } from "../src/lib/interest";
+import { TOPIC_REQUEST_VOTES_STORAGE_KEY } from "../src/lib/topicRequests";
+import { WATCHED_STORAGE_KEY } from "../src/lib/watched";
 import { WATCH_LATER_STORAGE_KEY } from "../src/lib/watchLater";
 
 const videosDataPath = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
@@ -749,6 +753,59 @@ test.describe("主要導線", () => {
 
     await expect(secondButton).toHaveAttribute("aria-pressed", "true");
     await expect(secondButton).toBeFocused();
+  });
+
+  test("マイページに何も保存されていない場合は案内文のみ表示する(#538)", async ({ page }) => {
+    await page.goto("/mypage/");
+
+    await expect(page.locator("#mypage-empty-all")).toBeVisible();
+    await expect(page.locator("#mypage-sections")).toBeHidden();
+    await expect(page.locator("#mypage-loading")).toBeHidden();
+  });
+
+  test("マイページに保存済みの各機能がまとめて表示される(#538)", async ({ page }) => {
+    const [videoA, videoB, videoC] = videosData.videos;
+
+    await page.addInitScript(
+      ({ keys, ids }) => {
+        localStorage.setItem(keys.continueWatching, JSON.stringify([ids.a]));
+        localStorage.setItem(keys.watchLater, JSON.stringify([ids.a, ids.b]));
+        localStorage.setItem(keys.watched, JSON.stringify([ids.c]));
+        localStorage.setItem(keys.interested, JSON.stringify([ids.b]));
+        localStorage.setItem(keys.topicVotes, JSON.stringify(["ai-workflow"]));
+      },
+      {
+        keys: {
+          continueWatching: CONTINUE_WATCHING_STORAGE_KEY,
+          watchLater: WATCH_LATER_STORAGE_KEY,
+          watched: WATCHED_STORAGE_KEY,
+          interested: INTEREST_REACTED_STORAGE_KEY,
+          topicVotes: TOPIC_REQUEST_VOTES_STORAGE_KEY,
+        },
+        ids: { a: videoA.id, b: videoB.id, c: videoC.id },
+      },
+    );
+
+    await page.goto("/mypage/");
+
+    await expect(page.locator("#mypage-empty-all")).toBeHidden();
+    await expect(page.locator("#mypage-sections")).toBeVisible();
+
+    await expect(page.locator("#mypage-section-continue-watching")).toBeVisible();
+    await expect(page.locator("#mypage-list-continue-watching > li")).toHaveCount(1);
+
+    await expect(page.locator("#mypage-section-watch-later")).toBeVisible();
+    await expect(page.locator("#mypage-list-watch-later > li")).toHaveCount(2);
+    await expect(page.locator("#mypage-watch-later-playlist")).toBeVisible();
+
+    await expect(page.locator("#mypage-section-watched")).toBeVisible();
+    await expect(page.locator("#mypage-list-watched > li")).toHaveCount(1);
+
+    await expect(page.locator("#mypage-section-interested")).toBeVisible();
+    await expect(page.locator("#mypage-list-interested > li")).toHaveCount(1);
+
+    await expect(page.locator("#mypage-section-topic-votes")).toBeVisible();
+    await expect(page.locator("#mypage-list-topic-votes > li")).toHaveCount(1);
   });
 });
 

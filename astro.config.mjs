@@ -10,9 +10,9 @@ export default defineConfig({
   site: SITE_URL,
   integrations: [
     sitemap({
-      // /watch-later/ は localStorage 依存で訪問者ごとに内容が変わり(#216)、
+      // /watch-later/ と /mypage/ は localStorage 依存で訪問者ごとに内容が変わり(#216, #538)、
       // Base.astro 側で noindex にしているページのためサイトマップからも除外する
-      filter: (page) => !page.includes("/watch-later/"),
+      filter: (page) => !page.includes("/watch-later/") && !page.includes("/mypage/"),
     }),
   ],
   vite: {
