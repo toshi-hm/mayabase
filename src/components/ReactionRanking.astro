@@ -1,21 +1,19 @@
 ---
-import type { Video } from "../lib/youtube";
-
 interface Props {
-  videos: readonly Video[];
   limit?: number;
 }
 
-const { videos, limit = 6 } = Astro.props;
-const candidates = videos.map(({ id, title, publishedAt, isShort }) => ({
-  id,
-  title,
-  publishedAt,
-  isShort,
-}));
-const candidatesJson = JSON.stringify(candidates).replace(/</g, "\\u003c");
+const { limit = 6 } = Astro.props;
 ---
 
+{
+  /*
+    section自体をhidden(display:none)にすると、データ取得前のIntersectionObserverが
+    永久に発火しなくなる(display:noneの要素はビューポートと交差し得ない)ため、
+    観測専用の高さ1pxのセンチネルを別要素として置き、これをスクロール検知に使う(#534)。
+  */
+}
+<div id="reaction-ranking-sentinel" aria-hidden="true" class="h-px"></div>
 <section
   id="reaction-ranking"
   aria-labelledby="reaction-ranking-heading"
@@ -32,51 +30,34 @@ const candidatesJson = JSON.stringify(candidates).replace(/</g, "\\u003c");
     </div>
     <ul id="reaction-ranking-list" role="list" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     </ul>
-    <script
-      is:inline
-      type="application/json"
-      id="reaction-ranking-data"
-      set:html={candidatesJson}
-    />
   </div>
 </section>
 
 <script>
-  import { sortReactionRanking } from "../lib/reactionRanking";
+  import {
+    parseReactionRankingCandidates,
+    sortReactionRanking,
+    type ReactionRankingCandidate,
+  } from "../lib/reactionRanking";
   import { thumbnailFallbackUrl } from "../lib/youtube";
 
-  interface RankingCandidate {
-    id: string;
-    title: string;
-    publishedAt: string;
-    isShort: boolean | null;
-  }
+  type RankingCandidate = ReactionRankingCandidate;
 
   const section = document.getElementById("reaction-ranking");
   const list = document.getElementById("reaction-ranking-list");
   const status = document.getElementById("reaction-ranking-status");
-  const dataScript = document.getElementById("reaction-ranking-data");
   const isStaticPreview = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
   const rankingLimit = Number.parseInt(section?.dataset.limit ?? "6", 10);
 
-  const parseCandidates = (): RankingCandidate[] => {
-    if (!dataScript) return [];
-    try {
-      const parsed: unknown = JSON.parse(dataScript.textContent ?? "null");
-      if (!Array.isArray(parsed)) return [];
-      return parsed.filter((item): item is RankingCandidate => {
-        if (typeof item !== "object" || item === null) return false;
-        const candidate = item as Partial<RankingCandidate>;
-        return (
-          typeof candidate.id === "string" &&
-          typeof candidate.title === "string" &&
-          typeof candidate.publishedAt === "string" &&
-          (typeof candidate.isShort === "boolean" || candidate.isShort === null)
-        );
-      });
-    } catch {
-      return [];
-    }
+  // 表示するのは上位6件のみだが、反応数に基づくランキングのため候補自体は全動画から
+  // 絞り込む必要がある。動画数が増えても初期HTMLペイロードを肥大化させないよう、
+  // 候補データはビルド時生成の静的JSON(#534)としてセクションが実際にビューポートへ
+  // 入った時点でのみ取得する(video-descriptions.json.ts等と同じ方針)。
+  const loadCandidates = async (): Promise<RankingCandidate[]> => {
+    const response = await fetch("/reaction-ranking-candidates.json");
+    if (!response.ok) return [];
+    const parsed: unknown = await response.json();
+    return parseReactionRankingCandidates(parsed);
   };
 
   const loadReactionCounts = async (
@@ -138,25 +119,44 @@ const candidatesJson = JSON.stringify(candidates).replace(/</g, "\\u003c");
     return item;
   };
 
+  const renderRanking = async (): Promise<void> => {
+    if (!list || !status) return;
+    try {
+      const candidates = await loadCandidates();
+      if (candidates.length === 0) return;
+      const counts = await loadReactionCounts(candidates);
+      if (!counts) return;
+      // sortReactionRanking が反応0件の候補を除外するため、結果が空なら
+      // 「気になる」が1件も付いていない状態(セクション自体を表示しない)。
+      const ranked = sortReactionRanking(candidates, counts, rankingLimit);
+      if (ranked.length === 0) return;
+      list.replaceChildren(
+        ...ranked.map((candidate) => createCard(candidate, counts.get(candidate.id) ?? 0)),
+      );
+      status.textContent = "「気になる」の反応が多い順に表示しています。";
+      if (section) section.hidden = false;
+    } catch {
+      // 候補データ・リアクションAPI障害時は集計中のセクションを表示しない。
+    }
+  };
+
+  const sentinel = document.getElementById("reaction-ranking-sentinel");
+
   if (!isStaticPreview && section && list && status) {
-    const candidates = parseCandidates();
-    if (candidates.length > 0) {
-      void loadReactionCounts(candidates)
-        .then((counts) => {
-          if (!counts) return;
-          // sortReactionRanking が反応0件の候補を除外するため、結果が空なら
-          // 「気になる」が1件も付いていない状態(セクション自体を表示しない)。
-          const ranked = sortReactionRanking(candidates, counts, rankingLimit);
-          if (ranked.length === 0) return;
-          list.replaceChildren(
-            ...ranked.map((candidate) => createCard(candidate, counts.get(candidate.id) ?? 0)),
-          );
-          status.textContent = "「気になる」の反応が多い順に表示しています。";
-          section.hidden = false;
-        })
-        .catch(() => {
-          // リアクションAPI障害時は集計中のセクションを表示しない。
-        });
+    if (sentinel && "IntersectionObserver" in window) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          observer.disconnect();
+          sentinel.remove();
+          void renderRanking();
+        },
+        { rootMargin: "200px" },
+      );
+      observer.observe(sentinel);
+    } else {
+      sentinel?.remove();
+      void renderRanking();
     }
   }
 </script>
