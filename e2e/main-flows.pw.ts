@@ -226,6 +226,56 @@ test.describe("主要導線", () => {
     }
   });
 
+  test("動画ライブラリ・カテゴリ別・シリーズ別ページの検索が文字起こし本文にも一致する(#480)", async ({
+    page,
+  }) => {
+    for (const { path, gridSelector, countSelector, searchSelector } of [
+      {
+        path: "/videos/",
+        gridSelector: "#videos-grid",
+        countSelector: "#videos-count",
+        searchSelector: "#video-search",
+      },
+      {
+        path: "/videos/category/ai/",
+        gridSelector: "#archive-grid",
+        countSelector: "#archive-count",
+        searchSelector: "#archive-search",
+      },
+      {
+        path: "/videos/series/futatsu-no-waraji/",
+        gridSelector: "#archive-grid",
+        countSelector: "#archive-count",
+        searchSelector: "#archive-search",
+      },
+    ]) {
+      await page.goto(path);
+
+      const grid = page.locator(gridSelector);
+      const firstCard = grid.locator(":scope > li").first();
+      const videoId = await firstCard.getAttribute("data-video-id");
+      expect(videoId).toBeTruthy();
+
+      // /video-transcripts.json をモックし、対象動画の字幕にしか登場しない語を仕込む。
+      // タイトル・概要欄には含まれない語のため、文字起こし検索が機能して初めてヒットする。
+      await page.route("**/video-transcripts.json", (route) =>
+        route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ [videoId as string]: "__transcript-only-keyword__" }),
+        }),
+      );
+
+      const search = page.locator(searchSelector);
+      await search.fill("__transcript-only-keyword__");
+
+      // 文字起こしデータの取得(非同期)完了後に再フィルタされ、対象動画だけがヒットする
+      await expect(page.locator(countSelector)).toHaveText("1 件");
+      await expect(grid.locator(`:scope > li[data-video-id="${videoId}"]`)).toBeVisible();
+
+      await page.unroute("**/video-transcripts.json");
+    }
+  });
+
   test("概要欄データの取得に失敗してもカテゴリ別ページのタイトル検索は継続する(#442)", async ({
     page,
   }) => {

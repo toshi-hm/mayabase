@@ -542,14 +542,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   ];
   // applyFilter が参照する「現在の表示順」。並び替え時に reorderGrid() が差し替える。
   let cards: CardSlot[] = originalOrder;
-  // 概要欄本文の検索対象テキストは動画数に比例してページの初期HTMLを肥大化させる
-  // (Lighthouse performance低下の一因・#324)ため、インライン埋め込みではなく
+  // 概要欄本文・文字起こし本文の検索対象テキストは動画数に比例してページの初期HTMLを
+  // 肥大化させる(Lighthouse performance低下の一因・#324)ため、インライン埋め込みではなく
   // ヘッダー横断検索(search-index.json.ts・#318)と同じ方針で遅延取得する。
-  // 取得が完了するまではタイトルのみで絞り込み、完了後に概要欄本文も対象に加えて再絞り込みする。
+  // 取得が完了するまではタイトルのみで絞り込み、完了後に概要欄・文字起こし本文も対象に
+  // 加えて再絞り込みする。文字起こしは字幕がある動画のみ収録される(#480)。
   // ArchiveFilterController.astro と同様、検索語が入力されている(またはURLの q に含まれる)
   // ときだけ取得する(#459: 以前はガード無しで全訪問者に無条件で取得していた)。
   let descriptions: Record<string, string> = {};
   let descriptionsPromise: Promise<void> | null = null;
+  let transcripts: Record<string, string> = {};
+  let transcriptsPromise: Promise<void> | null = null;
 
   function loadDescriptions(): void {
     if (descriptionsPromise) return;
@@ -560,6 +563,22 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         applyFilter();
       })
       .catch(() => {});
+  }
+
+  function loadTranscripts(): void {
+    if (transcriptsPromise) return;
+    transcriptsPromise = fetch("/video-transcripts.json")
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data: Record<string, string>) => {
+        transcripts = data;
+        applyFilter();
+      })
+      .catch(() => {});
+  }
+
+  function loadSearchableText(): void {
+    loadDescriptions();
+    loadTranscripts();
   }
   const count = document.getElementById("videos-count");
   const empty = document.getElementById("videos-empty");
@@ -778,12 +797,14 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // card は未実体化の <template> の場合もあるため、判定は data-* のみで行う
   // (data-* は videos.astro 側で <li> と <template> の両方に同じ値を付与している)。
   function cardMatches(card: CardSlot, query: string): boolean {
+    const videoId = card.dataset.videoId ?? "";
     return (
       (category === "all" || card.dataset.category === category) &&
       (length === "all" || card.dataset.length === length) &&
       (durationBucket === "all" || card.dataset.durationBucket === durationBucket) &&
       (textMatchesKeyword(card.dataset.title ?? "", query) ||
-        textMatchesKeyword(descriptions[card.dataset.videoId ?? ""] ?? "", query))
+        textMatchesKeyword(descriptions[videoId] ?? "", query) ||
+        textMatchesKeyword(transcripts[videoId] ?? "", query))
     );
   }
 
@@ -890,7 +911,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   search?.addEventListener("input", () => {
     // カテゴリ・長さ・並び替えと同様、独立した絞り込み状態への切り替えとみなし展開状態をリセットする(#273)
     expanded = false;
-    if (search.value.trim()) loadDescriptions();
+    if (search.value.trim()) loadSearchableText();
     applyFilter();
     // 入力のたびに履歴エントリを増やすとブラウザ履歴がスパムになるため、現在のエントリを上書きする
     syncUrl("replace");
@@ -995,13 +1016,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   // (#461: 検索語を含む状態に復元される場合は概要欄データも取得し直す)
   window.addEventListener("popstate", () => {
     restoreStateFromUrl();
-    if (search?.value.trim()) loadDescriptions();
+    if (search?.value.trim()) loadSearchableText();
     applyFilter();
   });
 
   // 初期表示:URL のクエリパラメータから絞り込み状態を復元してから表示する
   // (件数が INITIAL_COUNT を超えていれば頭打ち + ボタン表示)
   restoreStateFromUrl();
-  if (search?.value.trim()) loadDescriptions();
+  if (search?.value.trim()) loadSearchableText();
   applyFilter();
 </script>
