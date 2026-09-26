@@ -13,6 +13,7 @@
         "/faq/index.html",
         "/topics/index.html",
         "/watch-later/index.html",
+        "/mypage/index.html",
         "/404.html"
       ],
       "numberOfRuns": 5,
@@ -24,7 +25,7 @@
     "assert": {
       "assertMatrix": [
         {
-          "matchingUrlPattern": "^(?!.*/404\\.html$)(?!.*/watch-later/).*$",
+          "matchingUrlPattern": "^(?!.*/404\\.html$)(?!.*/watch-later/)(?!.*/mypage/).*$",
           "assertions": {
             "categories:performance": ["error", { "minScore": 0.75 }],
             "categories:accessibility": ["error", { "minScore": 0.95 }],
@@ -33,7 +34,7 @@
           }
         },
         {
-          "matchingUrlPattern": "(.*/404\\.html$)|(.*/watch-later/.*)",
+          "matchingUrlPattern": "(.*/404\\.html$)|(.*/watch-later/.*)|(.*/mypage/.*)",
           "assertions": {
             "categories:performance": ["error", { "minScore": 0.75 }],
             "categories:accessibility": ["error", { "minScore": 0.95 }],
