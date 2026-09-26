@@ -152,12 +152,16 @@ describe("fetch", () => {
     });
     expect(await first.json()).toEqual({ count: 1 });
     expect(await second.json()).toEqual({ count: 1, duplicate: true });
-    expect(kv.options.get("reaction:abc123")).toEqual({
-      expirationTtl: 365 * 24 * 60 * 60,
-    });
+    // 集計値(reaction:*)はチャンネルの資産として恒久的に保持するため、TTLを設定しない(#532)。
+    expect(kv.options.has("reaction:abc123")).toBe(false);
     expect(
       [...kv.store.keys()].filter((key) => key.startsWith("reaction:abc123:visitor:")),
     ).toHaveLength(1);
+    // 訪問者マーカー自体には引き続き365日TTLを設定する。
+    const visitorId = visitorCookie?.match(/=([^;]+)/)?.[1];
+    expect(kv.options.get(`reaction:abc123:visitor:${visitorId}`)).toEqual({
+      expirationTtl: 365 * 24 * 60 * 60,
+    });
   });
 
   test("集計更新の部分失敗は同じCookieの再送で復旧する", async () => {

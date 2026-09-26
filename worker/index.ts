@@ -411,9 +411,9 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
         expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
       });
       if (!alreadyApplied) {
-        await kv.put(key, serializeReactionCount(targetCount, visitor.id), {
-          expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
-        });
+        // 集計値そのもの(チャンネルの資産)は訪問者マーカーとは異なり恒久的に保持したいため、
+        // 訪問者マーカー用のTTLを使い回さない(#532)。
+        await kv.put(key, serializeReactionCount(targetCount, visitor.id));
       }
       await kv.put(visitorKey, JSON.stringify({ status: "committed" }), {
         expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
@@ -512,9 +512,9 @@ async function handleTopicRequest(request: Request, env: Env): Promise<Response>
         expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
       });
       if (!alreadyApplied) {
-        await kv.put(key, serializeReactionCount(targetCount, visitor.id), {
-          expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
-        });
+        // 集計値そのもの(チャンネルの資産)は訪問者マーカーとは異なり恒久的に保持したいため、
+        // 訪問者マーカー用のTTLを使い回さない(#532)。
+        await kv.put(key, serializeReactionCount(targetCount, visitor.id));
       }
       await kv.put(visitorKey, JSON.stringify({ status: "committed" }), {
         expirationTtl: REACTION_VISITOR_MARKER_TTL_SECONDS,
