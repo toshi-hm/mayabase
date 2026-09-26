@@ -1,14 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { manifest } from "../src/pages/manifest.json";
 
-const manifestPath = `${import.meta.dir}/../public/manifest.json`;
 const maskableIconPath = `${import.meta.dir}/../public/icons/icon-maskable.svg`;
 
 describe("maskable icon", () => {
   test("manifestにmaskable SVGとany PNGを登録する", async () => {
-    const manifest = JSON.parse(await Bun.file(manifestPath).text()) as {
-      icons?: Array<{ src?: string; purpose?: string; sizes?: string }>;
-    };
-    const maskableIcons = (manifest.icons ?? []).filter((icon) =>
+    const maskableIcons = manifest.icons.filter((icon) =>
       icon.purpose?.split(/\s+/).includes("maskable"),
     );
 
@@ -30,5 +27,16 @@ describe("maskable icon", () => {
     expect(svg).toContain("<title>MayaBase</title>");
     expect(svg).toContain('<rect width="64" height="64" fill="#fdfcf9"/>');
     expect(svg).toMatch(/transform="translate\(9\.6 9\.6\) scale\(0\.7\)"/);
+  });
+
+  test("background_color/theme_colorはライト/ダークの両方に対応する(#536)", () => {
+    for (const field of [manifest.background_color, manifest.theme_color]) {
+      expect(field).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ media: "(prefers-color-scheme: light)" }),
+          expect.objectContaining({ media: "(prefers-color-scheme: dark)" }),
+        ]),
+      );
+    }
   });
 });

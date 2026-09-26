@@ -6,7 +6,7 @@ import VideoLightbox from "../components/VideoLightbox.astro";
 import WatchedController from "../components/WatchedController.astro";
 import WatchLaterController from "../components/WatchLaterController.astro";
 import { site } from "../config/site";
-import { THEME_STORAGE_KEY } from "../lib/theme";
+import { THEME_COLORS, THEME_STORAGE_KEY } from "../lib/theme";
 import "../styles/global.css";
 
 interface Props {
@@ -74,13 +74,13 @@ const ogImage = new URL(ogImagePath, Astro.site);
     <meta
       id="theme-color-light"
       name="theme-color"
-      content="#fdfcf9"
+      content={THEME_COLORS.light}
       media="(prefers-color-scheme: light)"
     />
     <meta
       id="theme-color-dark"
       name="theme-color"
-      content="#11171d"
+      content={THEME_COLORS.dark}
       media="(prefers-color-scheme: dark)"
     />
     <meta name="generator" content={Astro.generator} />

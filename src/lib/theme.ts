@@ -2,6 +2,15 @@
 export const THEME_STORAGE_KEY = "mayabase-theme";
 
 /**
+ * ライト/ダークそれぞれのテーマカラー(Base.astroのtheme-colorメタタグ・manifest.json.tsの
+ * theme_color/background_colorで共有し、値のドリフトを防ぐ、#536)。
+ */
+export const THEME_COLORS = {
+  light: "#fdfcf9",
+  dark: "#11171d",
+} as const;
+
+/**
  * ユーザーが手動選択できるテーマ。
  * "system" は OS/ブラウザの prefers-color-scheme にそのまま追従する(初期値)。
  */

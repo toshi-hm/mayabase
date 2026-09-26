@@ -4,9 +4,18 @@ import {
   nextTheme,
   parseStoredTheme,
   resolveTheme,
+  THEME_COLORS,
   themeClassName,
   themeColorMedia,
 } from "./theme";
+
+describe("THEME_COLORS", () => {
+  test("ライト・ダークいずれも有効なカラーコードを持つ(#536)", () => {
+    expect(THEME_COLORS.light).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(THEME_COLORS.dark).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(THEME_COLORS.light).not.toBe(THEME_COLORS.dark);
+  });
+});
 
 describe("isTheme", () => {
   test("system / light / dark はいずれも妥当", () => {
