@@ -1,0 +1,421 @@
+---
+import Breadcrumb from "../components/Breadcrumb.astro";
+import SubscribeMilestoneNote from "../components/SubscribeMilestoneNote.astro";
+import { site, subscribeUrl } from "../config/site";
+import topicRequestsJson from "../data/topic-requests.json";
+import Base from "../layouts/Base.astro";
+import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
+import { parseTopicRequestsData } from "../lib/topicRequests";
+
+// マイページ(#538)は「あとで見る」「視聴済み」「続きから」「気になる」「投票したテーマ」という
+// 訪問者ごとのlocalStorageデータを1ページに集約する。どれもこの端末のブラウザにしか
+// 保存されておらずビルド時には内容が分からないため、このページ自体は骨組みのみを描画し、
+// 実際の中身(動画カード・投票済みテーマ)はすべてクライアントスクリプトが組み立てる。
+//
+// video-descriptions.json.ts等と同じ方針で、動画メタデータ(候補データ)は
+// /mypage-cards.json として静的JSON化し、このページを開いた時点でのみ取得する。
+// watch-later.astro のように全動画をArchiveCardとして初期HTMLへ埋め込む方式は、
+// 本ページでは最大5セクション分に膨れて初期HTMLが重くなるため採用しない。
+//
+// 投票したテーマの候補(タイトル・説明文)は動画メタデータとは異なり最大12件・
+// ビルド時に固定のデータのため、TopicRequestVoting.astroと同様にそのまま埋め込む。
+const { topics: topicRequests } = parseTopicRequestsData(topicRequestsJson);
+const topicRequestsJsonSafe = JSON.stringify(topicRequests).replace(/</g, "\\u003c");
+
+const pageTitle = `マイページ | ${site.name}`;
+const pageDescription = `${site.name} で「あとで見る」「視聴済み」「気になる」「投票したテーマ」をまとめて振り返れるページです。この端末のブラウザにのみ保存されます。`;
+
+if (!Astro.site) {
+  throw new Error("astro.config.mjs の site が未設定です(canonical / JSON-LD の生成に必須)");
+}
+const siteUrl = Astro.site.toString();
+const breadcrumbItems: BreadcrumbItem[] = [
+  { name: "ホーム", href: "/" },
+  { name: "マイページ", href: "/mypage/" },
+];
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: buildBreadcrumbJsonLd(breadcrumbItems, siteUrl),
+    },
+  ],
+};
+const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+
+interface Section {
+  id: string;
+  heading: string;
+  emptyMessage: string;
+}
+
+const sections: Section[] = [
+  {
+    id: "continue-watching",
+    heading: "前回の続きから",
+    emptyMessage: "まだ視聴中の動画はありません。",
+  },
+  { id: "watch-later", heading: "あとで見る", emptyMessage: "保存された動画はまだありません。" },
+  { id: "watched", heading: "視聴済み", emptyMessage: "まだ視聴済みの動画はありません。" },
+  {
+    id: "interested",
+    heading: "気になる",
+    emptyMessage: "まだ「気になる」を押した動画はありません。",
+  },
+  {
+    id: "topic-votes",
+    heading: "投票したテーマ",
+    emptyMessage: "まだ投票したテーマはありません。",
+  },
+];
+---
+
+<Base title={pageTitle} description={pageDescription} robots="noindex">
+  {
+    /* 内容が訪問者ごとの localStorage に依存し、検索結果に出しても意味のあるコンテンツを
+    示せないため 404.astro / watch-later.astro と同じ方針で noindex にする。 */
+  }
+  <script is:inline type="application/ld+json" set:html={jsonLdSafe} slot="head" />
+  <script
+    is:inline
+    type="application/json"
+    id="mypage-topic-requests-data"
+    set:html={topicRequestsJsonSafe}
+  />
+  <main id="main" class="mx-auto max-w-6xl px-4 pt-12 pb-24">
+    <Breadcrumb items={breadcrumbItems} />
+    <h1 class="text-3xl font-bold sm:text-4xl">マイページ</h1>
+    <p class="mt-3 max-w-2xl text-ink-muted">
+      「あとで見る」「視聴済み」「続きから」「気になる」「投票したテーマ」をまとめて振り返れます。この端末のブラウザ内にのみ保存され、他の端末とは共有されません。
+    </p>
+
+    <noscript>
+      <p class="mt-10 rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
+        マイページの内容を表示するにはJavaScriptを有効にしてください。動画は<a
+          href="/videos/"
+          class="text-brand-accent underline-offset-4 hover:underline">動画ライブラリ</a
+        >からも探せます。
+      </p>
+    </noscript>
+
+    {
+      /* JavaScript無効環境では init() が一度も走らずこの hidden は外れないため、
+      上の <noscript> 案内とのみ表示が競合しないようにする(watch-later.astro の
+      #watch-later-empty と同じ方針、#371)。 */
+    }
+    <p id="mypage-loading" hidden class="mt-10 text-sm text-ink-muted" aria-live="polite">
+      読み込んでいます…
+    </p>
+
+    <p
+      id="mypage-empty-all"
+      hidden
+      class="mt-10 rounded-xl bg-surface-raised p-8 text-center text-ink-muted"
+    >
+      まだ保存された情報がありません。動画カードの「あとで見る」「気になる」ボタンなどを使うと、ここに一覧が表示されます。<a
+        href="/videos/"
+        class="text-brand-accent underline-offset-4 hover:underline">動画ライブラリ</a
+      >から探してみましょう。
+    </p>
+
+    <div id="mypage-sections" hidden>
+      {
+        sections.map((section) => (
+          <section
+            id={`mypage-section-${section.id}`}
+            aria-labelledby={`mypage-heading-${section.id}`}
+            hidden
+            class="mt-12 first:mt-8"
+          >
+            <div class="flex flex-wrap items-baseline justify-between gap-3">
+              <h2 id={`mypage-heading-${section.id}`} class="text-xl font-bold sm:text-2xl">
+                {section.heading}
+              </h2>
+              {section.id === "watch-later" && (
+                <a
+                  id="mypage-watch-later-playlist"
+                  hidden
+                  href="https://www.youtube.com/watch_videos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex rounded-full border border-ink-muted px-4 py-2 text-sm font-semibold transition hover:border-ink hover:bg-surface-raised"
+                >
+                  YouTubeでまとめて再生 <span aria-hidden="true">↗</span>
+                  <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+                </a>
+              )}
+            </div>
+            <ul
+              id={`mypage-list-${section.id}`}
+              role="list"
+              class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            />
+          </section>
+        ))
+      }
+    </div>
+
+    <section aria-labelledby="mypage-cta-heading" class="pt-16">
+      <div class="rounded-2xl bg-surface-raised p-8 text-center">
+        <h2 id="mypage-cta-heading" class="text-xl font-bold">
+          もっと{site.name}の動画を見たい方は
+        </h2>
+        <p class="mx-auto mt-2 max-w-xl text-ink-muted">
+          チャンネル登録すると、新着動画の通知を受け取れます。
+        </p>
+        <SubscribeMilestoneNote />
+        <div class="mt-5 flex flex-wrap justify-center gap-4">
+          <a
+            href={subscribeUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-strong"
+          >
+            チャンネル登録する <span aria-hidden="true">↗</span>
+            <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+          </a>
+          <a
+            href={site.youtube.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-full border border-ink-muted px-6 py-3 font-semibold transition hover:border-ink hover:bg-surface"
+          >
+            YouTube チャンネルへ <span aria-hidden="true">↗</span>
+            <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<script>
+  import {
+    buildWatchLaterPlaylistUrl,
+    orderSavedIdsByStorage,
+    parseStoredWatchLaterIds,
+    WATCH_LATER_STORAGE_KEY,
+  } from "../lib/watchLater";
+  import { parseStoredWatchedIds, WATCHED_STORAGE_KEY } from "../lib/watched";
+  import { parseReactedVideoIds, INTEREST_REACTED_STORAGE_KEY } from "../lib/interest";
+  import {
+    parseStoredContinueWatchingIds,
+    CONTINUE_WATCHING_STORAGE_KEY,
+  } from "../lib/continueWatching";
+  import { TOPIC_REQUEST_VOTES_STORAGE_KEY } from "../lib/topicRequests";
+  import {
+    parseMyPageCandidates,
+    selectMyPageCards,
+    type MyPageVideoCandidate,
+  } from "../lib/myPage";
+  import { thumbnailFallbackUrl } from "../lib/youtube";
+
+  interface TopicRequestSummary {
+    slug: string;
+    title: string;
+    description: string;
+  }
+
+  const loading = document.getElementById("mypage-loading");
+  const emptyAll = document.getElementById("mypage-empty-all");
+  const sectionsContainer = document.getElementById("mypage-sections");
+  const watchLaterPlaylistLink = document.getElementById(
+    "mypage-watch-later-playlist",
+  ) as HTMLAnchorElement | null;
+
+  function readIds(key: string, parser: (raw: string | null) => string[]): string[] {
+    try {
+      return parser(localStorage.getItem(key));
+    } catch {
+      return [];
+    }
+  }
+
+  function readTopicRequestCandidates(): TopicRequestSummary[] {
+    const script = document.getElementById("mypage-topic-requests-data");
+    if (!script) return [];
+    try {
+      const parsed: unknown = JSON.parse(script.textContent ?? "null");
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((item): item is TopicRequestSummary => {
+        if (typeof item !== "object" || item === null) return false;
+        const candidate = item as Partial<TopicRequestSummary>;
+        return (
+          typeof candidate.slug === "string" &&
+          typeof candidate.title === "string" &&
+          typeof candidate.description === "string"
+        );
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  function createVideoCard(candidate: MyPageVideoCandidate): HTMLLIElement {
+    const item = document.createElement("li");
+    item.className = "overflow-hidden rounded-xl border border-line bg-surface";
+    const link = document.createElement("a");
+    link.href = `/videos/${encodeURIComponent(candidate.id)}/`;
+    link.className =
+      "group block h-full transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-brand";
+    const image = document.createElement("img");
+    image.src = thumbnailFallbackUrl(candidate.id);
+    image.alt = "";
+    image.width = 480;
+    image.height = 360;
+    image.loading = "lazy";
+    image.decoding = "async";
+    image.className = "aspect-video w-full object-cover";
+    const body = document.createElement("div");
+    body.className = "p-3";
+    const title = document.createElement("h3");
+    title.className =
+      "line-clamp-2 text-sm font-semibold leading-snug group-hover:text-brand-accent";
+    title.textContent = candidate.title;
+    body.append(title);
+    if (candidate.isShort) {
+      const shortLabel = document.createElement("span");
+      shortLabel.className =
+        "mt-2 inline-flex rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white";
+      shortLabel.textContent = "Shorts";
+      body.append(shortLabel);
+    }
+    link.append(image, body);
+    item.append(link);
+    return item;
+  }
+
+  function createTopicCard(topic: TopicRequestSummary): HTMLLIElement {
+    const item = document.createElement("li");
+    item.className = "rounded-xl border border-line bg-surface p-4";
+    const title = document.createElement("h3");
+    title.className = "font-semibold";
+    title.textContent = topic.title;
+    const description = document.createElement("p");
+    description.className = "mt-1 text-sm text-ink-muted";
+    description.textContent = topic.description;
+    item.append(title, description);
+    return item;
+  }
+
+  function renderVideoSection(sectionId: string, cards: readonly MyPageVideoCandidate[]): boolean {
+    const section = document.getElementById(`mypage-section-${sectionId}`);
+    const list = document.getElementById(`mypage-list-${sectionId}`);
+    if (!section || !list) return false;
+    if (cards.length === 0) {
+      section.hidden = true;
+      return false;
+    }
+    list.replaceChildren(...cards.map(createVideoCard));
+    section.hidden = false;
+    document.dispatchEvent(
+      new CustomEvent("mayabase:card-materialized", { detail: { root: list } }),
+    );
+    return true;
+  }
+
+  async function init(): Promise<void> {
+    if (loading) loading.hidden = false;
+    const continueWatchingIds = readIds(
+      CONTINUE_WATCHING_STORAGE_KEY,
+      parseStoredContinueWatchingIds,
+    );
+    const watchLaterIds = readIds(WATCH_LATER_STORAGE_KEY, parseStoredWatchLaterIds);
+    const watchedIds = readIds(WATCHED_STORAGE_KEY, parseStoredWatchedIds);
+    const interestedIds = readIds(INTEREST_REACTED_STORAGE_KEY, parseReactedVideoIds);
+    const votedSlugs = new Set(
+      readIds(TOPIC_REQUEST_VOTES_STORAGE_KEY, (raw) => {
+        if (raw === null) return [];
+        try {
+          const parsed: unknown = JSON.parse(raw);
+          return Array.isArray(parsed)
+            ? parsed.filter((slug): slug is string => typeof slug === "string")
+            : [];
+        } catch {
+          return [];
+        }
+      }),
+    );
+
+    const hasAnyVideoId =
+      continueWatchingIds.length > 0 ||
+      watchLaterIds.length > 0 ||
+      watchedIds.length > 0 ||
+      interestedIds.length > 0;
+    const votedTopics = readTopicRequestCandidates().filter((topic) => votedSlugs.has(topic.slug));
+
+    if (!hasAnyVideoId && votedTopics.length === 0) {
+      if (loading) loading.hidden = true;
+      if (emptyAll) emptyAll.hidden = false;
+      return;
+    }
+
+    let candidateById = new Map<string, MyPageVideoCandidate>();
+    if (hasAnyVideoId) {
+      try {
+        const response = await fetch("/mypage-cards.json");
+        if (response.ok) {
+          const data: unknown = await response.json();
+          candidateById = new Map(parseMyPageCandidates(data).map((c) => [c.id, c]));
+        }
+      } catch {
+        // 動画候補データはベストエフォートで取得し、投票したテーマ等の表示は妨げない。
+      }
+    }
+
+    let anyVisible = false;
+
+    anyVisible =
+      renderVideoSection(
+        "continue-watching",
+        selectMyPageCards(candidateById, continueWatchingIds, 1),
+      ) || anyVisible;
+
+    const watchLaterCards = selectMyPageCards(candidateById, watchLaterIds.slice().reverse());
+    anyVisible = renderVideoSection("watch-later", watchLaterCards) || anyVisible;
+    if (watchLaterPlaylistLink) {
+      // プレイリストの並び順(#449)は表示用の新しい順(watchLaterCards)ではなく、
+      // 保存順(watchLaterIds)のまま渡す。buildWatchLaterPlaylistUrl内部の
+      // 「上限超過時は直近保存分を優先する」ロジックが、保存順を前提にしているため
+      // (表示用に反転済みの配列を渡すと、優先されるべき直近分と真逆になってしまう)。
+      const availableWatchLaterIds = orderSavedIdsByStorage(watchLaterIds, [
+        ...candidateById.keys(),
+      ]);
+      watchLaterPlaylistLink.hidden = availableWatchLaterIds.length < 2;
+      watchLaterPlaylistLink.href = buildWatchLaterPlaylistUrl(availableWatchLaterIds);
+    }
+
+    anyVisible =
+      renderVideoSection(
+        "watched",
+        selectMyPageCards(candidateById, watchedIds.slice().reverse()),
+      ) || anyVisible;
+    anyVisible =
+      renderVideoSection(
+        "interested",
+        selectMyPageCards(candidateById, interestedIds.slice().reverse()),
+      ) || anyVisible;
+
+    const topicSection = document.getElementById("mypage-section-topic-votes");
+    const topicList = document.getElementById("mypage-list-topic-votes");
+    if (topicSection && topicList) {
+      if (votedTopics.length > 0) {
+        topicList.replaceChildren(...votedTopics.map(createTopicCard));
+        topicSection.hidden = false;
+        anyVisible = true;
+      } else {
+        topicSection.hidden = true;
+      }
+    }
+
+    if (loading) loading.hidden = true;
+    if (anyVisible && sectionsContainer) {
+      sectionsContainer.hidden = false;
+    } else if (emptyAll) {
+      emptyAll.hidden = false;
+    }
+  }
+
+  void init();
+</script>
