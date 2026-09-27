@@ -359,12 +359,15 @@ async function handleVideoReaction(request: Request, env: Env): Promise<Response
   }
   if (batchVideoIds !== null) {
     try {
-      const counts: Record<string, number> = {};
-      for (const requestedVideoId of batchVideoIds) {
-        const { count } = parseReactionCount(await kv.get(`reaction:${requestedVideoId}`));
-        counts[requestedVideoId] = count;
-      }
-      return jsonResponse({ counts });
+      // KV読み取りは互いに独立しているため並列化する(#554: 逐次awaitだと最大200件分の
+      // レイテンシが直列に積み上がっていた)。
+      const entries = await Promise.all(
+        batchVideoIds.map(async (requestedVideoId) => {
+          const { count } = parseReactionCount(await kv.get(`reaction:${requestedVideoId}`));
+          return [requestedVideoId, count] as const;
+        }),
+      );
+      return jsonResponse({ counts: Object.fromEntries(entries) });
     } catch {
       return storageOperationFailedResponse();
     }
@@ -483,12 +486,14 @@ async function handleTopicRequest(request: Request, env: Env): Promise<Response>
 
   if (batchTopicSlugs !== null) {
     try {
-      const counts: Record<string, number> = {};
-      for (const requestedSlug of batchTopicSlugs) {
-        const { count } = parseReactionCount(await kv.get(`topic:${requestedSlug}`));
-        counts[requestedSlug] = count;
-      }
-      return jsonResponse({ counts });
+      // KV読み取りは互いに独立しているため並列化する(#554: 逐次awaitだとレイテンシが積み上がっていた)。
+      const entries = await Promise.all(
+        batchTopicSlugs.map(async (requestedSlug) => {
+          const { count } = parseReactionCount(await kv.get(`topic:${requestedSlug}`));
+          return [requestedSlug, count] as const;
+        }),
+      );
+      return jsonResponse({ counts: Object.fromEntries(entries) });
     } catch {
       return topicStorageOperationFailedResponse();
     }
