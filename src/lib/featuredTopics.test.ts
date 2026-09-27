@@ -120,4 +120,21 @@ describe("resolveFeaturedTopics", () => {
     );
     expect(topic).toBeUndefined();
   });
+
+  test("JSTの暦日境界で判定する(#551): JST 2026-01-01 23:59:59 まではまだ表示する", () => {
+    const topics = [
+      {
+        slug: "topic",
+        title: "A",
+        description: "A",
+        category: "ai" as const,
+        videoIds: ["a"],
+        expiresAt: "2026-01-01",
+      },
+    ];
+    // JST 2026-01-01T23:59:59+09:00 == UTC 2026-01-01T14:59:59Z
+    expect(resolveFeaturedTopics(topics, videos, new Date("2026-01-01T14:59:59Z"))).toHaveLength(1);
+    // JST 2026-01-02T00:00:00+09:00 == UTC 2026-01-01T15:00:00Z(暦日が変わった瞬間に期限切れ)
+    expect(resolveFeaturedTopics(topics, videos, new Date("2026-01-01T15:00:00Z"))).toHaveLength(0);
+  });
 });

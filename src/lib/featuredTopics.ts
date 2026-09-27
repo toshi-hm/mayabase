@@ -25,6 +25,16 @@ function isFeaturedTopicCategory(value: unknown): value is FeaturedTopicDefiniti
 }
 
 /**
+ * "YYYY-MM-DD" が表すJST暦日の終端(23:59:59 JST)のUnix time(ms)を返す。
+ * JSTは夏時間の無いUTC+9固定のため、"YYYY-MM-DDT14:59:59Z"(UTC)が同じ瞬間になる。
+ * サイト全体がJST基準で運用されている(postingCadence.ts 等と同じ方針)ため、
+ * expiresAt もJSTの暦日で「その日いっぱい表示する」という意図で扱う(#551)。
+ */
+function jstEndOfDayMs(dateString: string): number {
+  return Date.parse(`${dateString}T14:59:59Z`);
+}
+
+/**
  * featured-topics.json を検証しつつパースする。
  * 公開ページに表示する編集データのため、不正なIDや重複したslugはビルド時に検知する。
  */
@@ -77,7 +87,7 @@ export function parseFeaturedTopicsData(data: unknown): FeaturedTopicsData {
     }
     if (
       expiresAt !== undefined &&
-      (typeof expiresAt !== "string" || Number.isNaN(Date.parse(`${expiresAt}T23:59:59Z`)))
+      (typeof expiresAt !== "string" || Number.isNaN(jstEndOfDayMs(expiresAt)))
     ) {
       throw new Error(`featured-topics.json: expiresAt が不正です(${slug})`);
     }
@@ -105,9 +115,7 @@ export function resolveFeaturedTopics(
   const byId = new Map(videos.map((video) => [video.id, video]));
   return topics
     .filter(
-      (topic) =>
-        topic.expiresAt === undefined ||
-        now.getTime() <= Date.parse(`${topic.expiresAt}T23:59:59Z`),
+      (topic) => topic.expiresAt === undefined || now.getTime() <= jstEndOfDayMs(topic.expiresAt),
     )
     .map((topic) => ({
       ...topic,
