@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import seriesJson from "../data/series.json";
 import videosJson from "../data/videos.json";
-import { getSeriesWithVideos, isInSeries, parseSeriesData, seriesUrl } from "./series";
+import {
+  getSeriesWithVideos,
+  isInSeries,
+  isVideoInSeries,
+  parseSeriesData,
+  seriesUrl,
+} from "./series";
 import type { Video } from "./youtube";
 import { parseVideosData } from "./youtube";
 
@@ -69,6 +75,31 @@ describe("parseSeriesData", () => {
     const { series } = parseSeriesData(seriesJson);
     expect(series.length).toBeGreaterThan(0);
   });
+
+  test("keyword と youtubePlaylistId のどちらも無ければ throw する(#408)", () => {
+    const { keyword, ...withoutKeyword } = validItem;
+    expect(() => parseSeriesData({ series: [withoutKeyword] })).toThrow(
+      "keyword または youtubePlaylistId",
+    );
+  });
+
+  test("youtubePlaylistId のみでも成立する(#408)", () => {
+    const { keyword, ...withoutKeyword } = validItem;
+    const { series } = parseSeriesData({
+      series: [{ ...withoutKeyword, youtubePlaylistId: "PLabc123XYZ_-9" }],
+    });
+    expect(series[0]?.youtubePlaylistId).toBe("PLabc123XYZ_-9");
+    expect(series[0]?.keyword).toBeUndefined();
+  });
+
+  test("youtubePlaylistId の形式が不正なら throw する(#408)", () => {
+    expect(() =>
+      parseSeriesData({ series: [{ ...validItem, youtubePlaylistId: "不正なID" }] }),
+    ).toThrow("youtubePlaylistId");
+    expect(() => parseSeriesData({ series: [{ ...validItem, youtubePlaylistId: "" }] })).toThrow(
+      "youtubePlaylistId",
+    );
+  });
 });
 
 describe("isInSeries", () => {
@@ -94,14 +125,51 @@ describe("isInSeries", () => {
     const { videos } = parseVideosData(videosJson);
     const { series } = parseSeriesData(seriesJson);
     const futatsuNoWaraji = series.find((item) => item.slug === "futatsu-no-waraji");
-    if (!futatsuNoWaraji) {
-      throw new Error("series.json に futatsu-no-waraji が見つかりません");
+    if (!futatsuNoWaraji?.keyword) {
+      throw new Error("series.json に futatsu-no-waraji の keyword が見つかりません");
     }
-    const seriesVideos = videos.filter((video) => isInSeries(video, futatsuNoWaraji.keyword));
+    const keyword = futatsuNoWaraji.keyword;
+    const seriesVideos = videos.filter((video) => isInSeries(video, keyword));
     // 実データでは 94 件中 56 件が該当することを確認済み(#174)。
     // 動画データは自動更新で増減するため、範囲を持たせた回帰チェックにする。
     expect(seriesVideos.length).toBeGreaterThan(0);
     expect(seriesVideos.length).toBeLessThanOrEqual(videos.length);
+  });
+});
+
+describe("isVideoInSeries", () => {
+  const playlistItem = {
+    slug: "shorts-series",
+    title: "テストシリーズ",
+    youtubePlaylistId: "PLtest123",
+    description: "テスト用シリーズ",
+  };
+
+  test("キーワードが一致すれば true(youtubePlaylistId未設定)", () => {
+    expect(
+      isVideoInSeries(makeVideo({ id: "v1", title: "【二足のわらじ】1本目" }), validItem),
+    ).toBe(true);
+  });
+
+  test("keyword未設定でも再生リストに含まれていれば true(#408)", () => {
+    const video = makeVideo({ id: "v1", title: "無関係なタイトル" });
+    expect(isVideoInSeries(video, playlistItem, new Set(["v1"]))).toBe(true);
+  });
+
+  test("keyword未設定かつ再生リストにも含まれなければ false(#408)", () => {
+    const video = makeVideo({ id: "v2", title: "無関係なタイトル" });
+    expect(isVideoInSeries(video, playlistItem, new Set(["v1"]))).toBe(false);
+  });
+
+  test("youtubePlaylistIdが設定されていてもplaylistVideoIdsを渡さなければ false(#408)", () => {
+    const video = makeVideo({ id: "v1", title: "無関係なタイトル" });
+    expect(isVideoInSeries(video, playlistItem)).toBe(false);
+  });
+
+  test("キーワード・再生リストのどちらか一方でも一致すれば true(OR条件・#408)", () => {
+    const hybridItem = { ...playlistItem, keyword: "二足のわらじ" };
+    const video = makeVideo({ id: "v9", title: "【二足のわらじ】特別編" });
+    expect(isVideoInSeries(video, hybridItem, new Set())).toBe(true);
   });
 });
 
@@ -145,5 +213,24 @@ describe("getSeriesWithVideos", () => {
     for (const entry of result) {
       expect(entry.videos.length).toBeGreaterThan(0);
     }
+  });
+
+  test("youtubePlaylistId経由の動画も紐付けられる(#408)", () => {
+    const { keyword, ...withoutKeyword } = seriesB;
+    const playlistOnlySeries = { ...withoutKeyword, youtubePlaylistId: "PLtest123" };
+    const videos = [
+      makeVideo({ id: "v1", title: "無関係なタイトル" }),
+      makeVideo({ id: "v2", title: "こちらも無関係" }),
+    ];
+    const playlistIndex = new Map([["PLtest123", new Set(["v1"])]]);
+    const result = getSeriesWithVideos([playlistOnlySeries], videos, playlistIndex);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.videos.map((v) => v.id)).toEqual(["v1"]);
+  });
+
+  test("playlistIndexを省略した場合はキーワード判定のみになる(後方互換・#408)", () => {
+    const videos = [makeVideo({ id: "v1", title: "【二足のわらじ】1本目" })];
+    const result = getSeriesWithVideos([seriesA], videos);
+    expect(result[0]?.videos.map((v) => v.id)).toEqual(["v1"]);
   });
 });

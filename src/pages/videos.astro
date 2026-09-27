@@ -7,6 +7,7 @@ import TopicRequestVoting from "../components/TopicRequestVoting.astro";
 import { site, subscribeUrl } from "../config/site";
 import channelStatsJson from "../data/channel-stats.json";
 import gearJson from "../data/gear.json";
+import playlistsJson from "../data/playlists.json";
 import seriesJson from "../data/series.json";
 import topicRequestsJson from "../data/topic-requests.json";
 import videosJson from "../data/videos.json";
@@ -23,7 +24,8 @@ import { extractSearchableText, truncate } from "../lib/format";
 import { buildVideoGearMap, parseGearData } from "../lib/gear";
 import { buildOwnerPersonJsonLd } from "../lib/personJsonLd";
 import { parseTopicRequestsData } from "../lib/topicRequests";
-import { isInSeries, parseSeriesData, seriesUrl } from "../lib/series";
+import { buildPlaylistVideoIdIndex, parsePlaylistsData } from "../lib/playlists";
+import { isVideoInSeries, parseSeriesData, seriesUrl } from "../lib/series";
 import {
   embedUrl,
   parseVideosData,
@@ -76,7 +78,12 @@ if (!featuredSeries) {
     `videos.astro: series.json に FEATURED_SERIES_SLUG "${FEATURED_SERIES_SLUG}" が見つかりません`,
   );
 }
-if (!videos.some((video) => isInSeries(video, featuredSeries.keyword))) {
+const featuredSeriesPlaylistIds = featuredSeries.youtubePlaylistId
+  ? buildPlaylistVideoIdIndex(parsePlaylistsData(playlistsJson)).get(
+      featuredSeries.youtubePlaylistId,
+    )
+  : undefined;
+if (!videos.some((video) => isVideoInSeries(video, featuredSeries, featuredSeriesPlaylistIds))) {
   throw new Error(
     `videos.astro: FEATURED_SERIES_SLUG "${FEATURED_SERIES_SLUG}" に該当する動画が 0 件のため、リンク先ページが生成されません`,
   );

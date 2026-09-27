@@ -2,12 +2,15 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
+import { createEmptyPlaylistsData } from "../src/lib/playlists";
 import type { FetchLike, Video } from "../src/lib/youtube";
 import {
   fetchAllViaApi,
+  fetchPlaylistVideoIds,
   fetchVideoDetails,
   main,
   resolveChannelId,
+  syncPlaylistMemberships,
   updateChannelStats,
 } from "./fetch-videos";
 import { PENDING_NOTIFICATIONS_PATH } from "./send-push-notifications";
@@ -27,11 +30,13 @@ const CHANNEL_STATS_HISTORY_JSON_PATH = fileURLToPath(
 const VIDEO_VIEW_HISTORY_JSON_PATH = fileURLToPath(
   new URL("../src/data/video-view-history.json", import.meta.url),
 );
+const PLAYLISTS_JSON_PATH = fileURLToPath(new URL("../src/data/playlists.json", import.meta.url));
 
 let originalVideosJson: string;
 let originalChannelStatsJson: string;
 let originalChannelStatsHistoryJson: string;
 let originalVideoViewHistoryJson: string;
+let originalPlaylistsJson: string;
 let originalPendingNotifications: string | null;
 
 beforeEach(async () => {
@@ -39,6 +44,7 @@ beforeEach(async () => {
   originalChannelStatsJson = await Bun.file(CHANNEL_STATS_JSON_PATH).text();
   originalChannelStatsHistoryJson = await Bun.file(CHANNEL_STATS_HISTORY_JSON_PATH).text();
   originalVideoViewHistoryJson = await Bun.file(VIDEO_VIEW_HISTORY_JSON_PATH).text();
+  originalPlaylistsJson = await Bun.file(PLAYLISTS_JSON_PATH).text();
   originalPendingNotifications = (await Bun.file(PENDING_NOTIFICATIONS_PATH).exists())
     ? await Bun.file(PENDING_NOTIFICATIONS_PATH).text()
     : null;
@@ -49,6 +55,7 @@ afterEach(async () => {
   await Bun.write(CHANNEL_STATS_JSON_PATH, originalChannelStatsJson);
   await Bun.write(CHANNEL_STATS_HISTORY_JSON_PATH, originalChannelStatsHistoryJson);
   await Bun.write(VIDEO_VIEW_HISTORY_JSON_PATH, originalVideoViewHistoryJson);
+  await Bun.write(PLAYLISTS_JSON_PATH, originalPlaylistsJson);
   // #402: 通知アウトボックスは永続データのため、テスト前の内容を復元する。
   if (originalPendingNotifications === null) {
     await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
@@ -285,6 +292,121 @@ describe("updateChannelStats", () => {
     await updateChannelStats("UC3ELUpDyBSGZfZJib67t4Sg", "dummy-key", fetchFn);
     const history = JSON.parse(await Bun.file(CHANNEL_STATS_HISTORY_JSON_PATH).text());
     expect(history).toEqual([{ date: "2020-01-01", subscriberCount: 1 }]);
+  });
+});
+
+describe("fetchPlaylistVideoIds", () => {
+  test("1ページで完結する場合はそのまま動画ID配列を返す", async () => {
+    const fetchFn: FetchLike = async () =>
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              contentDetails: { videoId: "v1", videoPublishedAt: "2026-01-01T00:00:00Z" },
+              snippet: { title: "t1" },
+            },
+            {
+              contentDetails: { videoId: "v2", videoPublishedAt: "2026-01-02T00:00:00Z" },
+              snippet: { title: "t2" },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    const result = await fetchPlaylistVideoIds("PLtest", "dummy-key", fetchFn);
+    expect(result).toEqual(["v1", "v2"]);
+  });
+
+  test("nextPageToken がある限りページングして全件集める", async () => {
+    let calls = 0;
+    const fetchFn: FetchLike = async () => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                contentDetails: { videoId: "v1", videoPublishedAt: "2026-01-01T00:00:00Z" },
+              },
+            ],
+            nextPageToken: "page2",
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          items: [
+            {
+              contentDetails: { videoId: "v2", videoPublishedAt: "2026-01-02T00:00:00Z" },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    };
+    const result = await fetchPlaylistVideoIds("PLtest", "dummy-key", fetchFn);
+    expect(result).toEqual(["v1", "v2"]);
+    expect(calls).toBe(2);
+  });
+
+  test("HTTP エラー応答のときは null を返す", async () => {
+    const fetchFn: FetchLike = async () => new Response(null, { status: 404 });
+    expect(await fetchPlaylistVideoIds("PLtest", "dummy-key", fetchFn)).toBeNull();
+  });
+
+  test("fetch が例外を投げたときは null を返す", async () => {
+    const fetchFn: FetchLike = async () => {
+      throw new Error("network error");
+    };
+    expect(await fetchPlaylistVideoIds("PLtest", "dummy-key", fetchFn)).toBeNull();
+  });
+});
+
+describe("syncPlaylistMemberships", () => {
+  test("playlistIds が空なら playlists.json に触れない", async () => {
+    await syncPlaylistMemberships([], "dummy-key", async () => {
+      throw new Error("fetch は呼ばれないはずです");
+    });
+    const after = await Bun.file(PLAYLISTS_JSON_PATH).text();
+    expect(after).toBe(originalPlaylistsJson);
+  });
+
+  test("成功時は playlists.json に所属動画IDを書き込む", async () => {
+    await Bun.write(PLAYLISTS_JSON_PATH, `${JSON.stringify(createEmptyPlaylistsData())}\n`);
+    const fetchFn: FetchLike = async () =>
+      new Response(
+        JSON.stringify({
+          items: [{ contentDetails: { videoId: "v1", videoPublishedAt: "2026-01-01T00:00:00Z" } }],
+        }),
+        { status: 200 },
+      );
+    await syncPlaylistMemberships(["PLtest"], "dummy-key", fetchFn);
+    const after = JSON.parse(await Bun.file(PLAYLISTS_JSON_PATH).text());
+    expect(after.playlists).toEqual([{ id: "PLtest", videoIds: ["v1"] }]);
+    expect(typeof after.fetchedAt).toBe("string");
+  });
+
+  test("取得失敗した再生リストは既存の値を維持する(#408)", async () => {
+    await Bun.write(
+      PLAYLISTS_JSON_PATH,
+      `${JSON.stringify({
+        fetchedAt: "2020-01-01T00:00:00.000Z",
+        playlists: [{ id: "PLfail", videoIds: ["old1", "old2"] }],
+      })}\n`,
+    );
+    const fetchFn: FetchLike = async () => new Response(null, { status: 500 });
+    await syncPlaylistMemberships(["PLfail"], "dummy-key", fetchFn);
+    const after = JSON.parse(await Bun.file(PLAYLISTS_JSON_PATH).text());
+    expect(after.playlists).toEqual([{ id: "PLfail", videoIds: ["old1", "old2"] }]);
+  });
+
+  test("既存に無く取得も失敗した再生リストは結果から除外する", async () => {
+    await Bun.write(PLAYLISTS_JSON_PATH, `${JSON.stringify(createEmptyPlaylistsData())}\n`);
+    const fetchFn: FetchLike = async () => new Response(null, { status: 500 });
+    await syncPlaylistMemberships(["PLnew"], "dummy-key", fetchFn);
+    const after = JSON.parse(await Bun.file(PLAYLISTS_JSON_PATH).text());
+    expect(after.playlists).toEqual([]);
   });
 });
 

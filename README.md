@@ -95,6 +95,23 @@ bun run dev          # 開発サーバ(http://localhost:4321)
 
 `src/config/site.ts` の `carousel` で自動切替の間隔(既定 5 秒)と最大表示件数(既定 6 件)を変更できます。
 
+### シリーズページとYouTube再生リストの連動(任意)
+
+`src/data/series.json` の各シリーズは、従来の `keyword`(動画タイトルのキーワード一致)に加えて `youtubePlaylistId` を設定できます。設定すると、`YOUTUBE_API_KEY` 設定時に `bun run fetch` がその再生リストの所属動画IDを取得して `src/data/playlists.json` に保存し、YouTube Studio 側で再生リストに動画を追加するだけでシリーズページに自動反映されるようになります(`keyword` との併用も可能。どちらか一方でも該当すればそのシリーズに含まれます)。
+
+```json
+{
+  "slug": "gadget-picks",
+  "title": "買ってよかったガジェット",
+  "youtubePlaylistId": "PLxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "description": "実際に購入して使っているガジェットを紹介するシリーズです。"
+}
+```
+
+- `youtubePlaylistId` は YouTube の再生リストURL(`https://www.youtube.com/playlist?list=PLxxxx...`)の `list=` の値です。
+- `YOUTUBE_API_KEY` 未設定時は再生リストの取得を行わないため、`keyword` を設定していないシリーズはページが生成されません。
+- 取得に失敗した再生リストは `src/data/playlists.json` の既存値を維持します(ビルドを落としません)。
+
 ## デプロイ
 
 本番は Cloudflare Workers(`wrangler.jsonc` の `portal`)へデプロイしています。静的サイトなので Netlify / Vercel / GitHub Pages などにもそのままデプロイできます。

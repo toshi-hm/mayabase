@@ -1,10 +1,12 @@
 ---
 import Breadcrumb from "../../../components/Breadcrumb.astro";
 import { site, subscribeUrl } from "../../../config/site";
+import playlistsJson from "../../../data/playlists.json";
 import seriesJson from "../../../data/series.json";
 import videosJson from "../../../data/videos.json";
 import Base from "../../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../../lib/breadcrumb";
+import { buildPlaylistVideoIdIndex, parsePlaylistsData } from "../../../lib/playlists";
 import { getSeriesWithVideos, parseSeriesData, seriesUrl } from "../../../lib/series";
 import { parseVideosData, thumbnailFallbackUrl, thumbnailUrl } from "../../../lib/youtube";
 
@@ -12,7 +14,8 @@ import { parseVideosData, thumbnailFallbackUrl, thumbnailUrl } from "../../../li
 // (videos/series/[slug].astro が実際にページを生成する対象と揃える・#305)。
 const { series } = parseSeriesData(seriesJson);
 const { videos } = parseVideosData(videosJson);
-const seriesWithVideos = getSeriesWithVideos(series, videos);
+const playlistIndex = buildPlaylistVideoIdIndex(parsePlaylistsData(playlistsJson));
+const seriesWithVideos = getSeriesWithVideos(series, videos, playlistIndex);
 
 const pageTitle = `シリーズ一覧 | ${site.name}`;
 const pageDescription = `${site.name} のシリーズ企画一覧です。カテゴリを横断したテーマで動画をまとめてイッキ見できます。`;
