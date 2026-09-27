@@ -10,10 +10,14 @@
  *   API 取得に失敗したときは RSS にフォールバックする(全経路失敗でも既存データを維持)
  * - Shorts 判定は未判定(isShort: null)の動画のみ行い、確定値は再判定しない
  * - 失敗しても既存の videos.json を残して exit 0(ビルドを決して落とさない)
+ * - API キー設定時、series.json の youtubePlaylistId が参照する再生リストの所属動画IDも
+ *   取得し src/data/playlists.json に保存する(#408)。シリーズページはキーワード判定に加えて
+ *   このデータを使い、YouTube Studio 側の再生リスト整理と自動的に連動する。
  */
 import { appendFile, rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { site } from "../src/config/site";
+import seriesJson from "../src/data/series.json";
 import { type ChannelStats, parseChannelStatsApiResponse } from "../src/lib/channelStats";
 import {
   appendChannelStatsHistory,
@@ -22,7 +26,13 @@ import {
   parseChannelStatsHistory,
   toJstDateString,
 } from "../src/lib/channelStatsHistory";
+import {
+  createEmptyPlaylistsData,
+  type PlaylistsData,
+  parsePlaylistsData,
+} from "../src/lib/playlists";
 import { newlyPublishedVideos } from "../src/lib/push";
+import { parseSeriesData } from "../src/lib/series";
 import {
   appendVideoViewHistory,
   createEmptyVideoViewHistory,
@@ -50,6 +60,7 @@ import {
 import { PENDING_NOTIFICATIONS_PATH, readPendingNotifications } from "./send-push-notifications";
 
 const VIDEOS_JSON_PATH = fileURLToPath(new URL("../src/data/videos.json", import.meta.url));
+const PLAYLISTS_JSON_PATH = fileURLToPath(new URL("../src/data/playlists.json", import.meta.url));
 const CHANNEL_STATS_JSON_PATH = fileURLToPath(
   new URL("../src/data/channel-stats.json", import.meta.url),
 );
@@ -133,6 +144,20 @@ async function loadExistingVideoViewHistory() {
       error,
     );
     return createEmptyVideoViewHistory();
+  }
+}
+
+async function loadExistingPlaylists(): Promise<PlaylistsData> {
+  try {
+    const file = Bun.file(PLAYLISTS_JSON_PATH);
+    if (!(await file.exists())) return createEmptyPlaylistsData();
+    return parsePlaylistsData(await file.json());
+  } catch (error) {
+    console.warn(
+      "[fetch-videos] 既存 playlists.json の読み込みに失敗したため空データから再構築します:",
+      error,
+    );
+    return createEmptyPlaylistsData();
   }
 }
 
@@ -287,6 +312,108 @@ async function updateChannelStats(
   }
 }
 
+/**
+ * YouTube Data API v3 `playlistItems.list`(part=snippet,contentDetails)で
+ * 指定した再生リストの所属動画IDを全ページ取得する(#408)。uploads プレイリスト専用の
+ * fetchAllViaApi とは異なり任意の再生リストIDを受け取れる汎用版で、`parsePlaylistItemsPage`
+ * (RSS/uploads と共通)をそのまま再利用する。失敗時は null を返し、呼び出し側で
+ * 既存の playlists.json の値を維持させる。
+ */
+async function fetchPlaylistVideoIds(
+  playlistId: string,
+  apiKey: string,
+  fetchFn: FetchLike = fetchWithTimeout,
+): Promise<string[] | null> {
+  const videoIds: string[] = [];
+  let pageToken: string | null = null;
+  for (let page = 0; page < API_MAX_PAGES; page += 1) {
+    const url = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
+    url.searchParams.set("part", "snippet,contentDetails");
+    url.searchParams.set("playlistId", playlistId);
+    url.searchParams.set("maxResults", String(API_PAGE_SIZE));
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+    try {
+      const res = await fetchFn(url.toString(), { headers: { "X-goog-api-key": apiKey } });
+      if (!res.ok) {
+        console.warn(
+          `[fetch-videos] 再生リスト(${playlistId})の取得に失敗しました (HTTP ${res.status})`,
+        );
+        return null;
+      }
+      const parsed = parsePlaylistItemsPage(await res.json());
+      videoIds.push(...parsed.entries.map((entry) => entry.id));
+      if (!parsed.nextPageToken) return videoIds;
+      pageToken = parsed.nextPageToken;
+    } catch (error) {
+      console.warn(
+        `[fetch-videos] 再生リスト(${playlistId})の取得でエラーが発生しました:`,
+        error instanceof Error ? error.message : String(error),
+      );
+      return null;
+    }
+  }
+  console.warn(
+    `[fetch-videos] 再生リスト(${playlistId})がページ数上限(${API_MAX_PAGES})に達しました。一部の動画が反映されていない可能性があります。`,
+  );
+  return videoIds;
+}
+
+/**
+ * 指定した再生リストID群の所属動画IDを取得し、src/data/playlists.json を更新する(#408)。
+ * 個別の再生リスト取得に失敗した場合はその ID の既存値を維持し(全体を失敗させない)、
+ * playlistIds が空なら何もせず既存ファイルも変更しない。
+ * updatePlaylistMemberships から呼ばれるテスト容易な中核ロジック(series.json への依存を持たない)。
+ */
+async function syncPlaylistMemberships(
+  playlistIds: string[],
+  apiKey: string,
+  fetchFn: FetchLike = fetchWithTimeout,
+): Promise<void> {
+  if (playlistIds.length === 0) return;
+
+  const existing = await loadExistingPlaylists();
+  const existingVideoIdsById = new Map(existing.playlists.map((p) => [p.id, p.videoIds]));
+
+  const results = await mapWithConcurrency(playlistIds, PROBE_CONCURRENCY, async (id) => {
+    const videoIds = await fetchPlaylistVideoIds(id, apiKey, fetchFn);
+    return { id, videoIds: videoIds ?? existingVideoIdsById.get(id) ?? null };
+  });
+
+  const playlists = results.flatMap((result) =>
+    result.videoIds === null ? [] : [{ id: result.id, videoIds: result.videoIds }],
+  );
+
+  const data: PlaylistsData = { fetchedAt: new Date().toISOString(), playlists };
+  const tmpPath = `${PLAYLISTS_JSON_PATH}.tmp`;
+  await Bun.write(tmpPath, `${JSON.stringify(data, null, 2)}\n`);
+  await rename(tmpPath, PLAYLISTS_JSON_PATH);
+  console.log(
+    `[fetch-videos] 再生リストのシリーズ紐付けを更新しました(${playlists.length}/${playlistIds.length} 件)`,
+  );
+}
+
+/**
+ * series.json の youtubePlaylistId が参照する再生リストだけを取得対象にして
+ * syncPlaylistMemberships() を呼び出す(#408)。全チャンネルの再生リストを網羅的に
+ * 取得するのではなく、series.json で実際に使われているものだけに限定することで
+ * API クォータ消費を抑える。
+ */
+async function updatePlaylistMemberships(
+  apiKey: string,
+  fetchFn: FetchLike = fetchWithTimeout,
+): Promise<void> {
+  const { series } = parseSeriesData(seriesJson);
+  const playlistIds = Array.from(
+    new Set(
+      series
+        .map((item) => item.youtubePlaylistId)
+        .filter((id): id is string => typeof id === "string"),
+    ),
+  );
+  await syncPlaylistMemberships(playlistIds, apiKey, fetchFn);
+}
+
 async function probeShorts(videos: Video[]): Promise<Video[]> {
   const unknowns = videos.filter((v) => v.isShort === null);
   if (unknowns.length === 0) return videos;
@@ -439,6 +566,9 @@ async function main(fetchFn: FetchLike = fetchWithTimeout): Promise<void> {
     entries = await fetchAllViaApi(channelId, apiKey, fetchFn);
     // 動画取得の成否に関わらず試みる(quota 消費は channels.list で 1 unit と小さい)
     await updateChannelStats(channelId, apiKey, fetchFn);
+    // シリーズの再生リスト連動(#408)。動画取得の成否に関わらず試みる(series.json 側の
+    // youtubePlaylistId が無ければ即座に no-op)。
+    await updatePlaylistMemberships(apiKey, fetchFn);
   } else {
     console.log(
       "[fetch-videos] YOUTUBE_API_KEY 未設定のため RSS(最新 15 件)を使用します。全動画取得には API キーを設定してください。",
@@ -556,4 +686,13 @@ if (import.meta.main) {
   }
 }
 
-export { fetchAllViaApi, fetchVideoDetails, main, resolveChannelId, updateChannelStats };
+export {
+  fetchAllViaApi,
+  fetchPlaylistVideoIds,
+  fetchVideoDetails,
+  main,
+  resolveChannelId,
+  syncPlaylistMemberships,
+  updateChannelStats,
+  updatePlaylistMemberships,
+};
