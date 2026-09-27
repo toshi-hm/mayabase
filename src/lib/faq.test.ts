@@ -82,11 +82,22 @@ describe("parseFaqData", () => {
     expect(() => parseFaqData(withEmail("contact@example.com"))).toThrow("☆");
     expect(() => parseFaqData(withEmail("no-at-sign"))).toThrow("☆");
   });
+
+  test("email に「☆」が2個以上含まれる場合は throw する(#552)", () => {
+    const withEmail = (email: string) => ({
+      categories: [{ title: "t", items: [{ ...validItem, email }] }],
+    });
+    expect(() => parseFaqData(withEmail("contact☆example☆com"))).toThrow("☆");
+  });
 });
 
 describe("deobfuscateEmail", () => {
   test("「☆」を「@」に戻す", () => {
     expect(deobfuscateEmail("mayabaseofficial☆gmail.com")).toBe("mayabaseofficial@gmail.com");
+  });
+
+  test("「☆」が複数含まれていてもすべて「@」に戻す(#552)", () => {
+    expect(deobfuscateEmail("a☆b☆c")).toBe("a@b@c");
   });
 });
 

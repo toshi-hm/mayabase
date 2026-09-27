@@ -43,9 +43,15 @@ export function isInternalPath(url: string): boolean {
   return url.startsWith("/") && !url.startsWith("//");
 }
 
-/** "☆" でマスクされたメールアドレスを実際のアドレスに復元する(スクレイピング対策) */
+/**
+ * "☆" でマスクされたメールアドレスを実際のアドレスに復元する(スクレイピング対策)。
+ * `replace` ではなく `replaceAll` を使う(#552)。"☆" が複数含まれる不正な値が
+ * バリデーションをすり抜けた場合でも、最初の1つだけが変換されて残りが壊れたアドレスに
+ * ならないようにするため(parseFaqData 側で "☆" の出現回数を1回に制限しているため
+ * 通常は発生しないが、念のための防御)。
+ */
 export function deobfuscateEmail(obfuscated: string): string {
-  return obfuscated.replace("☆", "@");
+  return obfuscated.replaceAll("☆", "@");
 }
 
 /**
@@ -104,10 +110,14 @@ export function parseFaqData(data: unknown): FaqData {
       }
       if (
         item.email !== undefined &&
-        (typeof item.email !== "string" || !item.email.includes("☆") || item.email.includes("@"))
+        (typeof item.email !== "string" ||
+          item.email.split("☆").length !== 2 ||
+          item.email.includes("@"))
       ) {
+        // "☆" は "@" 1個分のマスクなので、ちょうど1個だけ含まれている必要がある
+        // (split の要素数が2 == "☆" がちょうど1個。0個・2個以上は不正・#552)。
         throw new Error(
-          `faq.json: ${path}.email は "☆" で "@" をマスクした形式(例: xxx☆example.com)である必要があります`,
+          `faq.json: ${path}.email は "☆" 1個で "@" をマスクした形式(例: xxx☆example.com)である必要があります`,
         );
       }
       if (
