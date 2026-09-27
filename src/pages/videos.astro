@@ -561,12 +561,23 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   let transcripts: Record<string, string> = {};
   let transcriptsPromise: Promise<void> | null = null;
 
+  // ArchiveFilterController.astro と同じ検証(#553: 以前はここだけ無検証で
+  // レスポンスを Record<string, string> として直接代入していた)。
+  function parseStringRecord(value: unknown): Record<string, string> {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+    return Object.fromEntries(
+      Object.entries(value).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  }
+
   function loadDescriptions(): void {
     if (descriptionsPromise) return;
     descriptionsPromise = fetch("/video-descriptions.json")
       .then((res) => (res.ok ? res.json() : {}))
-      .then((data: Record<string, string>) => {
-        descriptions = data;
+      .then((data: unknown) => {
+        descriptions = parseStringRecord(data);
         applyFilter();
       })
       .catch(() => {});
@@ -576,8 +587,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     if (transcriptsPromise) return;
     transcriptsPromise = fetch("/video-transcripts.json")
       .then((res) => (res.ok ? res.json() : {}))
-      .then((data: Record<string, string>) => {
-        transcripts = data;
+      .then((data: unknown) => {
+        transcripts = parseStringRecord(data);
         applyFilter();
       })
       .catch(() => {});
