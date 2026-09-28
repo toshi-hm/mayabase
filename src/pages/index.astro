@@ -1,5 +1,6 @@
 ---
 import Carousel from "../components/Carousel.astro";
+import CommunityPostCard from "../components/CommunityPostCard.astro";
 import PostCard from "../components/PostCard.astro";
 import Onboarding from "../components/Onboarding.astro";
 import FeaturedTopics from "../components/FeaturedTopics.astro";
@@ -12,6 +13,7 @@ import VideoCard from "../components/VideoCard.astro";
 import { site, subscribeUrl } from "../config/site";
 import channelStatsHistoryJson from "../data/channel-stats-history.json";
 import channelStatsJson from "../data/channel-stats.json";
+import communityPostsJson from "../data/community-posts.json";
 import videoViewHistoryJson from "../data/video-view-history.json";
 import featuredVideosJson from "../data/featured-videos.json";
 import recommendationsJson from "../data/recommendations.json";
@@ -30,6 +32,7 @@ import {
 import { parseFeaturedVideosData, resolveFeaturedVideos } from "../lib/featuredVideos";
 import { parseFeaturedTopicsData, resolveFeaturedTopics } from "../lib/featuredTopics";
 import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
+import { parseCommunityPostsData, resolveCommunityPosts } from "../lib/communityPosts";
 import { buildOwnerPersonJsonLd } from "../lib/personJsonLd";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseXPostsData } from "../lib/x";
@@ -75,6 +78,15 @@ const recentViewGrowth = calculateRecentViewGrowth(
 const { account, posts } = parseXPostsData(xPostsJson);
 const xPosts = posts.slice(0, maxItems);
 const { testimonials } = parseTestimonialsData(testimonialsJson);
+
+// コミュニティ投稿導線(#562)。動画公開の合間もチャンネルとの接点を作るため、
+// 公開済みのYouTubeコミュニティ投稿(手動キュレーション)から最新2〜3件だけをコンパクトに表示する。
+const COMMUNITY_POST_DISPLAY_LIMIT = 3;
+const { posts: communityPostsRaw } = parseCommunityPostsData(communityPostsJson);
+const communityPosts = resolveCommunityPosts(communityPostsRaw, videos).slice(
+  0,
+  COMMUNITY_POST_DISPLAY_LIMIT,
+);
 
 // 初回訪問者向け「あなたにおすすめ診断」(#500)。視聴目的ごとの手動編集データを解決し、
 // 代表動画・関連動画と「なぜおすすめか」をまとめて表示する。
@@ -478,6 +490,30 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         }
       </div>
     </section>
+
+    {
+      /* コミュニティ投稿導線(#562)。動画公開の合間もチャンネルとの接点を持てるよう、
+      公開済みのYouTubeコミュニティ投稿を最新2〜3件だけ紹介する。手動キュレーションデータが
+      無い(空配列)場合はセクションごと非表示にし、トップページが崩れないようにする。 */
+    }
+    {
+      communityPosts.length > 0 && (
+        <section aria-labelledby="community-heading" class="bg-surface-raised py-16">
+          <div class="mx-auto max-w-6xl px-4">
+            <SectionHeading
+              id="community-heading"
+              title="MayaBaseからのお知らせ"
+              subtitle="次回動画の予告や補足など、YouTubeコミュニティ投稿からの最新のお知らせです。"
+            />
+            <ul role="list" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {communityPosts.map((post) => (
+                <CommunityPostCard post={post} />
+              ))}
+            </ul>
+          </div>
+        </section>
+      )
+    }
 
     <section aria-labelledby="x-heading" class="py-16">
       <div class="mx-auto max-w-6xl px-4">

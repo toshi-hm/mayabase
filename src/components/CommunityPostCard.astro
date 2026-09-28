@@ -1,0 +1,38 @@
+---
+import { formatDateJa, truncate } from "../lib/format";
+import { communityPostUrl, type ResolvedCommunityPost } from "../lib/communityPosts";
+
+interface Props {
+  post: ResolvedCommunityPost;
+}
+
+const { post } = Astro.props;
+---
+
+<li class="rounded-xl border border-line bg-surface-raised p-5">
+  <p class="whitespace-pre-line leading-relaxed">{truncate(post.text, 200)}</p>
+  <footer class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+    <time datetime={post.date} class="text-ink-muted">{formatDateJa(post.date)}</time>
+    <div class="flex flex-wrap gap-3">
+      {
+        post.relatedVideo && (
+          <a
+            href={`/videos/${post.relatedVideo.id}/`}
+            class="font-semibold text-brand-accent underline-offset-4 hover:underline"
+          >
+            関連動画を見る
+          </a>
+        )
+      }
+      <a
+        href={communityPostUrl(post.id)}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="font-semibold text-brand-accent underline-offset-4 hover:underline"
+      >
+        YouTubeで投稿を見る <span aria-hidden="true">↗</span>
+        <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+      </a>
+    </div>
+  </footer>
+</li>
