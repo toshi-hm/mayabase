@@ -117,12 +117,12 @@ describe("buildSiteSearchIndex", () => {
     expect(index[0]?.searchText).toContain("HHKBキーボードのレビュー");
   });
 
-  test("動画の候補は動画タイトルを query・遷移先を /videos/ にする", () => {
+  test("動画の候補は動画タイトルを query にし、遷移先を該当動画の詳細ページ(/videos/{id}/)にする(#556)", () => {
     const index = buildSiteSearchIndex(videos, [], [], []);
     expect(index[0]).toMatchObject({
       type: "video",
       title: "HHKBキーボードのレビュー",
-      href: "/videos/",
+      href: "/videos/abc12345678/",
       query: "HHKBキーボードのレビュー",
     });
     // 概要欄の全文は含めない(ヘッダーは全ページ表示のため軽量に保つ)
@@ -245,13 +245,23 @@ describe("searchSiteIndex", () => {
 
 describe("siteSearchResultUrl", () => {
   test("href と query から遷移先 URL を組み立てる", () => {
-    expect(siteSearchResultUrl({ href: "/videos/", query: "HHKB" })).toBe("/videos/?q=HHKB");
+    expect(siteSearchResultUrl({ type: "faq", href: "/faq/", query: "HHKB" })).toBe("/faq/?q=HHKB");
   });
 
   test("query は URL エンコードする", () => {
-    expect(siteSearchResultUrl({ href: "/faq/", query: "使っているキーボードは?" })).toBe(
-      `/faq/?q=${encodeURIComponent("使っているキーボードは?")}`,
-    );
+    expect(
+      siteSearchResultUrl({ type: "faq", href: "/faq/", query: "使っているキーボードは?" }),
+    ).toBe(`/faq/?q=${encodeURIComponent("使っているキーボードは?")}`);
+  });
+
+  test("動画(video)は詳細ページへ直接遷移し、?q= を付けない(#556)", () => {
+    expect(
+      siteSearchResultUrl({
+        type: "video",
+        href: "/videos/abc12345678/",
+        query: "HHKBキーボードのレビュー",
+      }),
+    ).toBe("/videos/abc12345678/");
   });
 });
 
