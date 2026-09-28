@@ -57,7 +57,10 @@ export function buildSiteSearchIndex(
     type: "video",
     title: video.title,
     subtitle: "動画ライブラリ",
-    href: "/videos/",
+    // 動画は既に個別の詳細ページ(チャプター・文字起こし・関連動画等)を持つため、
+    // FAQ・ガジェット・用語集・チャプターのような「一覧ページ + ?q= での絞り込み」ではなく、
+    // 該当動画の詳細ページへ直接遷移させる(#556)。
+    href: `/videos/${video.id}/`,
     query: video.title,
     searchText: video.title,
   }));
@@ -142,9 +145,13 @@ export function searchSiteIndex(
 
 /**
  * 候補プレビュー選択時の遷移先 URL を組み立てる。
- * 各コンテンツページ(videos.astro / faq.astro / gear.astro)が持つ既存のURL同期機構
- * (`syncUrl` / `restoreStateFromUrl`)がこの `?q=` を読み取り、遷移先で自動的に絞り込む。
+ * 動画(video)は href が既に該当動画の詳細ページ(/videos/{id}/)を指しているため、
+ * 絞り込み用の `?q=` を付けずそのまま遷移する(#556)。
+ * それ以外の種別(FAQ・ガジェット・用語集・チャプター)は一覧ページへ遷移し、
+ * 各コンテンツページ(faq.astro / gear.astro 等)が持つ既存のURL同期機構
+ * (`syncUrl` / `restoreStateFromUrl`)がこの `?q=` を読み取って自動的に絞り込む。
  */
-export function siteSearchResultUrl(item: Pick<SiteSearchItem, "href" | "query">): string {
+export function siteSearchResultUrl(item: Pick<SiteSearchItem, "type" | "href" | "query">): string {
+  if (item.type === "video") return item.href;
   return `${item.href}?q=${encodeURIComponent(item.query)}`;
 }
