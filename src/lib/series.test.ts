@@ -6,6 +6,7 @@ import {
   isInSeries,
   isVideoInSeries,
   parseSeriesData,
+  resolveShortsSeriesChips,
   seriesUrl,
 } from "./series";
 import type { Video } from "./youtube";
@@ -232,5 +233,35 @@ describe("getSeriesWithVideos", () => {
     const videos = [makeVideo({ id: "v1", title: "【二足のわらじ】1本目" })];
     const result = getSeriesWithVideos([seriesA], videos);
     expect(result[0]?.videos.map((v) => v.id)).toEqual(["v1"]);
+  });
+});
+
+describe("resolveShortsSeriesChips", () => {
+  const seriesA = { ...validItem, slug: "series-a", keyword: "二足のわらじ" };
+
+  test("Shortsが2本以上あるシリーズだけチップを返す", () => {
+    const videos = [
+      makeVideo({ id: "v1", title: "【二足のわらじ】1本目", isShort: true }),
+      makeVideo({ id: "v2", title: "【二足のわらじ】2本目", isShort: true }),
+      makeVideo({ id: "v3", title: "【二足のわらじ】通常動画", isShort: false }),
+    ];
+    const seriesWithVideos = getSeriesWithVideos([seriesA], videos);
+    const chips = resolveShortsSeriesChips(seriesWithVideos);
+    expect(chips).toEqual([{ slug: "series-a", title: seriesA.title, shortsCount: 2 }]);
+  });
+
+  test("Shortsが1本以下のシリーズは除外する(「続けて見る」体験を提供できないため)", () => {
+    const videos = [
+      makeVideo({ id: "v1", title: "【二足のわらじ】1本目", isShort: true }),
+      makeVideo({ id: "v2", title: "【二足のわらじ】通常動画", isShort: false }),
+    ];
+    const seriesWithVideos = getSeriesWithVideos([seriesA], videos);
+    expect(resolveShortsSeriesChips(seriesWithVideos)).toEqual([]);
+  });
+
+  test("Shortsが1本も無いシリーズは除外する", () => {
+    const videos = [makeVideo({ id: "v1", title: "【二足のわらじ】通常動画", isShort: false })];
+    const seriesWithVideos = getSeriesWithVideos([seriesA], videos);
+    expect(resolveShortsSeriesChips(seriesWithVideos)).toEqual([]);
   });
 });
