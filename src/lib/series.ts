@@ -140,6 +140,32 @@ export interface SeriesWithVideos {
  * playlistIndex は youtubePlaylistId → 所属動画IDの集合(playlists.ts の buildPlaylistVideoIdIndex
  * が生成する)。省略時はキーワード判定のみになる(#408)。
  */
+/** トップページのShortsセクションに表示するシリーズチップ 1 件分(#541) */
+export interface ShortsSeriesChip {
+  slug: string;
+  title: string;
+  /** このシリーズに属するShortsの本数 */
+  shortsCount: number;
+}
+
+/**
+ * Shortsを視聴者向けシリーズへ分類し、トップページの「続けて見る」チップ用データを組み立てる(#541)。
+ * 新たにシリーズを定義するのではなく、既存の series.json(キーワード・再生リスト所属)に
+ * 該当するShortsが実在する場合だけチップを出す(運営者が管理していないシリーズを勝手に
+ * 捏造しない)。1本しかShortsが無いシリーズは「続けて見る」体験を提供できないため対象外にする。
+ */
+export function resolveShortsSeriesChips(
+  seriesWithVideos: readonly SeriesWithVideos[],
+): ShortsSeriesChip[] {
+  return seriesWithVideos
+    .map(({ series, videos }) => ({
+      slug: series.slug,
+      title: series.title,
+      shortsCount: videos.filter((video) => video.isShort === true).length,
+    }))
+    .filter((chip) => chip.shortsCount >= 2);
+}
+
 export function getSeriesWithVideos(
   series: SeriesItem[],
   videos: Video[],

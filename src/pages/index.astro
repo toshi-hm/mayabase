@@ -16,8 +16,10 @@ import channelStatsJson from "../data/channel-stats.json";
 import communityPostsJson from "../data/community-posts.json";
 import videoViewHistoryJson from "../data/video-view-history.json";
 import featuredVideosJson from "../data/featured-videos.json";
+import playlistsJson from "../data/playlists.json";
 import recommendationsJson from "../data/recommendations.json";
 import featuredTopicsJson from "../data/featured-topics.json";
+import seriesJson from "../data/series.json";
 import videosJson from "../data/videos.json";
 import xPostsJson from "../data/x-posts.json";
 import testimonialsJson from "../data/testimonials.json";
@@ -34,6 +36,13 @@ import { parseFeaturedTopicsData, resolveFeaturedTopics } from "../lib/featuredT
 import { extractSearchableText, formatViewCount, truncate } from "../lib/format";
 import { parseCommunityPostsData, resolveCommunityPosts } from "../lib/communityPosts";
 import { buildOwnerPersonJsonLd } from "../lib/personJsonLd";
+import { buildPlaylistVideoIdIndex, parsePlaylistsData } from "../lib/playlists";
+import {
+  getSeriesWithVideos,
+  parseSeriesData,
+  resolveShortsSeriesChips,
+  seriesUrl,
+} from "../lib/series";
 import { computeUpdateFrequencyLabel } from "../lib/updateFrequency";
 import { parseXPostsData } from "../lib/x";
 import { parseRecommendationsData, resolveRecommendations } from "../lib/recommendations";
@@ -54,6 +63,15 @@ const { videos } = parseVideosData(videosJson);
 // isShort: null(未判定)は横動画として表示する(docs/02-design.md)
 const regularVideos = videos.filter((v) => v.isShort !== true).slice(0, maxItems);
 const shortVideos = videos.filter((v) => v.isShort === true).slice(0, maxItems);
+
+// Shortsシリーズ導線(#541)。既存のシリーズ機構(series.json、キーワード・再生リスト所属)を
+// そのまま使い、実際にShortsが2本以上該当するシリーズだけをチップとして案内する
+// (新たにシリーズを捏造せず、運営者が管理する既存データの範囲でのみ表示する)。
+const { series } = parseSeriesData(seriesJson);
+const playlistIndex = buildPlaylistVideoIdIndex(parsePlaylistsData(playlistsJson));
+const shortsSeriesChips = resolveShortsSeriesChips(
+  getSeriesWithVideos(series, videos, playlistIndex),
+);
 
 // 運営者が手動でキュレーションする代表動画。未設定(空配列)ならセクションごと非表示にする
 const { featuredVideoIds } = parseFeaturedVideosData(featuredVideosJson);
@@ -465,6 +483,28 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           title="Shortsで、さっと発見"
           subtitle="移動中や休憩時間にも見やすい、短いアイデアと気づきをまとめました。"
         />
+        {
+          /* Shortsシリーズ導線(#541)。同じテーマのShortsを続けて見られるよう、該当シリーズへの
+          チップを用意する。?length=short で、既存のシリーズページの絞り込み(#275)を
+          Shorts限定の状態のまま開ける(通常動画へ切り替える導線も同ページ内にある)。 */
+        }
+        {
+          shortsSeriesChips.length > 0 && (
+            <ul role="list" aria-label="Shortsのシリーズ" class="mb-6 flex flex-wrap gap-2">
+              {shortsSeriesChips.map((chip) => (
+                <li>
+                  <a
+                    href={`${seriesUrl(chip.slug)}?length=short`}
+                    class="inline-flex items-center gap-1.5 rounded-full border border-ink-muted bg-surface px-4 py-1.5 text-sm font-semibold transition hover:border-ink hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand"
+                  >
+                    {chip.title}
+                    <span class="text-ink-muted">を続けて見る({chip.shortsCount})</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
         {
           shortVideos.length > 0 ? (
             <Carousel label="Shorts の一覧">
