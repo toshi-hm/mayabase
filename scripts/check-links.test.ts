@@ -197,6 +197,34 @@ describe("buildReport", () => {
     expect(report.summary).toBe("全 2 件の外部リンクは正常でした。");
   });
 
+  test("リトライ後も 403/503 のリンクは blocked に分類し、brokenCount に含めない(#567)", () => {
+    const results: LinkProbeResult[] = [
+      { ok: true, status: 200, error: null },
+      { ok: false, status: 403, error: null },
+    ];
+    const report = buildReport(targets, results);
+    expect(report.brokenCount).toBe(0);
+    expect(report.broken).toEqual([]);
+    expect(report.blocked).toEqual([
+      { url: "https://example.com/ng", sources: ["NG商品", "NG質問"], status: 403, error: null },
+    ]);
+    expect(report.summary).toContain("明確なリンク切れはありませんでした");
+    expect(report.summary).toContain("HTTP 403");
+  });
+
+  test("404 と 403 が混在する場合は 404 のみ broken、403 は blocked", () => {
+    const results: LinkProbeResult[] = [
+      { ok: false, status: 503, error: null },
+      { ok: false, status: 404, error: null },
+    ];
+    const report = buildReport(targets, results);
+    expect(report.brokenCount).toBe(1);
+    expect(report.broken[0].status).toBe(404);
+    expect(report.blocked).toHaveLength(1);
+    expect(report.summary).toContain("2 件中 1 件");
+    expect(report.summary).toContain("Bot対策");
+  });
+
   test("異常があれば件数・詳細(URL・参照元・ステータス)を含むサマリを返す", () => {
     const results: LinkProbeResult[] = [
       { ok: true, status: 200, error: null },
