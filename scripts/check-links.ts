@@ -140,8 +140,14 @@ export interface BrokenLink {
 
 export interface LinkCheckReport {
   totalCount: number;
+  /** 明確な異常(404等・ネットワークエラー)の件数。Issue 通知(has_broken)の判定対象 */
   brokenCount: number;
   broken: BrokenLink[];
+  /**
+   * リトライ後も 403/503 を返したリンク(#567)。Bot対策で自動確認できないだけで実際は生存している
+   * 可能性が高く(marshmallow-qa.com は #376/#448 で生存確認済み)、通知の対象にはしない。
+   */
+  blocked: BrokenLink[];
   /** GitHub Issue 本文にそのまま使える Markdown 形式のサマリ */
   summary: string;
 }
@@ -157,32 +163,56 @@ export function buildReport(
     );
   }
   const broken: BrokenLink[] = [];
+  const blocked: BrokenLink[] = [];
   targets.forEach((target, i) => {
     const result = results[i];
     if (!result.ok) {
-      broken.push({
+      const link = {
         url: target.url,
         sources: target.sources,
         status: result.status,
         error: result.error,
-      });
+      };
+      const isBotBlocked =
+        result.error === null &&
+        result.status !== null &&
+        BOT_PROTECTION_STATUSES.has(result.status);
+      (isBotBlocked ? blocked : broken).push(link);
     }
   });
 
-  const summary =
-    broken.length === 0
-      ? `全 ${targets.length} 件の外部リンクは正常でした。`
-      : [
-          `${targets.length} 件中 ${broken.length} 件の外部リンクで異常を検知しました。`,
-          "",
-          ...broken.map((b) => {
-            const status = b.status !== null ? `HTTP ${b.status}` : "取得失敗";
-            const detail = b.error ? `(${b.error})` : "";
-            return `- [${status}${detail}] ${b.url} — 参照元: ${b.sources.join(" / ")}`;
-          }),
-        ].join("\n");
+  const formatLink = (b: BrokenLink): string => {
+    const status = b.status !== null ? `HTTP ${b.status}` : "取得失敗";
+    const detail = b.error ? `(${b.error})` : "";
+    return `- [${status}${detail}] ${b.url} — 参照元: ${b.sources.join(" / ")}`;
+  };
+  const lines: string[] = [];
+  if (broken.length > 0) {
+    lines.push(
+      `${targets.length} 件中 ${broken.length} 件の外部リンクで異常を検知しました。`,
+      "",
+      ...broken.map(formatLink),
+    );
+  } else if (blocked.length === 0) {
+    lines.push(`全 ${targets.length} 件の外部リンクは正常でした。`);
+  } else {
+    lines.push(`全 ${targets.length} 件中、明確なリンク切れはありませんでした。`);
+  }
+  if (blocked.length > 0) {
+    lines.push(
+      "",
+      `Bot対策(HTTP 403/503)により自動確認できなかったリンクが ${blocked.length} 件あります(通知対象外・必要に応じてブラウザで手動確認してください):`,
+      ...blocked.map(formatLink),
+    );
+  }
 
-  return { totalCount: targets.length, brokenCount: broken.length, broken, summary };
+  return {
+    totalCount: targets.length,
+    brokenCount: broken.length,
+    broken,
+    blocked,
+    summary: lines.join("\n"),
+  };
 }
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
