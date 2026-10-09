@@ -25,19 +25,46 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
 <header class="sticky top-0 z-40 border-b border-line bg-surface/92 backdrop-blur-lg">
   <nav
     aria-label="サイト内ナビゲーション"
-    class="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3"
+    class="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2 md:flex md:gap-4 md:px-4 md:py-3"
   >
+    {
+      /*
+        モバイルは「左: ハンバーガー / 中央: ロゴ / 右: 操作ボタン」の3カラム。
+        メニュー項目は下のドロワーに出し、タップ領域を 44px 以上確保する。
+        md 以上は従来の横並びナビ。
+      */
+    }
+    <button
+      type="button"
+      id="site-menu-toggle"
+      aria-expanded="false"
+      aria-controls="site-menu-drawer"
+      class="inline-flex size-11 cursor-pointer items-center justify-center justify-self-start rounded-full text-ink transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand md:hidden"
+    >
+      <span class="relative block h-4 w-5" aria-hidden="true">
+        <span
+          class="menu-bar absolute left-0 top-0 h-0.5 w-5 rounded bg-current transition-transform duration-300"
+        ></span>
+        <span
+          class="menu-bar absolute left-0 top-[7px] h-0.5 w-5 rounded bg-current transition-opacity duration-200"
+        ></span>
+        <span
+          class="menu-bar absolute left-0 top-[14px] h-0.5 w-5 rounded bg-current transition-transform duration-300"
+        ></span>
+      </span>
+      <span class="sr-only">メニューを開く</span>
+    </button>
     <a
       href="/"
       aria-current={currentPath === "/" ? "page" : undefined}
       class:list={[
-        "flex-none text-lg font-black transition hover:text-brand-accent",
+        "flex-none justify-self-center text-lg font-black transition hover:text-brand-accent",
         currentPath === "/" && "text-brand-accent",
       ]}
     >
       {site.name}
     </a>
-    <div class="relative ml-auto min-w-0">
+    <div class="relative ml-auto hidden min-w-0 md:block">
       <ul id="site-nav-list" role="list" class="flex gap-1 overflow-x-auto text-sm">
         {
           NAV_ITEMS.map((item) => (
@@ -75,29 +102,31 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
         class="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-surface to-transparent opacity-0 transition-opacity"
       ></span>
     </div>
-    <button
-      type="button"
-      id="site-search-toggle"
-      aria-expanded="false"
-      aria-controls="site-search-panel"
-      class="flex-none cursor-pointer rounded-full border border-ink-muted p-2 text-ink-muted transition hover:border-ink hover:bg-surface-raised hover:text-ink focus-visible:outline-2 focus-visible:outline-brand"
-    >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        aria-hidden="true"
+    <div class="flex items-center justify-end gap-1.5 md:contents">
+      <button
+        type="button"
+        id="site-search-toggle"
+        aria-expanded="false"
+        aria-controls="site-search-panel"
+        class="flex-none cursor-pointer rounded-full border border-ink-muted p-2 text-ink-muted transition hover:border-ink hover:bg-surface-raised hover:text-ink focus-visible:outline-2 focus-visible:outline-brand"
       >
-        <circle cx="11" cy="11" r="7"></circle>
-        <path d="m21 21-4.35-4.35"></path>
-      </svg>
-      <span class="sr-only">サイト内検索(動画・FAQ・ガジェット・用語集・チャプター)</span>
-    </button>
-    <PushNotificationController />
-    <ThemeToggle />
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <span class="sr-only">サイト内検索(動画・FAQ・ガジェット・用語集・チャプター)</span>
+      </button>
+      <PushNotificationController />
+      <ThemeToggle />
+    </div>
   </nav>
   {
     /*
@@ -154,6 +183,127 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
   </noscript>
 </header>
 
+{
+  /*
+    モバイル用ドロワーメニュー。<header> の backdrop-filter は fixed 子要素の基準を
+    header に変えてしまうため、header の外に置く。閉じている間は inert でフォーカス・読み上げ対象外。
+  */
+}
+<div id="site-menu-root" class="md:hidden">
+  <div
+    id="site-menu-backdrop"
+    aria-hidden="true"
+    class="pointer-events-none fixed inset-0 z-50 bg-black/40 opacity-0 backdrop-blur-sm transition-opacity duration-300"
+  >
+  </div>
+  <aside
+    id="site-menu-drawer"
+    inert
+    aria-label="メニュー"
+    class="fixed inset-y-0 left-0 z-[60] flex w-[min(86vw,22rem)] -translate-x-full flex-col rounded-r-3xl border-r border-line bg-surface shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+  >
+    <div class="flex items-center justify-between px-5 pb-2 pt-4">
+      <span class="text-lg font-black">{site.name}</span>
+      <button
+        type="button"
+        id="site-menu-close"
+        class="inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-ink-muted transition hover:bg-surface-raised hover:text-ink focus-visible:outline-2 focus-visible:outline-brand"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M6 6l12 12M18 6 6 18"></path>
+        </svg>
+        <span class="sr-only">メニューを閉じる</span>
+      </button>
+    </div>
+    <ul
+      role="list"
+      class="flex-1 overflow-y-auto overscroll-contain px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+    >
+      {
+        NAV_ITEMS.map((item, i) => (
+          <li class="site-menu-item" style={`--i:${i}`}>
+            <a
+              href={item.href}
+              aria-current={isCurrent(item.href) ? "page" : undefined}
+              class:list={[
+                "flex min-h-14 items-center justify-between rounded-2xl px-4 text-base transition active:scale-[0.98] active:bg-surface-raised",
+                isCurrent(item.href)
+                  ? "bg-brand/10 font-bold text-brand-accent"
+                  : "font-medium text-ink hover:bg-surface-raised",
+              ]}
+            >
+              {item.label}
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="opacity-40"
+                aria-hidden="true"
+              >
+                <path d="m9 6 6 6-6 6" />
+              </svg>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </aside>
+</div>
+
+<style>
+  #site-menu-root[data-open="true"] #site-menu-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #site-menu-root[data-open="true"] #site-menu-drawer {
+    transform: translateX(0);
+  }
+  /* 開いたときに項目が順にふわっと現れる */
+  .site-menu-item {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  #site-menu-root[data-open="true"] .site-menu-item {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 0.35s ease calc(0.08s + var(--i) * 0.035s),
+      transform 0.35s ease calc(0.08s + var(--i) * 0.035s);
+  }
+  /* ハンバーガー → × のモーフ */
+  #site-menu-toggle[aria-expanded="true"] .menu-bar:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+  #site-menu-toggle[aria-expanded="true"] .menu-bar:nth-child(2) {
+    opacity: 0;
+  }
+  #site-menu-toggle[aria-expanded="true"] .menu-bar:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #site-menu-drawer,
+    #site-menu-backdrop,
+    .site-menu-item,
+    .menu-bar {
+      transition: none !important;
+    }
+  }
+</style>
+
 <script>
   // ヘッダー横断検索(#155)。トグルボタンでパネルを開閉し、インクリメンタルサーチの候補プレビューを
   // 表示する。候補選択時は各コンテンツページ(videos.astro / faq.astro / gear.astro)へ
@@ -190,6 +340,40 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
   navList?.addEventListener("scroll", updateNavFade, { passive: true });
   window.addEventListener("resize", updateNavFade);
   updateNavFade();
+
+  // モバイルのドロワーメニュー。開閉は #site-menu-root[data-open] で CSS に委ね、
+  // ここでは aria/inert・スクロールロック・Esc/背景/リンクタップ/PC幅への拡大での閉じ込みを担う。
+  const menuRoot = document.getElementById("site-menu-root");
+  const menuToggle = document.getElementById("site-menu-toggle");
+  const menuDrawer = document.getElementById("site-menu-drawer");
+  const menuBackdrop = document.getElementById("site-menu-backdrop");
+  const menuClose = document.getElementById("site-menu-close");
+
+  function setMenu(open: boolean): void {
+    if (!menuRoot || !menuDrawer) return;
+    menuRoot.dataset.open = String(open);
+    menuDrawer.toggleAttribute("inert", !open);
+    menuToggle?.setAttribute("aria-expanded", String(open));
+    document.documentElement.style.overflow = open ? "hidden" : "";
+    if (open) {
+      menuClose?.focus();
+    } else if (menuDrawer.contains(document.activeElement)) {
+      menuToggle?.focus();
+    }
+  }
+
+  menuToggle?.addEventListener("click", () => setMenu(menuRoot?.dataset.open !== "true"));
+  menuClose?.addEventListener("click", () => setMenu(false));
+  menuBackdrop?.addEventListener("click", () => setMenu(false));
+  menuDrawer?.addEventListener("click", (event) => {
+    if (event.target instanceof Element && event.target.closest("a")) setMenu(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && menuRoot?.dataset.open === "true") setMenu(false);
+  });
+  window.matchMedia("(min-width: 768px)").addEventListener("change", (e) => {
+    if (e.matches) setMenu(false);
+  });
 
   // 種別ごとの候補数の上限(searchSiteIndex 側の頭打ち件数)。5種別(動画・FAQ・ガジェット・
   // 用語集・チャプター)× 4件 = 最大20件を候補に表示する。
