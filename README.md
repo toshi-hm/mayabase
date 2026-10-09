@@ -1,7 +1,7 @@
 # MayaBase ポータルサイト
 
 YouTube チャンネル [@maya_base](https://youtube.com/@maya_base) の公式ポータルサイトです。
-最新動画・Shorts・X([@MayaBaseJP](https://x.com/MayaBaseJP))の投稿をまとめて紹介します。
+最新動画・Shorts・X([@MayaBaseJP](https://x.com/MayaBaseJP))の投稿をまとめて紹介します。AI・フロントエンドの最新ニュースは [note](https://note.com/maya_base) で発信しています。
 
 ## 技術スタック
 

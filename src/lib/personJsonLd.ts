@@ -28,6 +28,6 @@ export function buildOwnerPersonJsonLd(siteUrl: string): OwnerPersonJsonLd {
     name: site.profile.name,
     description: site.profile.bio,
     url: siteUrl,
-    sameAs: [site.youtube.url, site.x.url],
+    sameAs: [site.youtube.url, site.x.url, site.note.url],
   };
 }

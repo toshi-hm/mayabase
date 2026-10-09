@@ -25,8 +25,12 @@ describe("buildOwnerPersonJsonLd", () => {
     expect(buildOwnerPersonJsonLd(SITE_URL).url).toBe(SITE_URL);
   });
 
-  test("sameAs に YouTube・X の URL を含む", () => {
-    expect(buildOwnerPersonJsonLd(SITE_URL).sameAs).toEqual([site.youtube.url, site.x.url]);
+  test("sameAs に YouTube・X・note の URL を含む", () => {
+    expect(buildOwnerPersonJsonLd(SITE_URL).sameAs).toEqual([
+      site.youtube.url,
+      site.x.url,
+      site.note.url,
+    ]);
   });
 
   test("siteUrl が異なれば @id・url もそれに追従する", () => {
