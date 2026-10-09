@@ -270,7 +270,9 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
     pointer-events: auto;
   }
   #site-menu-root[data-open="true"] #site-menu-drawer {
-    transform: translateX(0);
+    /* Tailwind v4 の -translate-x-full は個別プロパティ translate で出力されるため、
+       transform ではなく translate を打ち消す(transform だと画面外に残る) */
+    translate: 0;
   }
   /* 開いたときに項目が順にふわっと現れる */
   .site-menu-item {
