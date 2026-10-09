@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { site, subscribeUrl } from "./site";
+import { noteUrl, site, subscribeUrl } from "./site";
 
 describe("site config", () => {
   test("YouTube ハンドルは @ で始まる", () => {
@@ -37,5 +37,19 @@ describe("subscribeUrl", () => {
 
   test("常にチャンネルURLを起点にする", () => {
     expect(subscribeUrl().startsWith(site.youtube.url)).toBe(true);
+  });
+});
+
+describe("noteUrl", () => {
+  test("note のクリエイターページを指す", () => {
+    expect(site.note.url).toBe(`https://note.com/${site.note.account}`);
+    expect(new URL(noteUrl("home")).origin + new URL(noteUrl("home")).pathname).toBe(site.note.url);
+  });
+
+  test("設置箇所ごとの UTM パラメータを付与する", () => {
+    const url = new URL(noteUrl("video-detail"));
+    expect(url.searchParams.get("utm_source")).toBe("mayabase");
+    expect(url.searchParams.get("utm_medium")).toBe("referral");
+    expect(url.searchParams.get("utm_campaign")).toBe("video-detail");
   });
 });

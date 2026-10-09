@@ -30,6 +30,25 @@ export const site = {
     url: "https://x.com/MayaBaseJP",
   },
 
+  /** note(AI・フロントエンド技術の最新ニュースを発信するブログ) */
+  note: {
+    /** note のクリエイター名 */
+    account: "maya_base",
+    /** クリエイターページ URL */
+    url: "https://note.com/maya_base",
+    /** 導線で使う共通コピー(文言の二重管理を避けるため一箇所に集約) */
+    cta: {
+      eyebrow: "NOTE",
+      title: "AI・フロントエンドの最新ニュースは note で",
+      description:
+        "動画では追いきれない最新トピックを、エンジニア視点で読みやすく整理してお届け。AIの新機能やフロントエンド技術の動向を、通勤時間や休憩中の数分でキャッチアップできます。",
+      points: ["AIの最新ニュース", "フロントエンド技術の最新動向"],
+      button: "noteを読む",
+      /** 動画詳細など文脈の短い場所向けの一行コピー */
+      short: "AI・フロントエンドの最新ニュースを note で発信中",
+    },
+  },
+
   /** 質問箱(マシュマロ)。動画概要欄に掲載している URL と同一 */
   marshmallow: {
     url: "https://marshmallow-qa.com/5grb3tbhads2ey9",
@@ -65,6 +84,18 @@ export type SiteConfig = typeof site;
  * `sub_confirmation=1` を付与すると、遷移後に YouTube が登録確認ダイアログを自動表示する
  * (外部スクリプト埋め込み不要の公式仕様)。
  */
+/**
+ * note への導線 URL。流入元を note 側のアクセス解析で判別できるよう、
+ * 設置箇所ごとの `utm_source` / `utm_medium` / `utm_campaign` を付与する。
+ */
+export function noteUrl(placement: string): string {
+  const url = new URL(site.note.url);
+  url.searchParams.set("utm_source", "mayabase");
+  url.searchParams.set("utm_medium", "referral");
+  url.searchParams.set("utm_campaign", placement);
+  return url.toString();
+}
+
 export function subscribeUrl(): string {
   return `${site.youtube.url}?sub_confirmation=1`;
 }

@@ -1,0 +1,65 @@
+---
+import { noteUrl, site } from "../config/site";
+import SectionHeading from "./SectionHeading.astro";
+
+interface Props {
+  /** `full`: トップページ向けの大きなセクション / `compact`: 動画詳細などの一行バナー */
+  variant?: "full" | "compact";
+  /** UTM の utm_campaign に使う設置箇所名(note 側で流入元を判別する) */
+  placement: string;
+}
+
+const { variant = "full", placement } = Astro.props;
+const { cta } = site.note;
+const href = noteUrl(placement);
+---
+
+{
+  variant === "full" ? (
+    <section aria-labelledby="note-heading" class="bg-surface-sun py-16">
+      <div class="mx-auto max-w-6xl px-4">
+        <div class="grid gap-8 rounded-2xl border border-line bg-surface p-6 sm:p-10 lg:grid-cols-[1.4fr_0.6fr] lg:items-center">
+          <div>
+            <p class="mb-3 text-sm font-bold text-brand-accent">{cta.eyebrow}</p>
+            <SectionHeading id="note-heading" title={cta.title} subtitle={cta.description} />
+            <ul role="list" class="flex flex-wrap gap-2 text-sm font-semibold">
+              {cta.points.map((point) => (
+                <li class="rounded-full bg-surface-mint px-4 py-1.5">{point}</li>
+              ))}
+            </ul>
+          </div>
+          <div class="flex flex-col items-start gap-3 lg:items-center">
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="rounded-full bg-brand px-8 py-3.5 text-center font-bold text-white transition hover:bg-brand-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            >
+              {cta.button} <span aria-hidden="true">↗</span>
+              <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+            </a>
+            <p class="text-xs text-ink-muted">note.com/{site.note.account}・無料で読めます</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  ) : (
+    <section aria-label="note のご案内" class="mt-16">
+      <div class="flex flex-col gap-3 rounded-xl border border-line bg-surface-sun p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-sm font-bold text-brand-accent">{cta.eyebrow}</p>
+          <p class="mt-1 font-bold">{cta.short}</p>
+        </div>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="shrink-0 rounded-full border border-brand px-5 py-2.5 text-center text-sm font-semibold text-brand-accent transition hover:bg-brand/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          {cta.button} <span aria-hidden="true">↗</span>
+          <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+        </a>
+      </div>
+    </section>
+  )
+}

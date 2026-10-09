@@ -2,6 +2,7 @@
 import Carousel from "../components/Carousel.astro";
 import CommunityPostCard from "../components/CommunityPostCard.astro";
 import PostCard from "../components/PostCard.astro";
+import NoteCta from "../components/NoteCta.astro";
 import Onboarding from "../components/Onboarding.astro";
 import FeaturedTopics from "../components/FeaturedTopics.astro";
 import Profile from "../components/Profile.astro";
@@ -593,6 +594,12 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     </section>
 
     {testimonials.length > 0 && <Testimonials testimonials={testimonials} />}
+
+    {
+      /* note への導線。動画・X の後(チャンネルに関心を持った段階)、プロフィールの直前に置き、
+      「動画では追いきれない最新ニュースを文章で補完できる」価値を提示する。 */
+    }
+    <NoteCta placement="home" />
 
     <section class="bg-surface-sun">
       <div class="mx-auto max-w-6xl px-4">

@@ -1,5 +1,5 @@
 ---
-import { site, subscribeUrl } from "../config/site";
+import { noteUrl, site, subscribeUrl } from "../config/site";
 import SectionHeading from "./SectionHeading.astro";
 ---
 
@@ -60,6 +60,17 @@ import SectionHeading from "./SectionHeading.astro";
             class="rounded-md border border-ink px-4 py-2 transition hover:bg-surface"
           >
             X: @{site.x.account}
+            <span class="sr-only">(新しいタブで開きます)</span>
+          </a>
+        </li>
+        <li>
+          <a
+            href={noteUrl("profile")}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-md border border-ink px-4 py-2 transition hover:bg-surface"
+          >
+            note: AI・フロントエンドの最新ニュース
             <span class="sr-only">(新しいタブで開きます)</span>
           </a>
         </li>

@@ -1,6 +1,7 @@
 ---
 import Breadcrumb from "../../components/Breadcrumb.astro";
 import GearMiniCard from "../../components/GearMiniCard.astro";
+import NoteCta from "../../components/NoteCta.astro";
 import RelatedVideoCard from "../../components/RelatedVideoCard.astro";
 import ShareButton from "../../components/ShareButton.astro";
 import SubscribeMilestoneNote from "../../components/SubscribeMilestoneNote.astro";
@@ -713,6 +714,8 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         </a>
       </div>
     </section>
+
+    <NoteCta variant="compact" placement="video-detail" />
 
     <section aria-labelledby="video-cta-heading" class="mt-16">
       <div class="rounded-2xl bg-surface-raised p-8 text-center">

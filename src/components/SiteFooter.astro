@@ -1,5 +1,5 @@
 ---
-import { site } from "../config/site";
+import { noteUrl, site } from "../config/site";
 ---
 
 <footer class="border-t border-line bg-surface-raised py-10">
@@ -56,6 +56,16 @@ import { site } from "../config/site";
             class="underline-offset-4 transition hover:text-ink hover:underline"
           >
             YouTube<span class="sr-only">(新しいタブで開きます)</span>
+          </a>
+        </li>
+        <li>
+          <a
+            href={noteUrl("footer")}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="underline-offset-4 transition hover:text-ink hover:underline"
+          >
+            note<span class="sr-only">(新しいタブで開きます)</span>
           </a>
         </li>
         <li>
