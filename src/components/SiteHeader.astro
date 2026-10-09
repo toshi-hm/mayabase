@@ -25,7 +25,7 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
 <header class="sticky top-0 z-40 border-b border-line bg-surface/92 backdrop-blur-lg">
   <nav
     aria-label="サイト内ナビゲーション"
-    class="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2 md:flex md:gap-4 md:px-4 md:py-3"
+    class="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2 xl:flex xl:gap-4 xl:px-4 xl:py-3"
   >
     {
       /*
@@ -39,7 +39,7 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
       id="site-menu-toggle"
       aria-expanded="false"
       aria-controls="site-menu-drawer"
-      class="inline-flex size-11 cursor-pointer items-center justify-center justify-self-start rounded-full text-ink transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand md:hidden"
+      class="inline-flex size-11 cursor-pointer items-center justify-center justify-self-start rounded-full text-ink transition hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand xl:hidden"
     >
       <span class="relative block h-4 w-5" aria-hidden="true">
         <span
@@ -64,7 +64,7 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
     >
       {site.name}
     </a>
-    <div class="relative ml-auto hidden min-w-0 md:block">
+    <div class="relative ml-auto hidden min-w-0 xl:block">
       <ul id="site-nav-list" role="list" class="flex gap-1 overflow-x-auto text-sm">
         {
           NAV_ITEMS.map((item) => (
@@ -102,7 +102,7 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
         class="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-surface to-transparent opacity-0 transition-opacity"
       ></span>
     </div>
-    <div class="flex items-center justify-end gap-1.5 md:contents">
+    <div class="flex items-center justify-end gap-1.5 xl:contents">
       <button
         type="button"
         id="site-search-toggle"
@@ -189,7 +189,7 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
     header に変えてしまうため、header の外に置く。閉じている間は inert でフォーカス・読み上げ対象外。
   */
 }
-<div id="site-menu-root" class="md:hidden">
+<div id="site-menu-root" class="xl:hidden">
   <div
     id="site-menu-backdrop"
     aria-hidden="true"
@@ -373,7 +373,7 @@ const isCurrent = (href: string): boolean => isNavCurrent(currentPath, href);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && menuRoot?.dataset.open === "true") setMenu(false);
   });
-  window.matchMedia("(min-width: 768px)").addEventListener("change", (e) => {
+  window.matchMedia("(min-width: 1280px)").addEventListener("change", (e) => {
     if (e.matches) setMenu(false);
   });
 
