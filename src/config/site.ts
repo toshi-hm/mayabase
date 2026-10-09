@@ -32,8 +32,10 @@ export const site = {
 
   /** note(AI・フロントエンド技術の最新ニュースを発信するブログ) */
   note: {
-    /** note のクリエイター名 */
-    account: "maya_base",
+    /** note の表示名(ユーザー名) */
+    account: "Maya",
+    /** note の ID(URL に使われる) */
+    id: "maya_base",
     /** クリエイターページ URL */
     url: "https://note.com/maya_base",
     /** 導線で使う共通コピー(文言の二重管理を避けるため一箇所に集約) */

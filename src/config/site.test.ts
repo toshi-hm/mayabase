@@ -42,7 +42,7 @@ describe("subscribeUrl", () => {
 
 describe("noteUrl", () => {
   test("note のクリエイターページを指す", () => {
-    expect(site.note.url).toBe(`https://note.com/${site.note.account}`);
+    expect(site.note.url).toBe(`https://note.com/${site.note.id}`);
     expect(new URL(noteUrl("home")).origin + new URL(noteUrl("home")).pathname).toBe(site.note.url);
   });
 
