@@ -20,3 +20,16 @@ export function addReactedVideoId(videoIds: readonly string[], videoId: string):
   const merged = [...new Set([...videoIds, videoId])];
   return merged.slice(Math.max(0, merged.length - INTEREST_REACTED_MAX_ITEMS));
 }
+
+/**
+ * 「気になる」ボタンの件数表示を決める。0件の「0」は視聴の妨げになるノイズのため、
+ * 0件のときは件数を出さない(#574)。zeroText は Shorts の円形バッジ(件数のみ表示)で
+ * 空にならないよう代わりに出す記号。
+ */
+export function formatInterestCount(
+  count: number,
+  zeroText = "",
+): { text: string; hidden: boolean } {
+  if (count > 0) return { text: String(count), hidden: false };
+  return { text: zeroText, hidden: zeroText === "" };
+}
