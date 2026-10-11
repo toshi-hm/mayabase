@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { addReactedVideoId, INTEREST_REACTED_MAX_ITEMS, parseReactedVideoIds } from "./interest";
+import {
+  addReactedVideoId,
+  formatInterestCount,
+  INTEREST_REACTED_MAX_ITEMS,
+  parseReactedVideoIds,
+} from "./interest";
 
 describe("parseReactedVideoIds", () => {
   test("正常な動画ID配列を読む", () => {
@@ -24,5 +29,21 @@ describe("addReactedVideoId", () => {
     expect(result).toHaveLength(INTEREST_REACTED_MAX_ITEMS);
     expect(result[0]).toBe("id-1");
     expect(result.at(-1)).toBe("new-id");
+  });
+});
+
+describe("formatInterestCount (#574)", () => {
+  test("0件のときは件数を非表示にする", () => {
+    expect(formatInterestCount(0)).toEqual({ text: "", hidden: true });
+  });
+
+  test("1件以上は件数を表示する", () => {
+    expect(formatInterestCount(1)).toEqual({ text: "1", hidden: false });
+    expect(formatInterestCount(12)).toEqual({ text: "12", hidden: false });
+  });
+
+  test("zeroText 指定時は0件でも代替表示を出す(Shortsの円形バッジ用)", () => {
+    expect(formatInterestCount(0, "+")).toEqual({ text: "+", hidden: false });
+    expect(formatInterestCount(3, "+")).toEqual({ text: "3", hidden: false });
   });
 });
