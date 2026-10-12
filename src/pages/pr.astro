@@ -11,6 +11,7 @@ import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
 import { buildChannelStatsView, parseChannelStats } from "../lib/channelStats";
 import { formatViewCount } from "../lib/format";
+import { pickRepresentativeVideos } from "../lib/representativeVideos";
 import { type Video, parseVideosData } from "../lib/youtube";
 
 /**
@@ -18,8 +19,8 @@ import { type Video, parseVideosData } from "../lib/youtube";
  * IT企業・ガジェット/家電/IoTメーカーの担当者が初見で問い合わせ先・実績・レビュー方針を
  * 把握できるよう、既存の運営者プロフィール(Profile.astro)・チャンネル統計の正規化ロジック
  * (buildChannelStatsView、#438)をそのまま再利用する。特定動画IDのハードコードは
- * CIを壊した既往(#416)があるため避け、「代表実績」はトップページの人気動画(#35)と同じ
- * 再生回数降順の算出方法を使う。
+ * CIを壊した既往(#416)があるため避け、「代表実績」は商品・サービスレビュー系(ガジェット・AI)を優先し
+ * 再生回数降順で選ぶ(#577、pickRepresentativeVideos)。
  */
 
 const { videos } = parseVideosData(videosJson);
@@ -27,10 +28,9 @@ const channelStats = parseChannelStats(channelStatsJson);
 const statsView = buildChannelStatsView(channelStats, videos.length, new Date());
 
 const REPRESENTATIVE_VIDEO_COUNT = 4;
-const representativeVideos = videos
-  .filter((v): v is Video & { viewCount: number } => v.viewCount !== null)
-  .sort((a, b) => b.viewCount - a.viewCount)
-  .slice(0, REPRESENTATIVE_VIDEO_COUNT);
+const representativeVideos = pickRepresentativeVideos(videos, REPRESENTATIVE_VIDEO_COUNT).filter(
+  (v): v is Video & { viewCount: number } => v.viewCount !== null,
+);
 
 const STRENGTH_CATEGORIES = [
   "AI・IT技術",
@@ -139,7 +139,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <SectionHeading
             id="pr-representative-heading"
             title="代表実績"
-            subtitle="再生回数の多い動画です。ターゲット層が合えば数千〜数万回再生に届く媒体です。"
+            subtitle="ガジェット・AIサービスなど商品・サービス紹介系の動画から、再生回数の多いものを掲載しています。ターゲット層が合えば数千〜数万回再生に届く媒体です。"
           />
           <ul role="list" class="grid gap-6 sm:grid-cols-2">
             {representativeVideos.map((video, index) => (
