@@ -556,15 +556,18 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       )
     }
 
-    <section aria-labelledby="x-heading" class="py-16">
-      <div class="mx-auto max-w-6xl px-4">
-        <SectionHeading
-          id="x-heading"
-          title="いま考えていること"
-          subtitle={`@${account} から、動画になる前の気づきや日々の記録を。`}
-        />
-        {
-          xPosts.length > 0 ? (
+    {
+      /* X 投稿が 0 件のときは内部の取得状態を示す文言を出さず、セクションごと非表示にする(#576)。 */
+    }
+    {
+      xPosts.length > 0 && (
+        <section aria-labelledby="x-heading" class="py-16">
+          <div class="mx-auto max-w-6xl px-4">
+            <SectionHeading
+              id="x-heading"
+              title="いま考えていること"
+              subtitle={`@${account} から、動画になる前の気づきや日々の記録を。`}
+            />
             <Carousel label="X ポストの一覧">
               {xPosts.map((post, index) => (
                 <PostCard
@@ -575,23 +578,10 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                 />
               ))}
             </Carousel>
-          ) : (
-            <p class="rounded-xl bg-surface-raised p-8 text-center text-ink-muted">
-              ポストデータを準備中です。
-              <a
-                href={site.x.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-brand-accent underline underline-offset-4"
-              >
-                X(@{account})<span class="sr-only">(新しいタブで開きます)</span>
-              </a>
-              で最新の投稿をご覧ください。
-            </p>
-          )
-        }
-      </div>
-    </section>
+          </div>
+        </section>
+      )
+    }
 
     {testimonials.length > 0 && <Testimonials testimonials={testimonials} />}
 
