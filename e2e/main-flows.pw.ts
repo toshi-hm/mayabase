@@ -11,6 +11,15 @@ const videosDataPath = fileURLToPath(new URL("../src/data/videos.json", import.m
 const videosData: { videos: { id: string }[] } = JSON.parse(readFileSync(videosDataPath, "utf-8"));
 
 test.describe("主要導線", () => {
+  test("X投稿が0件のときトップページに準備中文言を出さない(#576)", async ({ page }) => {
+    const xData: { posts: unknown[] } = JSON.parse(
+      readFileSync(fileURLToPath(new URL("../src/data/x-posts.json", import.meta.url)), "utf-8"),
+    );
+    await page.goto("/");
+    await expect(page.getByText("ポストデータを準備中です。")).toHaveCount(0);
+    await expect(page.locator("#x-heading")).toHaveCount(xData.posts.length > 0 ? 1 : 0);
+  });
+
   test("動画ライブラリのカテゴリ絞り込みと検索を操作できる", async ({ page }) => {
     await page.goto("/videos/");
 
