@@ -1,0 +1,172 @@
+---
+import { noteUrl, site } from "../config/site";
+import SectionHeading from "./SectionHeading.astro";
+
+interface Props {
+  /** UTM の utm_campaign に使う設置箇所名 */
+  placement: string;
+}
+
+const { placement } = Astro.props;
+const SKELETON_COUNT = 4;
+---
+
+{
+  /* note の最新記事(直近4件)。記事はリポジトリに取り込まず、/api/note-posts(Worker が RSS を
+  中継・キャッシュ)から表示時に取得する。新規投稿は再デプロイ無しで反映される。
+  取得に失敗した場合・0件の場合はセクションごと非表示にし、続く NoteCta がそのまま残る。
+  JS 無効時も同様に非表示(hidden のまま)。 */
+}
+<section
+  id="note-latest"
+  aria-labelledby="note-latest-heading"
+  data-placement={placement}
+  hidden
+  class="py-16"
+>
+  <div class="mx-auto max-w-6xl px-4">
+    <div class="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <SectionHeading
+        id="note-latest-heading"
+        title="noteの最新記事"
+        subtitle="AI・フロントエンドの最新ニュースを、文章で読みやすくまとめています。"
+      />
+      <a
+        href={noteUrl(placement)}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="-mt-4 shrink-0 py-2 text-sm font-semibold text-brand-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:mt-0 sm:mb-8"
+      >
+        {site.note.cta.button}
+        <span aria-hidden="true">↗</span>
+        <span class="sr-only">(外部サイト・新しいタブで開きます)</span>
+      </a>
+    </div>
+
+    <ul
+      id="note-latest-list"
+      role="list"
+      aria-busy="true"
+      class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+    >
+      {
+        Array.from({ length: SKELETON_COUNT }, () => (
+          <li
+            data-skeleton
+            aria-hidden="true"
+            class="flex gap-4 rounded-xl border border-line bg-surface-raised p-3 lg:flex-col lg:p-0"
+          >
+            <div class="aspect-video w-32 shrink-0 animate-pulse rounded-lg bg-line sm:w-36 lg:w-full lg:rounded-b-none" />
+            <div class="min-w-0 flex-1 space-y-2 lg:p-4 lg:pt-0">
+              <div class="h-4 w-full animate-pulse rounded bg-line" />
+              <div class="h-4 w-2/3 animate-pulse rounded bg-line" />
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<script>
+  import type { NotePost } from "../lib/notePosts";
+
+  const section = document.getElementById("note-latest");
+  const list = document.getElementById("note-latest-list");
+
+  const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  function articleHref(rawUrl: string, placement: string): string {
+    const url = new URL(rawUrl);
+    url.searchParams.set("utm_source", "mayabase");
+    url.searchParams.set("utm_medium", "referral");
+    url.searchParams.set("utm_campaign", placement);
+    return url.toString();
+  }
+
+  // 外部由来の文字列は textContent / 属性のみで挿入し、HTML としては解釈させない
+  function renderCard(post: NotePost, placement: string): HTMLLIElement {
+    const li = document.createElement("li");
+    li.className =
+      "group/note overflow-hidden rounded-xl border border-line bg-surface-raised transition hover:-translate-y-0.5 hover:shadow-md";
+
+    const a = document.createElement("a");
+    a.href = articleHref(post.url, placement);
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.className =
+      "flex h-full gap-4 p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand lg:flex-col lg:gap-0 lg:p-0";
+
+    const thumbWrap = document.createElement("div");
+    thumbWrap.className =
+      "aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-line sm:w-36 lg:w-full lg:rounded-none";
+    if (post.thumbnail) {
+      const img = document.createElement("img");
+      img.src = post.thumbnail;
+      img.alt = "";
+      img.width = 800;
+      img.height = 450;
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.className = "h-full w-full object-cover";
+      thumbWrap.append(img);
+    }
+
+    const body = document.createElement("div");
+    body.className = "flex min-w-0 flex-1 flex-col gap-1.5 lg:p-4";
+
+    const time = document.createElement("time");
+    time.dateTime = post.publishedAt;
+    time.className = "text-xs text-ink-muted";
+    time.textContent = dateFormatter.format(new Date(post.publishedAt));
+
+    const title = document.createElement("h3");
+    title.className =
+      "line-clamp-3 font-bold leading-snug group-hover/note:text-brand-accent lg:line-clamp-4";
+    title.textContent = post.title;
+
+    const sr = document.createElement("span");
+    sr.className = "sr-only";
+    sr.textContent = "(note・新しいタブで開きます)";
+    title.append(sr);
+
+    body.append(time, title);
+
+    // 抜粋は PC の広いカードだけで見せる(SP/タブレットはタイトル中心で一覧性を優先)
+    if (post.excerpt) {
+      const excerpt = document.createElement("p");
+      excerpt.className = "hidden line-clamp-3 text-sm leading-relaxed text-ink-muted lg:block";
+      excerpt.textContent = post.excerpt;
+      body.append(excerpt);
+    }
+
+    a.append(thumbWrap, body);
+    li.append(a);
+    return li;
+  }
+
+  async function load() {
+    if (!section || !list) return;
+    // スケルトンで領域を確保して見せ、取得結果が出るまでレイアウトずれを防ぐ
+    section.hidden = false;
+    try {
+      const response = await fetch("/api/note-posts");
+      if (!response.ok) throw new Error(String(response.status));
+      const data: { posts?: NotePost[] } = await response.json();
+      const posts = Array.isArray(data.posts) ? data.posts : [];
+      if (posts.length === 0) throw new Error("empty");
+      const placement = section.dataset.placement ?? "home";
+      list.replaceChildren(...posts.map((post) => renderCard(post, placement)));
+      list.setAttribute("aria-busy", "false");
+    } catch {
+      section.hidden = true;
+    }
+  }
+
+  void load();
+</script>

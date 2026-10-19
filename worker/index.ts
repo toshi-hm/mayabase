@@ -15,6 +15,7 @@
  * 静的配信は通常どおり行い、/api/push/* だけが 503 を返す(リポジトリ内の他の連携と同様、
  * 未設定なら機能だけが無効になる方針。scripts/send-push-notifications.ts / .env.example 参照)。
  */
+import { NOTE_RSS_URL, parseNoteRss } from "../src/lib/notePosts";
 import { isValidPushSubscriptionPayload, type StoredPushSubscription } from "../src/lib/push";
 
 /** Cloudflare Workers KV バインディングの必要最小限の型(@cloudflare/workers-types は導入しない) */
@@ -576,9 +577,38 @@ async function handleUnsubscribe(request: Request, env: Env): Promise<Response> 
   return jsonResponse({ ok: true });
 }
 
+/** note RSS の取得結果をエッジ/ブラウザにキャッシュする秒数。新規投稿は最大この時間内に反映される */
+const NOTE_POSTS_CACHE_SECONDS = 30 * 60;
+
+/**
+ * GET /api/note-posts: note の RSS を都度取得し、直近の記事だけを JSON で返す。
+ * RSS は note.com 側が CORS を許可していないためブラウザから直接読めず、Worker 経由で中継する。
+ * 取得に失敗しても 200 + 空配列を短時間だけキャッシュして返し、フロントはセクションを非表示にする。
+ */
+async function handleNotePosts(): Promise<Response> {
+  try {
+    const upstream = await fetch(NOTE_RSS_URL, {
+      headers: { accept: "application/rss+xml, application/xml, text/xml" },
+      // Workers のサブリクエストキャッシュ(note への問い合わせ頻度を抑える)
+      cf: { cacheTtl: NOTE_POSTS_CACHE_SECONDS, cacheEverything: true },
+    } as RequestInit);
+    if (!upstream.ok) throw new Error(`note RSS ${upstream.status}`);
+    const posts = parseNoteRss(await upstream.text());
+    return jsonResponse({ posts }, 200, {
+      "cache-control": `public, max-age=300, s-maxage=${NOTE_POSTS_CACHE_SECONDS}, stale-while-revalidate=86400`,
+    });
+  } catch {
+    return jsonResponse({ posts: [] }, 200, { "cache-control": "public, max-age=60, s-maxage=60" });
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    if (request.method === "GET" && url.pathname === "/api/note-posts") {
+      return handleNotePosts();
+    }
 
     if (request.method === "POST" && url.pathname === "/api/push/subscribe") {
       return handleSubscribe(request, env);
