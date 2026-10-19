@@ -43,6 +43,18 @@ describe("categorizeVideo", () => {
     expect(categorizeVideo({ title: "【購入品紹介】Qoo10メガ割で肌荒れ・毛穴対策" })).toBe(
       "gadget",
     );
+    expect(
+      categorizeVideo({
+        title: "【コスパ最強】1万円台で高音質「FIFINE K688」ダイナミックマイク徹底レビュー",
+      }),
+    ).toBe("gadget");
+    expect(categorizeVideo({ title: "コンデンサーマイクの選び方" })).toBe("gadget");
+    expect(categorizeVideo({ title: "USBマイクを比較" })).toBe("gadget");
+    expect(categorizeVideo({ title: "在宅用のWebカメラ比較" })).toBe("gadget");
+  });
+
+  test("「マイクロ〜」のような語は gadget のマイク系キーワードに誤マッチしない", () => {
+    expect(categorizeVideo({ title: "マイクロソフト Copilot 徹底解説" })).toBe("ai");
   });
 
   test("Vlog 系のタイトルは vlog になる", () => {
