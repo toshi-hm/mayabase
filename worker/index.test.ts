@@ -661,3 +661,51 @@ describe("fetch", () => {
     expect(await response.json()).toEqual({ error: "invalid topic slug" });
   });
 });
+
+describe("/api/note-posts", () => {
+  const rss = `<?xml version="1.0"?><rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel>
+    <item><title>記事A</title><media:thumbnail>https://assets.st-note.com/a.png</media:thumbnail><description><![CDATA[<p>本文</p><a href='x'>続きをみる</a>]]></description><pubDate>Sun, 18 Oct 2026 23:23:16 +0900</pubDate><link>https://note.com/maya_base/n/na</link></item>
+  </channel></rss>`;
+
+  async function withFetch(impl: () => Promise<Response>, run: () => Promise<void>) {
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => impl()) as unknown as typeof fetch;
+    try {
+      await run();
+    } finally {
+      globalThis.fetch = original;
+    }
+  }
+
+  test("RSS を整形した記事一覧をキャッシュ付きで返す", async () => {
+    await withFetch(
+      async () => new Response(rss),
+      async () => {
+        const response = await worker.fetch(
+          new Request("https://portal.mayabase.workers.dev/api/note-posts"),
+          { ASSETS: assets },
+        );
+        expect(response.status).toBe(200);
+        expect(response.headers.get("cache-control")).toContain("s-maxage=1800");
+        const body = (await response.json()) as { posts: { title: string; excerpt: string }[] };
+        expect(body.posts).toHaveLength(1);
+        expect(body.posts[0]).toMatchObject({ title: "記事A", excerpt: "本文" });
+      },
+    );
+  });
+
+  test("note 側の取得に失敗したら空配列を短期キャッシュで返す", async () => {
+    await withFetch(
+      async () => new Response("error", { status: 503 }),
+      async () => {
+        const response = await worker.fetch(
+          new Request("https://portal.mayabase.workers.dev/api/note-posts"),
+          { ASSETS: assets },
+        );
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ posts: [] });
+        expect(response.headers.get("cache-control")).toContain("s-maxage=60");
+      },
+    );
+  });
+});
