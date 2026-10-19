@@ -40,6 +40,14 @@ export function truncate(text: string, maxLength: number): string {
 }
 
 /**
+ * meta description 等の属性値向けに、連続する空白・改行を半角スペース1つへ正規化してから切り詰める(#582)。
+ * 改行を残したまま切り詰めると、検索スニペットや SNS プレビューで不自然な区切りになり、文字数も無駄に消費する。
+ */
+export function toMetaDescription(text: string, maxLength: number): string {
+  return truncate(text.replace(/\s+/g, " ").trim(), maxLength);
+}
+
+/**
  * 表示用に再生回数を整形する(日本語表記)。
  * 1万以上は「○万回」(小数第1位、.0 は省略)、それ未満は3桁区切りの「○回」。
  * 例: 12345 → "1.2万回"、150000 → "15万回"、900 → "900回"(#35)
