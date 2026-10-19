@@ -43,6 +43,11 @@ describe("categorizeVideo", () => {
     expect(categorizeVideo({ title: "【購入品紹介】Qoo10メガ割で肌荒れ・毛穴対策" })).toBe(
       "gadget",
     );
+    expect(
+      categorizeVideo({
+        title: "【コスパ最強】1万円台で高音質「FIFINE K688」ダイナミックマイク徹底レビュー",
+      }),
+    ).toBe("gadget");
   });
 
   test("Vlog 系のタイトルは vlog になる", () => {
