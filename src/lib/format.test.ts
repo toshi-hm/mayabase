@@ -8,6 +8,7 @@ import {
   linkifyText,
   parseViewCountAttr,
   textMatchesKeyword,
+  toMetaDescription,
   truncate,
 } from "./format";
 
@@ -295,5 +296,23 @@ describe("linkifyText", () => {
     expect(linkifyText("愛用品はこちら https://www.marshall.com/jp/ja/produc… です")).toBe(
       "愛用品はこちら https://www.marshall.com/jp/ja/produc… です",
     );
+  });
+});
+
+describe("toMetaDescription", () => {
+  test("改行と連続する空白を半角スペース1つに正規化する", () => {
+    expect(toMetaDescription("1行目\n\n2行目\r\n  3行目", 100)).toBe("1行目 2行目 3行目");
+  });
+
+  test("前後の空白を除去する", () => {
+    expect(toMetaDescription("\n  本文  \n", 100)).toBe("本文");
+  });
+
+  test("正規化後の文字数で切り詰め、超過時は「…」を付与する", () => {
+    expect(toMetaDescription("ああ\n\nいい\nうう", 5)).toBe("ああ いい…");
+  });
+
+  test("空文字は空文字を返す", () => {
+    expect(toMetaDescription("  \n ", 10)).toBe("");
   });
 });
