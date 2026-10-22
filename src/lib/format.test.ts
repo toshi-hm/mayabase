@@ -9,6 +9,7 @@ import {
   parseViewCountAttr,
   textMatchesKeyword,
   toMetaDescription,
+  toPageTitle,
   truncate,
 } from "./format";
 
@@ -314,5 +315,27 @@ describe("toMetaDescription", () => {
 
   test("空文字は空文字を返す", () => {
     expect(toMetaDescription("  \n ", 10)).toBe("");
+  });
+});
+
+describe("toPageTitle", () => {
+  test("末尾のハッシュタグ列を除去する", () => {
+    expect(toPageTitle("二足のわらじ #新卒 #エンジニア #shorts")).toBe("二足のわらじ");
+  });
+
+  test("途中のハッシュタグは残す", () => {
+    expect(toPageTitle("#PC 自作のコツ 完全版")).toBe("#PC 自作のコツ 完全版");
+  });
+
+  test("上限を超えたら「…」で省略する", () => {
+    expect(toPageTitle("あいうえおかきくけこ", 5)).toBe("あいうえお…");
+  });
+
+  test("ハッシュタグのみのタイトルは元のタイトルを使う", () => {
+    expect(toPageTitle("#anker #pc")).toBe("#anker #pc");
+  });
+
+  test("連続する空白を正規化する", () => {
+    expect(toPageTitle("a\n b")).toBe("a b");
   });
 });
