@@ -48,6 +48,18 @@ export function toMetaDescription(text: string, maxLength: number): string {
 }
 
 /**
+ * 動画詳細ページの `<title>` 用に動画タイトルを整える(#586)。
+ * 末尾のハッシュタグ列(例: 「#新卒 #エンジニア」)を除去し、`maxLength` を超える場合は「…」で省略する。
+ * 検索結果で切り詰められやすい長いタイトルでも、先頭の訴求部分が残るようにするためのもの。
+ * 除去後に空になる場合(タイトルがハッシュタグのみ)は元のタイトルを使う。
+ */
+export function toPageTitle(title: string, maxLength = 40): string {
+  const normalized = title.replace(/\s+/g, " ").trim();
+  const withoutTags = normalized.replace(/(?:\s*[#＃][^\s#＃]+)+$/u, "").trim();
+  return truncate(withoutTags || normalized, maxLength);
+}
+
+/**
  * 表示用に再生回数を整形する(日本語表記)。
  * 1万以上は「○万回」(小数第1位、.0 は省略)、それ未満は3桁区切りの「○回」。
  * 例: 12345 → "1.2万回"、150000 → "15万回"、900 → "900回"(#35)

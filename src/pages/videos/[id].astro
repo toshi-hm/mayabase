@@ -31,6 +31,7 @@ import {
   linkifyText,
   toMetaDescription,
   truncate,
+  toPageTitle,
 } from "../../lib/format";
 import { buildVideoGearMap, parseGearData, type GearItem } from "../../lib/gear";
 import {
@@ -166,7 +167,7 @@ const chapters = parseChapters(video.description);
 // meta タグ1本のみで配列を使えないため、ビルド時に存在確認済みの動画だけ高解像度を採用する(#211)
 const ogThumbnail = resolveOgThumbnail(video);
 
-const pageTitle = `${video.title} | ${site.name}`;
+const pageTitle = `${toPageTitle(video.title)} | ${site.name}`;
 // meta description はハッシュタグ等を含む概要欄をそのまま出すと読みづらいため、
 // 冒頭の署名欄ハッシュタグ・末尾の定型文を除いた本文相当部分を要約する(#125)。
 // 「3行まとめ」(#405)がある動画は、手動キュレーション済みで内容の差別化に優れるため優先する。
