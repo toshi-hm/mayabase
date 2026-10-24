@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import featuredVideosJson from "../data/featured-videos.json";
+import videosJson from "../data/videos.json";
 import { parseFeaturedVideosData, resolveFeaturedVideos } from "./featuredVideos";
 import type { Video } from "./youtube";
 
@@ -48,6 +49,14 @@ describe("parseFeaturedVideosData", () => {
   test("コミット済みの featured-videos.json が妥当な形式である", () => {
     const data = parseFeaturedVideosData(featuredVideosJson);
     expect(Array.isArray(data.featuredVideoIds)).toBe(true);
+  });
+
+  test("コミット済みの featured-videos.json は1件以上で、すべて videos.json に存在する(#588)", () => {
+    const { featuredVideoIds } = parseFeaturedVideosData(featuredVideosJson);
+    expect(featuredVideoIds.length).toBeGreaterThan(0);
+    const ids = new Set(videosJson.videos.map((v) => v.id));
+    const missing = featuredVideoIds.filter((id) => !ids.has(id));
+    expect(missing).toEqual([]);
   });
 });
 
