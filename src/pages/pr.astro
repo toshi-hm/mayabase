@@ -6,12 +6,14 @@ import SectionHeading from "../components/SectionHeading.astro";
 import VideoCard from "../components/VideoCard.astro";
 import { site } from "../config/site";
 import channelStatsJson from "../data/channel-stats.json";
+import sponsoredVideosJson from "../data/sponsored-videos.json";
 import videosJson from "../data/videos.json";
 import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
 import { buildChannelStatsView, parseChannelStats } from "../lib/channelStats";
 import { formatViewCount } from "../lib/format";
 import { pickRepresentativeVideos } from "../lib/representativeVideos";
+import { parseSponsoredVideosData, resolveSponsoredVideos } from "../lib/sponsoredVideos";
 import { type Video, parseVideosData } from "../lib/youtube";
 
 /**
@@ -30,6 +32,13 @@ const statsView = buildChannelStatsView(channelStats, videos.length, new Date())
 const REPRESENTATIVE_VIDEO_COUNT = 4;
 const representativeVideos = pickRepresentativeVideos(videos, REPRESENTATIVE_VIDEO_COUNT).filter(
   (v): v is Video & { viewCount: number } => v.viewCount !== null,
+);
+
+// 企業提供・タイアップ制作例(#590)。手動キュレーション(sponsored-videos.json)のうち、
+// 動画が存在し説明欄に提供表記があるものだけを表示する(欠損時はセクションごと非表示)
+const sponsoredVideos = resolveSponsoredVideos(
+  parseSponsoredVideosData(sponsoredVideosJson).sponsoredVideos,
+  videos,
 );
 
 const STRENGTH_CATEGORIES = [
@@ -152,6 +161,39 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               />
             ))}
           </ul>
+        </section>
+      )
+    }
+
+    {
+      sponsoredVideos.length > 0 && (
+        <section aria-labelledby="pr-sponsored-heading" class="mt-12">
+          <SectionHeading
+            id="pr-sponsored-heading"
+            title="企業提供・タイアップ制作例"
+            subtitle="企業から商品の提供を受けて制作し、動画説明欄で提供を明示している公開動画です。"
+          />
+          <div class="grid gap-6 sm:grid-cols-2">
+            {sponsoredVideos.map((item, index) => (
+              <div class="flex flex-col gap-2">
+                <ul role="list">
+                  <VideoCard
+                    video={item.video}
+                    position={index + 1}
+                    total={sponsoredVideos.length}
+                    metaLabel={`${item.video.isShort ? "Shorts" : "長尺レビュー"}・提供: ${item.sponsor}`}
+                    layout="grid"
+                  />
+                </ul>
+                <p class="text-sm text-ink-muted">{item.summary}</p>
+              </div>
+            ))}
+          </div>
+          <p class="mt-4 text-sm text-ink-muted">
+            <a href="#pr-contact-heading" class="font-semibold text-brand-accent underline">
+              PR・タイアップのご相談はこちら
+            </a>
+          </p>
         </section>
       )
     }
