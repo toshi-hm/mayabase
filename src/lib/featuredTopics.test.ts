@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import featuredTopicsJson from "../data/featured-topics.json";
+import videosJson from "../data/videos.json";
 import { parseFeaturedTopicsData, resolveFeaturedTopics } from "./featuredTopics";
 import type { Video } from "./youtube";
 
@@ -17,6 +18,18 @@ describe("parseFeaturedTopicsData", () => {
   test("コミット済みデータが妥当な形式である", () => {
     const data = parseFeaturedTopicsData(featuredTopicsJson);
     expect(data.topics.length).toBeGreaterThan(0);
+  });
+
+  test("スマートホーム特集(#594)は実在する動画だけを参照し、Alexa+実機レビューと誤認させない", () => {
+    const topic = parseFeaturedTopicsData(featuredTopicsJson).topics.find(
+      (t) => t.slug === "smart-home-voice-ai",
+    );
+    expect(topic).toBeDefined();
+    const ids = new Set((videosJson as { videos: { id: string }[] }).videos.map((v) => v.id));
+    for (const id of topic?.videoIds ?? []) {
+      expect(ids.has(id)).toBe(true);
+    }
+    expect(`${topic?.title}${topic?.description}`).not.toContain("Alexa+");
   });
 
   test("重複slugを拒否する", () => {
