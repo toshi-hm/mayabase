@@ -39,6 +39,14 @@
       "category": "ai",
       "videoIds": ["yzwe9ftjsoU", "2WX26Bekrfk", "p0Otux-nBLM"],
       "expiresAt": "2026-12-31"
+    },
+    {
+      "slug": "smart-home-voice-ai",
+      "title": "スマートホーム・音声AIで暮らしを便利に",
+      "description": "一人暮らしの部屋づくりや時短家電、音声AIの使い心地など、暮らしを便利にするヒントを既存の動画から探せます。",
+      "category": "gadget",
+      "videoIds": ["kDyx8LbxR4o", "UA2pGkPjJjM", "qF3YSuHxSpc"],
+      "expiresAt": "2026-12-31"
     }
   ]
 }
