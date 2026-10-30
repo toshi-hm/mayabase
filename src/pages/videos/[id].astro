@@ -8,6 +8,7 @@ import SubscribeMilestoneNote from "../../components/SubscribeMilestoneNote.astr
 import TestimonialsExcerpt from "../../components/TestimonialsExcerpt.astro";
 import WatchLaterButton from "../../components/WatchLaterButton.astro";
 import { site, subscribeUrl } from "../../config/site";
+import campaignsJson from "../../data/campaigns.json";
 import faqJson from "../../data/faq.json";
 import gearJson from "../../data/gear.json";
 import glossaryJson from "../../data/glossary.json";
@@ -20,6 +21,7 @@ import transcriptsJson from "../../data/transcripts.json";
 import videoSummariesJson from "../../data/video-summaries.json";
 import Base from "../../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../../lib/breadcrumb";
+import { getCampaignNotice, parseCampaignsData } from "../../lib/campaigns";
 import { type FaqItem, parseFaqData } from "../../lib/faq";
 import { findFaqItemsForVideo } from "../../lib/faqVideos";
 import { CATEGORY_LABELS, categorizeVideo } from "../../lib/categories";
@@ -160,6 +162,12 @@ const freshnessNoticeVideo = findAiFreshnessNoticeVideo(video, videos, new Date(
 const viewCountText = video.viewCount !== null ? formatViewCount(video.viewCount) : null;
 // 概要欄の段落(空行区切り)を保持したまま表示するため行単位に分割する
 const descriptionParagraphs = video.description.split("\n");
+// 期限付きPR割引コードの注意書き(#592)。登録のない動画は null で非表示
+const campaignNotice = getCampaignNotice(
+  video.id,
+  parseCampaignsData(campaignsJson).campaigns,
+  new Date(),
+);
 // 概要欄にYouTubeのチャプター記法(0:00 見出し)があれば目次として表示する(#154)
 const chapters = parseChapters(video.description);
 
@@ -505,6 +513,17 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
     <section aria-labelledby="description-heading" class="mt-12">
       <h2 id="description-heading" class="text-xl font-bold">概要</h2>
+      {
+        campaignNotice && (
+          <p
+            role="note"
+            data-campaign-status={campaignNotice.status}
+            class="mt-3 rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm font-bold"
+          >
+            {campaignNotice.message}
+          </p>
+        )
+      }
       <div class="mt-3 leading-relaxed text-ink-muted">
         {
           descriptionParagraphs.map((line) =>
