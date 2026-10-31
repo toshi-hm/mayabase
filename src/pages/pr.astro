@@ -13,7 +13,12 @@ import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
 import { buildChannelStatsView, parseChannelStats } from "../lib/channelStats";
 import { formatViewCount } from "../lib/format";
 import { pickRepresentativeVideos } from "../lib/representativeVideos";
-import { parseSponsoredVideosData, resolveSponsoredVideos } from "../lib/sponsoredVideos";
+import {
+  buildSponsoredCardLabels,
+  hasAnySponsoredViewCount,
+  parseSponsoredVideosData,
+  resolveSponsoredVideos,
+} from "../lib/sponsoredVideos";
 import { type Video, parseVideosData } from "../lib/youtube";
 
 /**
@@ -181,7 +186,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
                     video={item.video}
                     position={index + 1}
                     total={sponsoredVideos.length}
-                    metaLabel={`${item.video.isShort ? "Shorts" : "長尺レビュー"}・提供: ${item.sponsor}`}
+                    {...buildSponsoredCardLabels(item)}
                     layout="grid"
                   />
                 </ul>
@@ -189,6 +194,13 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               </div>
             ))}
           </div>
+          {hasAnySponsoredViewCount(sponsoredVideos) && (
+            <p class="mt-4 text-xs text-ink-muted" data-testid="sponsored-view-note">
+              {statsView.fetchedAtText
+                ? `再生回数は${statsView.fetchedAtText}の公開値で、将来の再生数を保証するものではありません。`
+                : "再生回数は取得時点の公開値で、将来の再生数を保証するものではありません。"}
+            </p>
+          )}
           <p class="mt-4 text-sm text-ink-muted">
             <a href="#pr-contact-heading" class="font-semibold text-brand-accent underline">
               PR・タイアップのご相談はこちら

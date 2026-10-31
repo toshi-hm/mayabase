@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import sponsoredJson from "../data/sponsored-videos.json";
 import videosJson from "../data/videos.json";
 import {
+  buildSponsoredCardLabels,
+  hasAnySponsoredViewCount,
   hasSponsorNotice,
   parseSponsoredVideosData,
   resolveSponsoredVideos,
@@ -68,6 +70,35 @@ describe("resolveSponsoredVideos", () => {
     const videos = [v("a", "提供なし")];
     expect(resolveSponsoredVideos([entry("a"), entry("missing")], videos)).toEqual([]);
     expect(resolveSponsoredVideos([], [])).toEqual([]);
+  });
+});
+
+describe("buildSponsoredCardLabels / hasAnySponsoredViewCount (#597)", () => {
+  const item = (viewCount: number | null, isShort = false) => ({
+    ...entry("a", "ACME"),
+    video: { ...v("a", ""), viewCount, isShort },
+  });
+
+  test("長尺は「長尺レビュー・提供」と再生回数を返す", () => {
+    expect(buildSponsoredCardLabels(item(185))).toEqual({
+      metaLabel: "長尺レビュー・提供: ACME",
+      viewCountLabel: "185回",
+    });
+  });
+  test("Shortsは種別がShortsになり、1万回以上は万回表記", () => {
+    expect(buildSponsoredCardLabels(item(12_000, true))).toEqual({
+      metaLabel: "Shorts・提供: ACME",
+      viewCountLabel: "1.2万回",
+    });
+  });
+  test("viewCount が null なら再生回数は非表示、0 は 0回 と表示する", () => {
+    expect(buildSponsoredCardLabels(item(null)).viewCountLabel).toBeUndefined();
+    expect(buildSponsoredCardLabels(item(0)).viewCountLabel).toBe("0回");
+  });
+  test("hasAnySponsoredViewCount は null のみのとき false、0 を含めば true", () => {
+    expect(hasAnySponsoredViewCount([item(null)])).toBe(false);
+    expect(hasAnySponsoredViewCount([item(null), item(0)])).toBe(true);
+    expect(hasAnySponsoredViewCount([])).toBe(false);
   });
 });
 
