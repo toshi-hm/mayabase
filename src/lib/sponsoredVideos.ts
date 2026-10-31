@@ -1,3 +1,4 @@
+import { formatViewCount } from "./format";
 import type { Video } from "./youtube";
 
 /** sponsored-videos.json の1件。運営者が手動でキュレーションする企業提供・タイアップ動画 */
@@ -72,4 +73,24 @@ export function resolveSponsoredVideos(
     if (video && hasSponsorNotice(video, entry.sponsor)) resolved.push({ ...entry, video });
   }
   return resolved;
+}
+
+/**
+ * タイアップカードのメタ表記(種別・提供元)と公開再生回数を組み立てる(#597)。
+ * viewCount が null(未取得)なら再生回数は返さず非表示にする。0 は取得済みの 0回 として扱う。
+ */
+export function buildSponsoredCardLabels(item: ResolvedSponsoredVideo): {
+  metaLabel: string;
+  viewCountLabel: string | undefined;
+} {
+  const { video, sponsor } = item;
+  return {
+    metaLabel: `${video.isShort ? "Shorts" : "長尺レビュー"}・提供: ${sponsor}`,
+    viewCountLabel: video.viewCount === null ? undefined : formatViewCount(video.viewCount),
+  };
+}
+
+/** いずれかのタイアップ動画に再生回数が表示されるか(注記の出し分け用) */
+export function hasAnySponsoredViewCount(items: readonly ResolvedSponsoredVideo[]): boolean {
+  return items.some((i) => i.video.viewCount !== null);
 }
