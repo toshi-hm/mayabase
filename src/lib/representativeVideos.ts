@@ -71,3 +71,17 @@ export function pickRepresentativeVideos(videos: readonly Video[], limit: number
   }
   return picked;
 }
+
+/**
+ * PR ページ「代表実績」セクションの説明文(#599)。
+ * 将来の再生数を予測・保証する表現を避け、取得済みの公開実績であることを示す。
+ */
+export const REPRESENTATIVE_SUBTITLE =
+  "ガジェット・AIサービスなど商品・サービス紹介系の動画の公開実績です。動画ごとの再生回数と投稿日をご確認ください。";
+
+/** 代表実績の再生回数に添える注記。取得日時がなければ「取得時点」とする */
+export function buildRepresentativeViewNote(fetchedAtText: string | null | undefined): string {
+  return fetchedAtText
+    ? `再生回数は${fetchedAtText}の公開値で、動画ごとに差があります。将来の再生数を保証するものではありません。`
+    : "再生回数は取得時点の公開値で、動画ごとに差があります。将来の再生数を保証するものではありません。";
+}

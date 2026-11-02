@@ -12,7 +12,11 @@ import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
 import { buildChannelStatsView, parseChannelStats } from "../lib/channelStats";
 import { formatViewCount } from "../lib/format";
-import { pickRepresentativeVideos } from "../lib/representativeVideos";
+import {
+  buildRepresentativeViewNote,
+  pickRepresentativeVideos,
+  REPRESENTATIVE_SUBTITLE,
+} from "../lib/representativeVideos";
 import {
   buildSponsoredCardLabels,
   hasAnySponsoredViewCount,
@@ -153,7 +157,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           <SectionHeading
             id="pr-representative-heading"
             title="代表実績"
-            subtitle="ガジェット・AIサービスなど商品・サービス紹介系の動画から、再生回数の多いものを掲載しています。ターゲット層が合えば数千〜数万回再生に届く媒体です。"
+            subtitle={REPRESENTATIVE_SUBTITLE}
           />
           <ul role="list" class="grid gap-6 sm:grid-cols-2">
             {representativeVideos.map((video, index) => (
@@ -166,6 +170,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
               />
             ))}
           </ul>
+          <p class="mt-4 text-xs text-ink-muted" data-testid="representative-view-note">
+            {buildRepresentativeViewNote(statsView.fetchedAtText)}
+          </p>
         </section>
       )
     }
