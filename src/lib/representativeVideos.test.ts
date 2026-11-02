@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import videosJson from "../data/videos.json";
 import { categorizeVideo } from "./categories";
-import { pickRepresentativeVideos, REVIEW_CATEGORIES } from "./representativeVideos";
+import {
+  buildRepresentativeViewNote,
+  pickRepresentativeVideos,
+  REPRESENTATIVE_SUBTITLE,
+  REVIEW_CATEGORIES,
+} from "./representativeVideos";
 import type { Video } from "./youtube";
 import { parseVideosData } from "./youtube";
 
@@ -66,5 +71,23 @@ describe("pickRepresentativeVideos", () => {
       (x) => x.viewCount !== null && REVIEW_CATEGORIES.includes(categorizeVideo(x)),
     ).length;
     expect(reviewCount).toBe(Math.min(available, picked.length));
+  });
+});
+
+describe("代表実績の説明文 (#599)", () => {
+  test("将来の再生規模を示唆する表現を含まない", () => {
+    expect(REPRESENTATIVE_SUBTITLE).not.toMatch(/数千|数万|届く/);
+    expect(REPRESENTATIVE_SUBTITLE).toContain("公開実績");
+  });
+
+  test("取得日時があれば注記に含め、保証しない旨を示す", () => {
+    const note = buildRepresentativeViewNote("2026年11月2日 08:57");
+    expect(note).toContain("2026年11月2日 08:57");
+    expect(note).toContain("保証するものではありません");
+  });
+
+  test("取得日時がなければ取得時点の表現にフォールバックする", () => {
+    expect(buildRepresentativeViewNote(null)).toContain("取得時点");
+    expect(buildRepresentativeViewNote(undefined)).toContain("保証するものではありません");
   });
 });
