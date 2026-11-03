@@ -1,4 +1,5 @@
 ---
+import { isThinVideo } from "../../lib/thinVideo";
 import Breadcrumb from "../../components/Breadcrumb.astro";
 import GearMiniCard from "../../components/GearMiniCard.astro";
 import NoteCta from "../../components/NoteCta.astro";
@@ -255,6 +256,7 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
   ogImageAlt={video.title}
   ogImageWidth={ogThumbnail.width}
   ogImageHeight={ogThumbnail.height}
+  robots={isThinVideo(video) ? "noindex" : undefined}
   videoPlayerUrl={playerCardMeta?.playerUrl}
   videoPlayerWidth={playerCardMeta?.width}
   videoPlayerHeight={playerCardMeta?.height}

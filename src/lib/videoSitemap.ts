@@ -1,5 +1,6 @@
 import { extractSearchableText, truncate } from "./format";
 import { escapeXml } from "./rss";
+import { isThinVideo } from "./thinVideo";
 import type { Video } from "./youtube";
 import { embedUrl, thumbnailFallbackUrl } from "./youtube";
 
@@ -13,7 +14,7 @@ const DESCRIPTION_MAX_LENGTH = 2048;
  */
 export function buildVideoSitemap(videos: readonly Video[], siteUrl: URL): string {
   const urlsXml = videos
-    .filter((video) => !Number.isNaN(Date.parse(video.publishedAt)))
+    .filter((video) => !Number.isNaN(Date.parse(video.publishedAt)) && !isThinVideo(video))
     .map((video) => {
       const loc = new URL(`videos/${video.id}/`, siteUrl).toString();
       // JSON-LD(VideoObject.thumbnailUrl)は hq720 を優先し hqdefault にフォールバックする配列だが、
