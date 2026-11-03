@@ -20,6 +20,15 @@ function makeVideo(overrides: Partial<Video> = {}): Video {
 }
 
 describe("buildVideoSitemap", () => {
+  test("概要欄が空で再生時間なしの動画は除外する(#601)", () => {
+    const xml = buildVideoSitemap(
+      [makeVideo({ id: "thin", description: "", duration: null }), makeVideo({ id: "ok" })],
+      SITE_URL,
+    );
+    expect(xml).not.toContain("/videos/thin/");
+    expect(xml).toContain("/videos/ok/");
+  });
+
   test("動画0件でも壊れたXMLにならない", () => {
     const xml = buildVideoSitemap([], SITE_URL);
     expect(xml).toStartWith('<?xml version="1.0" encoding="UTF-8"?>');
@@ -56,7 +65,7 @@ describe("buildVideoSitemap", () => {
   });
 
   test("空の概要欄はタイトルにフォールバックする", () => {
-    const video = makeVideo({ description: "" });
+    const video = makeVideo({ description: "", duration: "PT5M" });
     const xml = buildVideoSitemap([video], SITE_URL);
     expect(xml).toContain("<video:description>動画タイトル</video:description>");
   });
