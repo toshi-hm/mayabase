@@ -827,3 +827,19 @@ declare global {
     __shareSettled?: boolean;
   }
 }
+
+test.describe("PRページの問い合わせガイド(#603)", () => {
+  test("必要情報・制作フロー・テンプレートコピーが表示される", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.goto("/pr/");
+    await expect(page.getByTestId("pr-inquiry-items").locator("li")).toHaveCount(8);
+    await expect(page.getByTestId("pr-flow").locator("li")).toHaveCount(5);
+    await page.getByRole("button", { name: "相談用テンプレートをコピー" }).click();
+    await expect(page.locator("[data-template-copy-status]")).toHaveText("コピーしました!");
+    // 既存のメールコピー導線とレビュー方針が維持されている
+    await expect(
+      page.getByRole("button", { name: "メールアドレスをコピー" }).first(),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "レビュー方針" })).toBeVisible();
+  });
+});
