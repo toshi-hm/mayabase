@@ -1,6 +1,7 @@
 ---
 import Breadcrumb from "../components/Breadcrumb.astro";
 import EmailCopyButton from "../components/EmailCopyButton.astro";
+import InquiryTemplateCopyButton from "../components/InquiryTemplateCopyButton.astro";
 import Profile from "../components/Profile.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import VideoCard from "../components/VideoCard.astro";
@@ -12,6 +13,12 @@ import Base from "../layouts/Base.astro";
 import { buildBreadcrumbJsonLd, type BreadcrumbItem } from "../lib/breadcrumb";
 import { buildChannelStatsView, parseChannelStats } from "../lib/channelStats";
 import { formatViewCount } from "../lib/format";
+import {
+  buildInquiryTemplate,
+  INQUIRY_DISCLAIMER,
+  INQUIRY_FLOW,
+  INQUIRY_ITEMS,
+} from "../lib/prInquiry";
 import {
   buildRepresentativeViewNote,
   pickRepresentativeVideos,
@@ -116,6 +123,45 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         ※☆を@に読み替えてください)までご連絡ください。下のボタンからメールアドレスをワンクリックでコピーすることもできます。
       </p>
       <EmailCopyButton obfuscated={CONTACT_EMAIL} />
+    </section>
+
+    <section aria-labelledby="pr-inquiry-heading" class="mt-12">
+      <SectionHeading
+        id="pr-inquiry-heading"
+        title="ご相談時にお知らせいただきたいこと"
+        subtitle="初回のメールに以下をご記載いただくと、やり取りがスムーズです。個人情報はこのページには入力せず、メールでお送りください。"
+      />
+      <ul role="list" class="grid gap-2 sm:grid-cols-2" data-testid="pr-inquiry-items">
+        {
+          INQUIRY_ITEMS.map((item) => (
+            <li class="rounded-lg border border-line p-3 text-sm">{item}</li>
+          ))
+        }
+      </ul>
+      <InquiryTemplateCopyButton template={buildInquiryTemplate()} />
+    </section>
+
+    <section aria-labelledby="pr-flow-heading" class="mt-12">
+      <SectionHeading id="pr-flow-heading" title="ご相談から公開までの流れ" />
+      <ol role="list" class="flex flex-col gap-3" data-testid="pr-flow">
+        {
+          INQUIRY_FLOW.map((step, index) => (
+            <li class="flex items-start gap-3">
+              <span
+                aria-hidden="true"
+                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-raised text-sm font-bold"
+              >
+                {index + 1}
+              </span>
+              <span>
+                <span class="font-semibold">{step.title}</span>
+                <span class="block text-sm text-ink-muted">{step.description}</span>
+              </span>
+            </li>
+          ))
+        }
+      </ol>
+      <p class="mt-4 text-sm text-ink-muted">{INQUIRY_DISCLAIMER}</p>
     </section>
 
     <section aria-labelledby="pr-stats-heading" class="mt-12">
@@ -255,6 +301,9 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
           ))
         }
       </ul>
+      <p class="mt-3 text-sm text-ink-muted">
+        提供・広告関係がある場合は、動画の説明欄などで明示します。
+      </p>
     </section>
 
     <Profile />

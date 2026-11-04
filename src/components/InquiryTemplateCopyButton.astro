@@ -1,0 +1,34 @@
+---
+interface Props {
+  /** コピーする問い合わせテンプレート本文 */
+  template: string;
+}
+
+const { template } = Astro.props;
+---
+
+<span class="mt-2 inline-flex flex-wrap items-center gap-2">
+  <button
+    type="button"
+    data-template-copy
+    data-template={template}
+    class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink-muted px-3 py-1.5 text-sm font-semibold transition hover:border-ink hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-brand"
+  >
+    相談用テンプレートをコピー
+  </button>
+  <span data-template-copy-status aria-live="polite" class="text-sm text-ink-muted"></span>
+</span>
+
+<script>
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-template-copy]")) {
+    const status = button.parentElement?.querySelector<HTMLElement>("[data-template-copy-status]");
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(button.dataset.template ?? "");
+        if (status) status.textContent = "コピーしました!";
+      } catch {
+        if (status) status.textContent = "コピーできませんでした。手動でお書きください。";
+      }
+    });
+  }
+</script>
