@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { buildInquiryTemplate, INQUIRY_DISCLAIMER, INQUIRY_FLOW, INQUIRY_ITEMS } from "./prInquiry";
+import {
+  buildInquiryMailto,
+  buildInquiryTemplate,
+  INQUIRY_DISCLAIMER,
+  INQUIRY_FLOW,
+  INQUIRY_ITEMS,
+  INQUIRY_MAIL_SUBJECT,
+} from "./prInquiry";
 
 describe("prInquiry", () => {
   test("テンプレートは全項目を1行ずつ含み、見出しから始まる", () => {
@@ -30,5 +37,19 @@ describe("prInquiry", () => {
     const all = [INQUIRY_DISCLAIMER, ...INQUIRY_FLOW.map((s) => s.title + s.description)].join("");
     expect(all).not.toMatch(/必ず|確実|保証します|お約束します/);
     expect(INQUIRY_DISCLAIMER).toContain("お約束するものではありません");
+  });
+
+  test("mailto URL は宛先・件名・テンプレート本文を含む", () => {
+    const url = buildInquiryMailto("a@example.com");
+    expect(url.startsWith("mailto:a@example.com?")).toBe(true);
+    const params = new URLSearchParams(url.split("?")[1]);
+    expect(params.get("subject")).toBe(INQUIRY_MAIL_SUBJECT);
+    expect(params.get("body")).toBe(buildInquiryTemplate());
+  });
+
+  test("mailto URL に改行や日本語が正しくエンコードされ、生の改行を含まない", () => {
+    const url = buildInquiryMailto("a@example.com");
+    expect(url).not.toMatch(/[\n ]/);
+    expect(url).toContain("%0A");
   });
 });
