@@ -148,11 +148,28 @@ describe("categorizeVideo", () => {
     expect(categorizeVideo({ title: "" })).toBe("other");
   });
 
-  test("実データの全動画が other 以外に分類される(回帰テスト)", () => {
+  test("実データの全動画が有効なカテゴリに分類される(回帰テスト)", () => {
     const { videos } = parseVideosData(videosJson);
     expect(videos.length).toBeGreaterThan(0);
+    const uncategorized: string[] = [];
     for (const video of videos) {
-      expect(categorizeVideo(video)).not.toBe("other");
+      const category = categorizeVideo(video);
+      expect(CATEGORY_ORDER).toContain(category);
+      if (category === "other") {
+        uncategorized.push(video.title);
+      }
+    }
+    // 定期更新(update-videos.yml)は取得した新着動画で検証するため、キーワード未登録の
+    // タイトルが 1 件あるだけで失敗させると取得データ全体の反映が止まる(#128 のため自動
+    // コミットでは ci.yml も走らない)。other は「その他」ページとして正しく表示できるので
+    // 失敗にはせず、categories.ts のキーワード見直しが必要な動画を警告として出力する。
+    if (uncategorized.length > 0) {
+      console.warn(
+        `[categories] other に分類された動画が ${uncategorized.length} 件あります。` +
+          `CATEGORY_KEYWORDS の見直しを検討してください:\n${uncategorized
+            .map((title) => `  - ${title}`)
+            .join("\n")}`,
+      );
     }
   });
 });
@@ -189,12 +206,6 @@ describe("getAvailableCategories", () => {
 
   test("動画が 1 件も無ければ空配列を返す", () => {
     expect(getAvailableCategories([])).toEqual([]);
-  });
-
-  test("実データでは categorizeVideo が other を返さないため other は含まれない(回帰テスト)", () => {
-    const { videos } = parseVideosData(videosJson);
-    const categorized = videos.map((video) => ({ category: categorizeVideo(video) }));
-    expect(getAvailableCategories(categorized)).not.toContain("other");
   });
 
   test("実データの各カテゴリの getStaticPaths 用動画一覧が 1 件以上になる", () => {
