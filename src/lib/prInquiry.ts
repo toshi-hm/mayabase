@@ -34,3 +34,18 @@ export const INQUIRY_DISCLAIMER =
 export function buildInquiryTemplate(): string {
   return ["【PR・タイアップのご相談】", ...INQUIRY_ITEMS.map((item) => `■${item}:`)].join("\n");
 }
+
+/** メール作成時の件名の初期値(編集可能) */
+export const INQUIRY_MAIL_SUBJECT = "【PR・タイアップ相談】企業名／製品名";
+
+/**
+ * 問い合わせ用 mailto: URL を組み立てる。宛先は呼び出し側(クライアント)で復元したアドレスを渡す。
+ * 本文は buildInquiryTemplate() をそのまま使い、項目の二重管理を避ける。
+ */
+export function buildInquiryMailto(email: string): string {
+  const query = [
+    `subject=${encodeURIComponent(INQUIRY_MAIL_SUBJECT)}`,
+    `body=${encodeURIComponent(buildInquiryTemplate())}`,
+  ].join("&");
+  return `mailto:${email}?${query}`;
+}

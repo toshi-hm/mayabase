@@ -1,6 +1,7 @@
 ---
 import Breadcrumb from "../components/Breadcrumb.astro";
 import EmailCopyButton from "../components/EmailCopyButton.astro";
+import MailtoInquiryLink from "../components/MailtoInquiryLink.astro";
 import InquiryTemplateCopyButton from "../components/InquiryTemplateCopyButton.astro";
 import Profile from "../components/Profile.astro";
 import SectionHeading from "../components/SectionHeading.astro";
@@ -122,7 +123,10 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
         メール(mayabaseofficial☆gmail.com
         ※☆を@に読み替えてください)までご連絡ください。下のボタンからメールアドレスをワンクリックでコピーすることもできます。
       </p>
-      <EmailCopyButton obfuscated={CONTACT_EMAIL} />
+      <div class="flex flex-wrap items-center gap-x-3">
+        <MailtoInquiryLink obfuscated={CONTACT_EMAIL} />
+        <EmailCopyButton obfuscated={CONTACT_EMAIL} />
+      </div>
     </section>
 
     <section aria-labelledby="pr-inquiry-heading" class="mt-12">
@@ -316,7 +320,10 @@ const jsonLdSafe = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       <p class="text-ink-muted">
         メール(mayabaseofficial☆gmail.com ※☆を@に読み替えてください)までご連絡ください。
       </p>
-      <EmailCopyButton obfuscated={CONTACT_EMAIL} />
+      <div class="flex flex-wrap items-center gap-x-3">
+        <MailtoInquiryLink obfuscated={CONTACT_EMAIL} />
+        <EmailCopyButton obfuscated={CONTACT_EMAIL} />
+      </div>
     </section>
   </main>
 </Base>

@@ -1,0 +1,28 @@
+---
+interface Props {
+  /** "☆" で "@" をマスクした形式のメールアドレス。静的 HTML には生アドレスを埋め込まない */
+  obfuscated: string;
+}
+
+const { obfuscated } = Astro.props;
+---
+
+<!-- JS で mailto: を組み立てるまでは非表示(スクレイパー対策。JS無効時はコピー/伏字表示を利用) -->
+<a
+  hidden
+  data-mailto-link
+  data-obfuscated-email={obfuscated}
+  class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+>
+  メールで相談する
+</a>
+
+<script>
+  import { deobfuscateEmail } from "../lib/faq";
+  import { buildInquiryMailto } from "../lib/prInquiry";
+
+  for (const link of document.querySelectorAll<HTMLAnchorElement>("[data-mailto-link]")) {
+    link.href = buildInquiryMailto(deobfuscateEmail(link.dataset.obfuscatedEmail ?? ""));
+    link.hidden = false;
+  }
+</script>
