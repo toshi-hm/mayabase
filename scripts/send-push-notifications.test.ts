@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 import type { Video } from "../src/lib/youtube";
 import {
   getSubscription,
+  isPushConfigured,
   listSubscriptionKeys,
   main,
   PENDING_NOTIFICATIONS_PATH,
@@ -90,6 +91,35 @@ describe("main", () => {
     await main();
 
     expect(await Bun.file(PENDING_NOTIFICATIONS_PATH).exists()).toBe(true);
+  });
+});
+
+describe("isPushConfigured", () => {
+  test("Secrets が未設定(空文字含む)なら false: 意図的なスキップで通知ステップを失敗させない判定に使う", () => {
+    expect(isPushConfigured({})).toBe(false);
+    expect(
+      isPushConfigured({
+        CLOUDFLARE_ACCOUNT_ID: "",
+        CLOUDFLARE_API_TOKEN: "",
+        CLOUDFLARE_KV_NAMESPACE_ID: "",
+        VAPID_PUBLIC_KEY: "",
+        VAPID_PRIVATE_KEY: "",
+        VAPID_SUBJECT: "",
+      }),
+    ).toBe(false);
+  });
+
+  test("Cloudflare / VAPID の設定が揃っていれば true", () => {
+    expect(
+      isPushConfigured({
+        CLOUDFLARE_ACCOUNT_ID: "account",
+        CLOUDFLARE_API_TOKEN: "token",
+        CLOUDFLARE_KV_NAMESPACE_ID: "namespace",
+        VAPID_PUBLIC_KEY: "public",
+        VAPID_PRIVATE_KEY: "private",
+        VAPID_SUBJECT: "mailto:test@example.com",
+      }),
+    ).toBe(true);
   });
 });
 

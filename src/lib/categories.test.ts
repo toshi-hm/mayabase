@@ -33,6 +33,21 @@ describe("categorizeVideo", () => {
     ).toBe("ai");
   });
 
+  test("MacBook を扱う動画は gadget になる(2026-11 の新着 2 件が other になった回帰)", () => {
+    expect(
+      categorizeVideo({
+        title:
+          "【総額〇〇万円】新型MacBook Pro購入 | PROLED＆タッチ対応！でも...高すぎない？ #shorts",
+      }),
+    ).toBe("gadget");
+    expect(
+      categorizeVideo({
+        title:
+          "【新型MacBook Pro】ついにタッチ操作＆PROLED搭載！現役エンジニアが選んだスペックと正直な本音",
+      }),
+    ).toBe("gadget");
+  });
+
   test("ガジェット・家電系のタイトルは gadget になる", () => {
     expect(
       categorizeVideo({ title: "【家電】料理を自動化！ティファールの時短家電を徹底検証" }),

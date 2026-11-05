@@ -52,6 +52,7 @@ const CATEGORY_KEYWORDS: readonly (readonly [VideoCategory, readonly string[]])[
       "USBマイク",
       "Webカメラ",
       "iPad",
+      "MacBook",
       "コーヒーメーカー",
       "体重計",
       "Amazon",
