@@ -1,6 +1,6 @@
 {
   "channelId": "UC3ELUpDyBSGZfZJib67t4Sg",
-  "fetchedAt": "2026-11-05T12:14:13.135Z",
+  "fetchedAt": "2026-11-05T12:23:26.032Z",
   "videos": [
     {
       "id": "GiNlHqeh6XU",
@@ -239,7 +239,7 @@
       "publishedAt": "2026-03-29T09:00:00Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 3149,
+      "viewCount": 3148,
       "duration": "PT36S"
     },
     {
@@ -279,7 +279,7 @@
       "publishedAt": "2026-03-19T20:51:27Z",
       "isShort": true,
       "hasHqThumbnail": true,
-      "viewCount": 31190,
+      "viewCount": 31192,
       "duration": "PT36S"
     },
     {
@@ -319,7 +319,7 @@
       "publishedAt": "2026-03-06T11:01:38Z",
       "isShort": false,
       "hasHqThumbnail": true,
-      "viewCount": 7381,
+      "viewCount": 7378,
       "duration": "PT27M9S"
     },
     {
