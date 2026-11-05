@@ -302,6 +302,11 @@ export async function readPendingNotifications(): Promise<Video[]> {
   return JSON.parse(raw) as Video[];
 }
 
+/** Push 通知に必要な環境変数(Cloudflare / VAPID)が揃っているか */
+export function isPushConfigured(env: Record<string, string | undefined> = process.env): boolean {
+  return readConfig(env) !== null;
+}
+
 export async function main(
   sendFn: (
     newlyPublished: readonly Video[],
@@ -316,7 +321,9 @@ export async function main(
     const completed = await sendFn(pending);
     if (completed === false) {
       console.warn("[send-push-notifications] 通知を完了できなかったため、保留ファイルを残します");
-      if (import.meta.main) process.exitCode = 1;
+      // Secrets 未設定による意図的なスキップは失敗として扱わない(ワークフローの記載どおり)。
+      // 設定済みなのに送れなかった場合のみ、通知ステップの失敗として可視化する。
+      if (import.meta.main && isPushConfigured()) process.exitCode = 1;
       return;
     }
     await rm(PENDING_NOTIFICATIONS_PATH, { force: true });
