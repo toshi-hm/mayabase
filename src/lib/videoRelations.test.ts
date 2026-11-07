@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import videoRelationsJson from "../data/video-relations.json";
+import videosJson from "../data/videos.json";
 import { getCuratedRelatedVideos, parseVideoRelationsData } from "./videoRelations";
 import type { Video } from "./youtube";
 
@@ -60,5 +62,28 @@ describe("parseVideoRelationsData", () => {
         (item) => item.id,
       ),
     ).toEqual(["first"]);
+  });
+});
+
+describe("実データ video-relations.json (#611)", () => {
+  const { relations } = parseVideoRelationsData(videoRelationsJson);
+  const videoIds = new Set((videosJson as { videos: { id: string }[] }).videos.map((v) => v.id));
+
+  test("新型MacBook ProのShortsと本編が相互に関連付けられている", () => {
+    const shorts = relations.find((r) => r.videoId === "GiNlHqeh6XU");
+    const main = relations.find((r) => r.videoId === "ES6AidWYsiM");
+    expect(shorts?.relatedVideoIds).toEqual(["ES6AidWYsiM"]);
+    expect(main?.relatedVideoIds).toEqual(["GiNlHqeh6XU"]);
+  });
+
+  test("関連付けは相互で、参照先の動画が videos.json に存在する", () => {
+    for (const relation of relations) {
+      expect(videoIds.has(relation.videoId)).toBe(true);
+      for (const relatedId of relation.relatedVideoIds) {
+        expect(videoIds.has(relatedId)).toBe(true);
+        const back = relations.find((r) => r.videoId === relatedId);
+        expect(back?.relatedVideoIds).toContain(relation.videoId);
+      }
+    }
   });
 });

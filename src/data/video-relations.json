@@ -31,6 +31,14 @@
     {
       "videoId": "qF3YSuHxSpc",
       "relatedVideoIds": ["2WX26Bekrfk"]
+    },
+    {
+      "videoId": "GiNlHqeh6XU",
+      "relatedVideoIds": ["ES6AidWYsiM"]
+    },
+    {
+      "videoId": "ES6AidWYsiM",
+      "relatedVideoIds": ["GiNlHqeh6XU"]
     }
   ]
 }
